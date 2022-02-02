@@ -2,7 +2,7 @@ version: '3'
 
 services:
   geth-testnet:
-    image: ethereum/client-go:v1.10.15
+    image: ghcr.io/pinkiebell/go-ethereum:latest
     volumes:
       - geth-testnet:/root
       - ./:/host
