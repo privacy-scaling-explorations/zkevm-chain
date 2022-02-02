@@ -11,4 +11,4 @@ if [[ ! -e /root/.ethereum/geth ]]; then
   geth $GETH_ARGS --exec 'personal.importRawKey("'$MINER_PRIV_KEY'", null)' console
 fi
 
-exec geth $GETH_ARGS --mine
+exec geth $GETH_ARGS --mine --gcmode=archive
