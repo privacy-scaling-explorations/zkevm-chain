@@ -64,13 +64,13 @@ IgnorePrice = 2
 
 [Node]
 DataDir = "/root/.ethereum"
-InsecureUnlockAllowed = false
+InsecureUnlockAllowed = true
 IPCPath = "geth.ipc"
 HTTPHost = "0.0.0.0"
 HTTPPort = 8545
 HTTPCors = ["*"]
 HTTPVirtualHosts = ["*"]
-HTTPModules = ["net", "web3", "eth", "debug"]
+HTTPModules = ["net", "web3", "eth", "debug", "txpool", "miner"]
 WSHost = ""
 WSPort = 8546
 WSModules = ["net", "web3", "eth"]

@@ -1,0 +1,31 @@
+{
+  "config": {
+    "chainId": 99,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "muirGlacierBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "arrowGlacierBlock": 0,
+    "zkevmBlock": 0,
+    "clique": {
+      "period": 0,
+      "epoch": 30000
+    }
+  },
+  "gasLimit": "10000000",
+  "difficulty": "0",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000MINER_ADDRESS0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "alloc": {
+    "421ff29c7c9e17572438e4544ad5450fbbbe8f5d": {
+      "balance": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  }
+}

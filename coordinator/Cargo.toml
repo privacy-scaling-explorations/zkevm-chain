@@ -1,0 +1,18 @@
+[package]
+name = "coordinator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9.0"
+ethers-core = "0.6.3"
+hyper = { version = "0.14.16", features = ["client", "server", "http1", "http2", "runtime"] }
+log = "0.4.14"
+rand = "0.8.4"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.78"
+tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread", "time", "process"] }
+
+[dev-dependencies]

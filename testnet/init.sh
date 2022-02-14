@@ -6,9 +6,10 @@ GETH_ARGS='--config=/host/geth.toml'
 
 if [[ ! -e /root/.ethereum/geth ]]; then
   echo 'init chain'
-  cat /host/genesis.json | sed "s/df08f82de32b8d460adbe8d72043e3a7e25a3b39/$MINER_ADDRESS/g" > genesis.json
-  geth $GETH_ARGS init genesis.json
+  gen=/host/genesis-generated.json
+  cat /host/genesis-template.json | sed "s/MINER_ADDRESS/$MINER_ADDRESS/g" > $gen
+  geth $GETH_ARGS init $gen
   geth $GETH_ARGS --exec 'personal.importRawKey("'$MINER_PRIV_KEY'", null)' console
 fi
 
-exec geth $GETH_ARGS --mine --gcmode=archive
+exec geth $GETH_ARGS $@

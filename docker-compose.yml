@@ -1,0 +1,75 @@
+version: '3.9'
+
+services:
+  #TODO: add additional bootnode
+  leader-testnet-geth:
+    image: ghcr.io/pinkiebell/go-ethereum:latest
+    restart: unless-stopped
+    volumes:
+      - leader-testnet-geth:/root
+      - ./testnet:/host
+    ports:
+      - 30303:30303
+    environment:
+      - MINER_PRIV_KEY
+      - MINER_ADDRESS
+    entrypoint: '/host/init.sh'
+    command: --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
+
+  server-testnet-geth:
+    deploy:
+      replicas: 2
+    image: ghcr.io/pinkiebell/go-ethereum:latest
+    restart: unless-stopped
+    volumes:
+      - ./testnet:/host:ro
+    entrypoint: /bin/sh
+    # normally those serving nodes should not serving the debug namespace + gcmode archive - only for testnet
+    command: -c 'geth init /host/genesis-generated.json && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303'
+
+  coordinator:
+    init: true
+    build:
+      dockerfile: ../docker/coordinator/Dockerfile
+      context: coordinator/
+    depends_on:
+      - leader-testnet-geth
+      - server-testnet-geth
+    restart: unless-stopped
+    volumes:
+      - ./testnet:/host:ro
+    environment:
+      - RPC_SERVER_NODES=server-testnet-geth:8545
+      - RPC_URL=http://leader-testnet-geth:8545
+      - LISTEN=[::]:8000
+      - PARAMS_PATH=/host/params
+    ports:
+      - 8000:8000
+
+  dev:
+    profiles:
+      - dev
+    depends_on:
+      - leader-testnet-geth
+      - server-testnet-geth
+    image: rust:1.58.1
+    volumes:
+      - .:/app
+      - dev:/app/coordinator/target:overlay
+      - dev:/usr/local/cargo:overlay
+    environment:
+      - RPC_SERVER_NODES=server-testnet-geth:8545
+      - RPC_URL=http://leader-testnet-geth:8545
+      - LISTEN=[::]:8000
+      - PARAMS_PATH=/app/testnet/params
+    ports:
+      - 8000:8000
+    working_dir: /app
+    entrypoint: /bin/bash
+    command: -c exit
+    tty: true
+    stdin_open: true
+
+volumes:
+  dev:
+  leader-testnet-geth:
