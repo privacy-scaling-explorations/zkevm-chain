@@ -14,7 +14,7 @@ services:
       - MINER_PRIV_KEY
       - MINER_ADDRESS
     entrypoint: '/host/init.sh'
-    command: --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
+    command: /host/l2-genesis-template.json /host/l2-genesis-generated.json --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
 
   server-testnet-geth:
     deploy:
@@ -25,7 +25,19 @@ services:
       - ./testnet:/host:ro
     entrypoint: /bin/sh
     # normally those serving nodes should not serving the debug namespace + gcmode archive - only for testnet
-    command: -c 'geth init /host/genesis-generated.json && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303'
+    command: -c 'geth init /host/l2-genesis-generated.json && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303'
+
+  l1-testnet-geth:
+    image: ghcr.io/pinkiebell/go-ethereum:latest
+    restart: unless-stopped
+    volumes:
+      - l1-testnet-geth:/root
+      - ./testnet:/host
+    environment:
+      - MINER_PRIV_KEY
+      - MINER_ADDRESS
+    entrypoint: '/host/init.sh'
+    command: /host/l1-genesis-template.json /root/genesis.json --networkid 98 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine
 
   coordinator:
     init: true
@@ -39,10 +51,13 @@ services:
     volumes:
       - ./testnet:/host:ro
     environment:
-      - RPC_SERVER_NODES=server-testnet-geth:8545
-      - RPC_URL=http://leader-testnet-geth:8545
       - LISTEN=[::]:8000
       - PARAMS_PATH=/host/params
+      - RPC_SERVER_NODES=server-testnet-geth:8545
+      - L2_RPC_URL=http://leader-testnet-geth:8545
+      - L1_RPC_URL=http://l1-testnet-geth:8545
+      - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
+      - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
     ports:
       - 8000:8000
 
@@ -52,16 +67,20 @@ services:
     depends_on:
       - leader-testnet-geth
       - server-testnet-geth
+      - l1-testnet-geth
     image: rust:1.58.1
     volumes:
       - .:/app
       - dev:/app/coordinator/target:overlay
       - dev:/usr/local/cargo:overlay
     environment:
-      - RPC_SERVER_NODES=server-testnet-geth:8545
-      - RPC_URL=http://leader-testnet-geth:8545
       - LISTEN=[::]:8000
       - PARAMS_PATH=/app/testnet/params
+      - RPC_SERVER_NODES=server-testnet-geth:8545
+      - L2_RPC_URL=http://leader-testnet-geth:8545
+      - L1_RPC_URL=http://l1-testnet-geth:8545
+      - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
+      - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
     ports:
       - 8000:8000
     working_dir: /app
@@ -73,3 +92,4 @@ services:
 volumes:
   dev:
   leader-testnet-geth:
+  l1-testnet-geth:

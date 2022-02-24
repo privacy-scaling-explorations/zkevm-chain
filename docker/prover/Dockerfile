@@ -1,6 +1,6 @@
 FROM rust:1.58.1 as builder
 WORKDIR /
-RUN git clone -b feat/prover --depth=1 https://github.com/pinkiebell/zkevm-circuits.git
+RUN git clone --depth=1 https://github.com/appliedzkp/zkevm-circuits.git
 WORKDIR /zkevm-circuits/prover
 RUN rm ../rust-toolchain
 ENV RUSTFLAGS='-C target-feature=+crt-static'

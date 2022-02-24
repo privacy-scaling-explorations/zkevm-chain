@@ -1,6 +1,7 @@
 ## Structure
 
 `coordinator/`: coordinator daemon
+`contracts/`: l1/l2 bridge contracts
 `docker/`: dockerfiles for various purposes
 `scripts/`: helpful scripts
 `testnet/`: contains files associated with the zkevm testnet
