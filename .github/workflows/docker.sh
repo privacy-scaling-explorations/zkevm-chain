@@ -16,7 +16,7 @@ docker buildx inspect --bootstrap
 for file in docker/*/Dockerfile; do
   cd $(dirname $file)
   ext=${PWD##*/}
-  image="ghcr.io/$GITHUB_ACTION_REPOSITORY/$ext"
+  image="ghcr.io/$GITHUB_REPOSITORY/$ext"
   echo $image:$tag
   docker buildx build --platform linux/amd64,linux/arm64 -t $image:$tag --push .
   docker buildx imagetools inspect $image:$tag

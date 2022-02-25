@@ -17,6 +17,4 @@ jobs:
       run: printf "$PAT" | docker login --username _ --password-stdin ghcr.io
 
     - name: Build and push Docker images
-      env:
-        GITHUB_ACTION_REPOSITORY: ${{ github.event.repository.name }}
       run: ./.github/workflows/docker.sh
