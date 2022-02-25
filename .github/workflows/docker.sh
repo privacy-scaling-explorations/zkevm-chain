@@ -8,17 +8,14 @@ if [ -z "$tag" ]; then
   tag='latest'
 fi
 
-base=$(pwd)
-
 docker buildx create --name mybuilder --use || echo 'skip'
 docker buildx inspect --bootstrap
 
 for file in docker/*/Dockerfile; do
-  cd $(dirname $file)
-  ext=${PWD##*/}
+  path=$(dirname $file)
+  ext=${path##*/}
   image="ghcr.io/$GITHUB_REPOSITORY/$ext"
   echo $image:$tag
-  docker buildx build --platform linux/amd64,linux/arm64 -t $image:$tag --push .
+  docker buildx build --platform linux/amd64,linux/arm64 -t $image:$tag -f $file .
   docker buildx imagetools inspect $image:$tag
-  cd $base
 done

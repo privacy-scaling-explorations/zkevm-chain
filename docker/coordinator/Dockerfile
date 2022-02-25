@@ -4,11 +4,10 @@ ENV RUSTFLAGS='-C target-feature=+crt-static'
 WORKDIR /
 RUN git clone --depth=1 https://github.com/appliedzkp/zkevm-circuits.git
 WORKDIR /zkevm-circuits/prover
-RUN rm ../rust-toolchain
 RUN cargo build --bins --release --target-dir /target --target $(arch)-unknown-linux-gnu
 RUN mv /target/$(arch)-unknown-linux-gnu/release/prover_cmd /target/$(arch)-unknown-linux-gnu/release/gen_params /
 
-COPY . /build
+COPY coordinator/ /build
 WORKDIR /build
 RUN cargo build --bins --release --target-dir /target --target $(arch)-unknown-linux-gnu
 RUN mv /target/$(arch)-unknown-linux-gnu/release/coordinator /
