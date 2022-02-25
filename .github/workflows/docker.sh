@@ -16,6 +16,7 @@ for file in docker/*/Dockerfile; do
   ext=${path##*/}
   image="ghcr.io/$GITHUB_REPOSITORY/$ext"
   echo $image:$tag
-  docker buildx build --platform linux/amd64,linux/arm64 -t $image:$tag -f $file .
+  # zkevm-circuits/libc has linking problems with linux/arm64
+  docker buildx build --platform linux/amd64 -t $image:$tag -f $file .
   docker buildx imagetools inspect $image:$tag
 done
