@@ -42,11 +42,11 @@ services:
   coordinator:
     init: true
     build:
-      dockerfile: ../docker/coordinator/Dockerfile
-      context: coordinator/
+      dockerfile: docker/coordinator/Dockerfile
     depends_on:
       - leader-testnet-geth
       - server-testnet-geth
+      - l1-testnet-geth
     restart: unless-stopped
     volumes:
       - ./testnet:/host:ro
@@ -71,8 +71,8 @@ services:
     image: rust:1.58.1
     volumes:
       - .:/app
-      - dev:/app/coordinator/target:overlay
-      - dev:/usr/local/cargo:overlay
+      - dev-1:/app/coordinator/target:overlay
+      - dev-2:/usr/local/cargo:overlay
     environment:
       - LISTEN=[::]:8000
       - PARAMS_PATH=/app/testnet/params
@@ -90,6 +90,7 @@ services:
     stdin_open: true
 
 volumes:
-  dev:
+  dev-1:
+  dev-2:
   leader-testnet-geth:
   l1-testnet-geth:
