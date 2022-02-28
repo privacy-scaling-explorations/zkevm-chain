@@ -23,9 +23,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./testnet:/host:ro
+    environment:
+      - BOOTNODE=enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303
     entrypoint: /bin/sh
     # normally those serving nodes should not serving the debug namespace + gcmode archive - only for testnet
-    command: -c 'geth init /host/l2-genesis-generated.json && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303'
+    command: -c 'geth init /host/l2-genesis-generated.json && geth console --exec admin.addTrustedPeer\(\"$$BOOTNODE\"\) && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes $$BOOTNODE'
 
   l1-testnet-geth:
     image: ghcr.io/pinkiebell/go-ethereum:latest
