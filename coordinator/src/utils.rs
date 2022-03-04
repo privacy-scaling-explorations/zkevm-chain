@@ -240,7 +240,7 @@ pub async fn get_blocks_between(
             5000,
             jsonrpc_request_client(client, uri, "eth_getBlockByHash", (hash, false))
                 .await
-                .unwrap()
+                .expect("eth_getBlockByHash")
         );
         hash = block.parent_hash;
 

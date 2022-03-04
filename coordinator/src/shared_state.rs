@@ -2,6 +2,7 @@ use std::cmp;
 use std::collections::HashMap;
 use std::env::var;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -11,9 +12,11 @@ use ethers_core::abi::Abi;
 use ethers_core::abi::AbiEncode;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::RawLog;
+use ethers_core::abi::Token;
 use ethers_core::abi::Tokenizable;
 use ethers_core::types::{
-    Address, Block, Bytes, Filter, Log, Transaction, TxpoolStatus, ValueOrArray, H256, U256, U64,
+    Address, Block, Bytes, Filter, Log, Transaction, TransactionRequest, TxpoolStatus,
+    ValueOrArray, H256, U256, U64,
 };
 use ethers_core::utils::keccak256;
 use ethers_signers::LocalWallet;
@@ -29,6 +32,7 @@ pub struct RoState {
     pub leader_node: Uri,
     pub l1_node: Uri,
     pub l1_bridge_addr: Address,
+    pub l2_bridge_addr: Address,
     pub l1_bridge_abi: Abi,
     pub block_beacon_topic: H256,
     pub block_finalized_topic: H256,
@@ -44,7 +48,9 @@ pub struct RwState {
     pub prover_requests: HashMap<U64, Option<Proofs>>,
     pub pending_proofs: u32,
     pub last_sync_block: U64,
+    pub l2_last_sync_block: U64,
     pub l1_message_queue: Vec<L1MessageBeacon>,
+    pub l2_messages: Vec<H256>,
 }
 
 #[derive(Clone)]
@@ -65,9 +71,10 @@ impl SharedState {
             .parse(&[
                 "event BlockSubmitted()",
                 "event BlockFinalized(bytes32 blockHash)",
-                "event L1MessageSent(address from, address to, uint256 value, uint256 fee, bytes data)",
+                "event L1MessageSent(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
                 "function submitBlock(bytes)",
                 "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
+                "function processMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
             ])
             .expect("parse abi");
 
@@ -80,6 +87,9 @@ impl SharedState {
                 leader_node: leader_url,
                 l1_node: l1_url,
                 l1_bridge_addr: l1_bridge,
+                l2_bridge_addr: "0x0000000000000000000000000000000000010000"
+                    .parse()
+                    .unwrap(),
                 l1_bridge_abi: abi,
                 block_beacon_topic: beacon_topic,
                 block_finalized_topic,
@@ -98,7 +108,9 @@ impl SharedState {
                 prover_requests: HashMap::new(),
                 pending_proofs: 0,
                 last_sync_block: U64::zero(),
+                l2_last_sync_block: U64::zero(),
                 l1_message_queue: Vec::new(),
+                l2_messages: Vec::new(),
             })),
         }
     }
@@ -191,7 +203,7 @@ impl SharedState {
                 [&filter],
             )
             .await
-            .expect("");
+            .expect("eth_getLogs");
 
             for log in logs {
                 let topic = log.topics[0];
@@ -258,29 +270,27 @@ impl SharedState {
                         .parse_log(RawLog::from((log.topics, log.data.to_vec())))
                         .unwrap();
 
+                    let id: H256 = keccak256(log.data).into();
                     let from = evt.params[0].value.to_owned().into_address().unwrap();
                     let to = evt.params[1].value.to_owned().into_address().unwrap();
                     let value = evt.params[2].value.to_owned().into_uint().unwrap();
                     let fee = evt.params[3].value.to_owned().into_uint().unwrap();
-                    let calldata = evt.params[4].value.to_owned().into_bytes().unwrap();
-
-                    log::info!(
-                        "L1MessageSent: from={:?} to={:?} value={} fee={} data={:x?}",
-                        from,
-                        to,
-                        value,
-                        fee,
-                        calldata
-                    );
+                    let deadline = evt.params[4].value.to_owned().into_uint().unwrap();
+                    let nonce = evt.params[5].value.to_owned().into_uint().unwrap();
+                    let calldata = evt.params[6].value.to_owned().into_bytes().unwrap();
 
                     let beacon = L1MessageBeacon {
+                        id,
                         from,
                         to,
                         value,
                         fee,
+                        deadline,
+                        nonce,
                         calldata,
-                        timestamp: 0,
                     };
+
+                    log::info!("L1MessageSent: {:#?}", beacon);
                     self.rw.lock().await.l1_message_queue.push(beacon);
                     continue;
                 }
@@ -290,9 +300,14 @@ impl SharedState {
         }
 
         self.rw.lock().await.last_sync_block = latest_block;
+        self.sync_l2().await;
     }
 
     pub async fn mine(&self) {
+        // TODO: verify that head_hash is correct
+        let head_hash = get_chain_head_hash(&self.ro.http_client, &self.ro.leader_node).await;
+        self.rw.lock().await.chain_state.head_block_hash = head_hash;
+
         {
             // check l1 > l2 message queue
             // TODO: state mgmt for messages, processing should be done in a different step
@@ -301,13 +316,57 @@ impl SharedState {
             let len = rw.l1_message_queue.len();
 
             if len > 0 {
-                let todo: Vec<L1MessageBeacon> = rw.l1_message_queue.drain(0..1).collect();
+                let mut messages = vec![];
+                // TODO: we are going to lose messages if we panic below
+                let todo: Vec<L1MessageBeacon> =
+                    rw.l1_message_queue.drain(0..cmp::min(32, len)).collect();
                 drop(rw);
 
+                let mut nonce: U256 = jsonrpc_request_client(
+                    &self.ro.http_client,
+                    &self.ro.leader_node,
+                    "eth_getTransactionCount",
+                    (self.ro.l2_wallet.address(), "latest"),
+                )
+                .await
+                .expect("nonce");
+
                 for msg in todo {
-                    log::info!("processing: {:?}", msg);
-                    self.transaction_to_l2(msg.to, msg.value, msg.calldata)
-                        .await;
+                    let found = self
+                        .rw
+                        .lock()
+                        .await
+                        .l2_messages
+                        .iter()
+                        .any(|&e| e == msg.id);
+
+                    log::info!("processMessage: skip={} {:#?}", found, msg);
+                    if !found {
+                        let calldata = self
+                            .ro
+                            .l1_bridge_abi
+                            .function("processMessage")
+                            .unwrap()
+                            .encode_input(&[
+                                msg.from.into_token(),
+                                msg.to.into_token(),
+                                msg.value.into_token(),
+                                msg.fee.into_token(),
+                                msg.deadline.into_token(),
+                                msg.nonce.into_token(),
+                                Token::Bytes(msg.calldata),
+                            ])
+                            .expect("calldata");
+                        messages.push(
+                            self.sign_l2(self.ro.l2_bridge_addr, U256::zero(), nonce, calldata)
+                                .await,
+                        );
+                        nonce = nonce + 1;
+                    }
+                }
+
+                if !messages.is_empty() {
+                    self.mine_block(Some(messages)).await;
                 }
             }
         }
@@ -326,35 +385,9 @@ impl SharedState {
         );
         let pending_txs = resp.pending.as_u64();
 
-        if pending_txs > 0 {
-            log::info!(
-                "submitting mining request to leader node - pending: {}",
-                pending_txs
-            );
-
-            // kick miner
-            let _resp: Option<bool> = crate::timeout!(
-                5000,
-                jsonrpc_request_client(
-                    &self.ro.http_client,
-                    &self.ro.leader_node,
-                    "miner_start",
-                    [1u64]
-                )
-                .await
-                .unwrap_or_default()
-            );
+        if pending_txs != 0 {
+            self.mine_block(None).await;
         }
-        // stop again
-        let _resp: Option<bool> = crate::timeout!(
-            5000,
-            jsonrpc_request_client(&self.ro.http_client, &self.ro.leader_node, "miner_stop", ())
-                .await
-                .unwrap_or_default()
-        );
-
-        let head_hash = get_chain_head_hash(&self.ro.http_client, &self.ro.leader_node).await;
-        self.rw.lock().await.chain_state.head_block_hash = head_hash;
     }
 
     pub async fn submit_blocks(&self) {
@@ -506,6 +539,133 @@ impl SharedState {
             calldata,
         )
         .await;
+    }
+
+    pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
+        let wallet = &self.ro.l2_wallet;
+        let node_uri = &self.ro.leader_node;
+        let client = &self.ro.http_client;
+        let wallet_addr: Address = wallet.address();
+        let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
+            .await
+            .expect("gasPrice");
+        let tx = TransactionRequest::new()
+            .from(wallet_addr)
+            .to(to)
+            .nonce(nonce)
+            .value(value)
+            .gas_price(gas_price * 2u64)
+            .data(calldata);
+        let estimate: U256 = jsonrpc_request_client(client, node_uri, "eth_estimateGas", [&tx])
+            .await
+            .expect("estimateGas");
+        let tx = tx.gas(estimate).into();
+        let sig = wallet.sign_transaction(&tx).await.unwrap();
+
+        tx.rlp_signed(wallet.chain_id(), &sig)
+    }
+
+    async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+        // always send a miner_init request
+        let _: Option<Address> = crate::timeout!(
+            5000,
+            jsonrpc_request_client(&self.ro.http_client, &self.ro.leader_node, "miner_init", ())
+                .await
+                .unwrap_or_default()
+        );
+        // request new block
+        let ts = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("time")
+            .as_secs();
+        let parent = self.rw.lock().await.chain_state.head_block_hash;
+        let random = H256::zero();
+        let timestamp: U64 = ts.into();
+
+        let prepared_block: Block<Transaction> = crate::timeout!(
+            5000,
+            jsonrpc_request_client(
+                &self.ro.http_client,
+                &self.ro.leader_node,
+                "miner_sealBlock",
+                [SealBlockRequest {
+                    parent,
+                    random,
+                    timestamp,
+                    transactions
+                }]
+            )
+            .await
+            .expect("miner_mineTransaction")
+        );
+        log::info!(
+            "submitted block assembly request to leader node - txs: {}",
+            prepared_block.transactions.len()
+        );
+
+        let block_hash = prepared_block.hash.unwrap();
+
+        // set canonical chain head
+        // always returns true or throws
+        let _: bool = crate::timeout!(
+            5000,
+            jsonrpc_request_client(
+                &self.ro.http_client,
+                &self.ro.leader_node,
+                "miner_setHead",
+                [block_hash]
+            )
+            .await
+            .expect("miner_setHead")
+        );
+        self.rw.lock().await.chain_state.head_block_hash = block_hash;
+
+        prepared_block
+    }
+
+    /// keeps track of l2 bridge message events
+    async fn sync_l2(&self) {
+        // TODO: DRY syncing mechanics w/ l1
+        let latest_block: U64 = jsonrpc_request_client(
+            &self.ro.http_client,
+            &self.ro.leader_node,
+            "eth_blockNumber",
+            (),
+        )
+        .await
+        .expect("eth_blockNumber");
+        let mut from: U64 = self.rw.lock().await.l2_last_sync_block + 1;
+        let mut filter = Filter::new()
+            .address(ValueOrArray::Value(self.ro.l2_bridge_addr))
+            .topic0(ValueOrArray::Value(self.ro.message_beacon_topic));
+        let mut executed_msgs = vec![];
+
+        while from <= latest_block {
+            // TODO: increase or decrease request range depending on fetch success
+            let to = cmp::min(from + 1u64, latest_block);
+            log::info!("fetching logs from={} to={}", from, to);
+            filter = filter.from_block(from).to_block(to);
+
+            let logs: Vec<Log> = jsonrpc_request_client(
+                &self.ro.http_client,
+                &self.ro.leader_node,
+                "eth_getLogs",
+                [&filter],
+            )
+            .await
+            .expect("eth_getLogs");
+
+            for log in logs {
+                let message_id: H256 = keccak256(log.data).into();
+                executed_msgs.push(message_id);
+            }
+
+            from = to + 1u64;
+        }
+
+        let mut rw = self.rw.lock().await;
+        rw.l2_last_sync_block = latest_block;
+        rw.l2_messages.extend_from_slice(&executed_msgs);
     }
 }
 

@@ -3,7 +3,7 @@ version: '3.9'
 services:
   #TODO: add additional bootnode
   leader-testnet-geth:
-    image: ghcr.io/pinkiebell/go-ethereum:latest
+    image: ghcr.io/appliedzkp/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
@@ -14,12 +14,12 @@ services:
       - MINER_PRIV_KEY
       - MINER_ADDRESS
     entrypoint: '/host/init.sh'
-    command: /host/l2-genesis-template.json /host/l2-genesis-generated.json --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
+    command: /host/l2-genesis-template.json /host/l2-genesis-generated.json --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
 
   server-testnet-geth:
     deploy:
       replicas: 2
-    image: ghcr.io/pinkiebell/go-ethereum:latest
+    image: ghcr.io/appliedzkp/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - ./testnet:/host:ro
@@ -30,7 +30,7 @@ services:
     command: -c 'geth init /host/l2-genesis-generated.json && geth console --exec admin.addTrustedPeer\(\"$$BOOTNODE\"\) && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes $$BOOTNODE'
 
   l1-testnet-geth:
-    image: ghcr.io/pinkiebell/go-ethereum:latest
+    image: ghcr.io/appliedzkp/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - l1-testnet-geth:/root

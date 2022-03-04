@@ -1,12 +1,14 @@
+import "./Utils.sol";
+import "./L1Environment.sol";
 import "./L1BridgeEvents.sol";
 
-contract L1Bridge is L1BridgeEvents {
+contract L1Bridge is Utils, L1Environment, L1BridgeEvents {
   bytes32 public safeBlockHash;
   bytes32 public finalizedBlockHash;
   mapping (bytes32 => uint256) public pendingMessages;
 
   function submitBlock (bytes calldata _data) external {
-    _onlyEOA();
+    Utils._onlyEOA();
 
     safeBlockHash = keccak256(_data);
 
@@ -19,21 +21,12 @@ contract L1Bridge is L1BridgeEvents {
     emit BlockFinalized(blockHash);
   }
 
-  function sendMessage (address to, uint256 fee, bytes calldata _data) external payable {
-    bytes32 messageHash = keccak256(abi.encode(msg.sender, to, msg.value, fee, _data));
-    pendingMessages[messageHash] = block.timestamp;
+  function sendMessage (address to, uint256 fee, uint256 deadline, uint256 nonce, bytes calldata _data) external payable {
+    require(deadline > block.timestamp + MIN_MESSAGE_LOCK_SECONDS, 'SM1');
+    bytes32 messageHash = keccak256(abi.encode(msg.sender, to, msg.value, fee, deadline, nonce, _data));
+    require(pendingMessages[messageHash] == 0, 'SM2');
+    pendingMessages[messageHash] = uint256(uint160(msg.sender));
 
-    emit L1MessageSent(msg.sender, to, msg.value, fee, _data);
+    emit L1MessageSent(msg.sender, to, msg.value, fee, deadline, nonce, _data);
   }
-
-  /// @dev Revert if caller is not tx sender.
-  /// Thus, we make sure that only regular accounts can submit blocks.
-  function _onlyEOA () internal view {
-    assembly {
-      if iszero(eq(origin(), caller())) {
-        revert(0, 0)
-      }
-    }
-  }
-
 }

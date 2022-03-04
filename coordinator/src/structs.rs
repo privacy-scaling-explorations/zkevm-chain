@@ -28,7 +28,7 @@ pub struct JsonRpcResponse<T> {
     pub error: Option<JsonRpcError>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ForkchoiceStateV1 {
     #[serde(rename = "headBlockHash")]
     pub head_block_hash: H256,
@@ -36,14 +36,6 @@ pub struct ForkchoiceStateV1 {
     pub safe_block_hash: H256,
     #[serde(rename = "finalizedBlockHash")]
     pub finalized_block_hash: H256,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct PayloadAttributesV1 {
-    pub timestamp: U64,
-    pub random: H256,
-    #[serde(rename = "suggestedFeeRecipient")]
-    pub suggested_fee_recipient: Address,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -54,10 +46,20 @@ pub struct Proofs {
 
 #[derive(Debug)]
 pub struct L1MessageBeacon {
+    pub id: H256,
     pub from: Address,
     pub to: Address,
     pub value: U256,
     pub fee: U256,
+    pub deadline: U256,
+    pub nonce: U256,
     pub calldata: Vec<u8>,
-    pub timestamp: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SealBlockRequest {
+    pub parent: H256,
+    pub random: H256,
+    pub timestamp: U64,
+    pub transactions: Option<Vec<Bytes>>,
 }
