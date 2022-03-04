@@ -672,15 +672,20 @@ impl SharedState {
 pub async fn request_proof(block_num: U64) -> Result<Proofs, String> {
     // TODO: this should be invoked via rpc without waiting for the proof to be computed
     let output = Command::new("./prover_cmd")
-        .stderr(std::process::Stdio::inherit())
         .kill_on_drop(true)
         .env("BLOCK_NUM", block_num.to_string())
+        .env("RPC_URL", var("L2_RPC_URL").expect("L2_RPC_URL env var"))
         .output();
     let output = output.await.expect("proof");
 
     match output.status.success() {
         false => {
-            log::error!("computing proof for {}", block_num);
+            log::error!(
+                "computing proof for: {} stdout: {} stderr: {}",
+                block_num,
+                String::from_utf8(output.stdout).unwrap(),
+                String::from_utf8(output.stderr).unwrap()
+            );
             Err("poof".to_string())
         }
         true => {
