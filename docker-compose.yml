@@ -73,8 +73,8 @@ services:
     image: rust:1.58.1
     volumes:
       - .:/app
-      - dev-1:/app/coordinator/target:overlay
-      - dev-2:/usr/local/cargo:overlay
+      - dev-build-cache:/app/coordinator/target:overlay
+      - dev-cargo-cache:/usr/local:overlay
     environment:
       - LISTEN=[::]:8000
       - PARAMS_PATH=/app/testnet/params
@@ -85,14 +85,14 @@ services:
       - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
     ports:
       - 8000:8000
-    working_dir: /app
+    working_dir: /app/coordinator
     entrypoint: /bin/bash
     command: -c exit
     tty: true
     stdin_open: true
 
 volumes:
-  dev-1:
-  dev-2:
+  dev-build-cache:
+  dev-cargo-cache:
   leader-testnet-geth:
   l1-testnet-geth:
