@@ -1,26 +1,30 @@
 name: Docker
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [test]
+    types: [completed]
     branches:
       - master
     paths:
       - 'coordinator/**'
       - 'docker/**'
+      - 'testnet/**'
 
 jobs:
   build:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 45
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
-    - name: Login to ghcr.io
-      env:
-        PAT: ${{ secrets.GITHUB_TOKEN }}
-      run: printf "$PAT" | docker login --username _ --password-stdin ghcr.io
+      - name: Login to ghcr.io
+        env:
+          PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: printf "$PAT" | docker login --username _ --password-stdin ghcr.io
 
-    - name: Build and push Docker images
-      run: ./.github/workflows/docker.sh
+      - name: Build and push Docker images
+        run: ./.github/workflows/docker.sh
