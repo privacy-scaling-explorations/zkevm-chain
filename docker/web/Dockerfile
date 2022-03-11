@@ -1,11 +1,12 @@
 FROM node:14-alpine as builder
 WORKDIR /
-RUN apk add git alpine-sdk python3
+RUN apk add git alpine-sdk python3 jq
 RUN git clone --depth=1 https://github.com/appliedzkp/hop.git
 WORKDIR /hop
+RUN npm set unsafe-perm true
 RUN yarn install && yarn lerna bootstrap
 
-WORKDIR hop/packages/frontend
+WORKDIR /hop/packages/frontend
 RUN REACT_APP_NETWORK=devnet yarn build
 
 FROM nginx
