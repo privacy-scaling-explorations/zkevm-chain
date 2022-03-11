@@ -10,4 +10,4 @@ RUN REACT_APP_NETWORK=devnet yarn build
 
 FROM nginx
 COPY --from=builder /hop/packages/frontend/build /www
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY docker/web/nginx.conf /etc/nginx/nginx.conf

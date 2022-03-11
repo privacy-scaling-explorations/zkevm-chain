@@ -93,7 +93,9 @@ services:
   web:
     depends_on:
       - coordinator
-    build: docker/web
+    restart: unless-stopped
+    build:
+      dockerfile: docker/web/Dockerfile
     image: ghcr.io/appliedzkp/zkevm-chain/web:latest
     ports:
       - 8000:8000
