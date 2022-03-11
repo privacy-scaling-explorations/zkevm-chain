@@ -309,6 +309,22 @@ impl SharedState {
         self.rw.lock().await.chain_state.head_block_hash = head_hash;
 
         {
+            // always send a miner_init request to enable transaction pool etc.
+            // just to account for the case that the node was restarted
+            let _: Option<Address> = crate::timeout!(
+                5000,
+                jsonrpc_request_client(
+                    &self.ro.http_client,
+                    &self.ro.leader_node,
+                    "miner_init",
+                    ()
+                )
+                .await
+                .unwrap_or_default()
+            );
+        }
+
+        {
             // check l1 > l2 message queue
             // TODO: state mgmt for messages, processing should be done in a different step
             // and always go through the l2 bridge
@@ -566,13 +582,6 @@ impl SharedState {
     }
 
     async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
-        // always send a miner_init request
-        let _: Option<Address> = crate::timeout!(
-            5000,
-            jsonrpc_request_client(&self.ro.http_client, &self.ro.leader_node, "miner_init", ())
-                .await
-                .unwrap_or_default()
-        );
         // request new block
         let ts = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)

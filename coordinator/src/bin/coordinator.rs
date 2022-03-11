@@ -89,7 +89,7 @@ async fn handle_request(
 
     #[derive(serde::Deserialize, serde::Serialize)]
     struct ProxyRequest {
-        id: u64,
+        id: serde_json::Value,
         method: String,
     }
 
@@ -121,7 +121,8 @@ async fn handle_request(
         // json-rpc
         (&Method::POST, "/") => {
             let body_bytes = hyper::body::to_bytes(req.into_body()).await.unwrap();
-            let obj: ProxyRequest = serde_json::from_slice(body_bytes.as_ref()).unwrap();
+            let obj: ProxyRequest =
+                serde_json::from_slice(body_bytes.as_ref()).expect("ProxyRequest");
 
             // only allow allow the following methods and nothing else
             if !PROXY_ALLOWED_METHODS.iter().any(|e| **e == obj.method) {

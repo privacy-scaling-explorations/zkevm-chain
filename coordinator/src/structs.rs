@@ -10,7 +10,7 @@ pub struct JsonRpcError {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct JsonRpcResponseError {
     pub jsonrpc: String,
-    pub id: u64,
+    pub id: serde_json::Value,
     pub error: JsonRpcError,
 }
 
