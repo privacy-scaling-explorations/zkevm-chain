@@ -45,6 +45,7 @@ services:
     init: true
     build:
       dockerfile: docker/coordinator/Dockerfile
+    image: ghcr.io/appliedzkp/zkevm-chain/coordinator:latest
     depends_on:
       - leader-testnet-geth
       - server-testnet-geth
@@ -53,15 +54,13 @@ services:
     volumes:
       - ./testnet:/host:ro
     environment:
-      - LISTEN=[::]:8000
+      - LISTEN=[::]:8545
       - PARAMS_PATH=/host/params
       - RPC_SERVER_NODES=server-testnet-geth:8545
       - L2_RPC_URL=http://leader-testnet-geth:8545
       - L1_RPC_URL=http://l1-testnet-geth:8545
       - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
-    ports:
-      - 8000:8000
 
   dev:
     profiles:
@@ -90,6 +89,14 @@ services:
     command: -c exit
     tty: true
     stdin_open: true
+
+  web:
+    depends_on:
+      - coordinator
+    build: docker/web
+    image: ghcr.io/appliedzkp/zkevm-chain/web:latest
+    ports:
+      - 8000:8000
 
 volumes:
   dev-build-cache:

@@ -10,4 +10,4 @@ docker run --rm -w /app -v $(pwd):/app \
   --bin-runtime \
   --abi \
   -o build/contracts/ \
-  contracts/*.sol
+  $(find contracts/ -iname '*.sol')
