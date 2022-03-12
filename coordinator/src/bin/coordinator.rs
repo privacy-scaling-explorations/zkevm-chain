@@ -181,38 +181,39 @@ async fn handle_request(
     }
 }
 
-async fn event_loop(ctx: SharedState, client: hyper::Client<HttpConnector>) {
+async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
+    let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
+    // discover & update nodes
+    let addrs_iter = var("RPC_SERVER_NODES")
+        .expect("RPC_SERVER_NODES env var")
+        .to_socket_addrs()
+        .unwrap();
+    let mut nodes = Vec::new();
+
+    for addr in addrs_iter {
+        let uri = Uri::try_from(format!("http://{}", addr)).unwrap();
+        let hash = get_chain_head_hash(&client, &uri).await;
+        if hash != head_hash {
+            log::warn!("skipping inconsistent node: {}", uri);
+            continue;
+        }
+
+        nodes.push(uri);
+    }
+
+    let mut rw = ctx.rw.lock().await;
+    if rw.nodes.len() != nodes.len() {
+        log::info!("found {} ready rpc nodes", nodes.len());
+        // update nodes
+        rw.nodes = nodes;
+    }
+}
+
+async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     // TODO: split sync,mine into own task
 
     ctx.sync().await;
     ctx.mine().await;
-    {
-        let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
-        // discover & update nodes
-        let addrs_iter = var("RPC_SERVER_NODES")
-            .expect("RPC_SERVER_NODES env var")
-            .to_socket_addrs()
-            .unwrap();
-        let mut nodes = Vec::new();
-
-        for addr in addrs_iter {
-            let uri = Uri::try_from(format!("http://{}", addr)).unwrap();
-            let hash = get_chain_head_hash(&client, &uri).await;
-            if hash != head_hash {
-                log::warn!("skipping inconsistent node: {}", uri);
-                continue;
-            }
-
-            nodes.push(uri);
-        }
-
-        let mut rw = ctx.rw.lock().await;
-        if rw.nodes.len() != nodes.len() {
-            log::info!("found {} ready rpc nodes", nodes.len());
-            // update nodes
-            rw.nodes = nodes;
-        }
-    }
     ctx.submit_blocks().await;
     ctx.finalize_blocks().await;
 }
@@ -249,16 +250,37 @@ async fn main() {
         });
     }
 
-    let client = hyper::Client::new();
-    // start the event loop
-    loop {
-        log::debug!("spawning event_loop task");
-        let res = spawn(event_loop(shared_state.clone(), client.to_owned())).await;
+    {
+        let ctx = shared_state.clone();
+        let h1 = spawn(async move {
+            let client = hyper::Client::new();
+            loop {
+                log::debug!("spawning event_loop task");
+                let res = spawn(event_loop(ctx.clone(), client.to_owned())).await;
 
-        if let Err(err) = res {
-            log::error!("task: {}", err);
-        }
+                if let Err(err) = res {
+                    log::error!("task: {}", err);
+                }
 
-        sleep(EVENT_LOOP_COOLDOWN).await;
+                sleep(EVENT_LOOP_COOLDOWN).await;
+            }
+        });
+
+        let ctx = shared_state.clone();
+        let h2 = spawn(async move {
+            let client = hyper::Client::new();
+            loop {
+                log::debug!("spawning check_nodes task");
+                let res = spawn(check_nodes(ctx.clone(), client.to_owned())).await;
+
+                if let Err(err) = res {
+                    log::error!("task: {}", err);
+                }
+
+                sleep(Duration::from_millis(100)).await;
+            }
+        });
+
+        let _ = tokio::join!(h1, h2);
     }
 }
