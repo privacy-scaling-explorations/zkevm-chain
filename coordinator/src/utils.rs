@@ -121,7 +121,7 @@ pub async fn send_transaction_to_l2(
     to: Address,
     value: U256,
     calldata: Vec<u8>,
-) {
+) -> Result<H256, String> {
     let wallet_addr: Address = wallet.address();
     let nonce: U256 = jsonrpc_request_client(
         client,
@@ -153,17 +153,7 @@ pub async fn send_transaction_to_l2(
     let raw_tx = tx.rlp_signed(wallet.chain_id(), &sig);
 
     // TODO: will be obsolete once execution api is used
-    let resp: Result<serde_json::Value, String> =
-        jsonrpc_request_client(client, node_uri, "eth_sendRawTransaction", [raw_tx]).await;
-
-    match resp {
-        Err(err) => {
-            println!("err {:?}", err);
-        }
-        Ok(res) => {
-            println!("ok {:?}", res);
-        }
-    }
+    jsonrpc_request_client(client, node_uri, "eth_sendRawTransaction", [raw_tx]).await
 }
 
 /// Can loop forever, thus should be wrapped inside timeout handler

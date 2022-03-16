@@ -545,7 +545,12 @@ impl SharedState {
         .await;
     }
 
-    pub async fn transaction_to_l2(&self, to: Address, value: U256, calldata: Vec<u8>) {
+    pub async fn transaction_to_l2(
+        &self,
+        to: Address,
+        value: U256,
+        calldata: Vec<u8>,
+    ) -> Result<H256, String> {
         send_transaction_to_l2(
             &self.ro.http_client,
             &self.ro.leader_node,
@@ -554,7 +559,7 @@ impl SharedState {
             value,
             calldata,
         )
-        .await;
+        .await
     }
 
     pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
