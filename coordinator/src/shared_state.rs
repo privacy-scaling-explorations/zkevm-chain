@@ -317,14 +317,9 @@ impl SharedState {
             // just to account for the case that the node was restarted
             let _: Option<Address> = crate::timeout!(
                 5000,
-                jsonrpc_request_client(
-                    &self.ro.http_client,
-                    &self.ro.l2_node,
-                    "miner_init",
-                    ()
-                )
-                .await
-                .unwrap_or_default()
+                jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, "miner_init", ())
+                    .await
+                    .unwrap_or_default()
             );
         }
 
@@ -378,8 +373,13 @@ impl SharedState {
                             ])
                             .expect("calldata");
                         messages.push(
-                            self.sign_l2(self.ro.l2_message_deliverer_addr, U256::zero(), nonce, calldata)
-                                .await,
+                            self.sign_l2(
+                                self.ro.l2_message_deliverer_addr,
+                                U256::zero(),
+                                nonce,
+                                calldata,
+                            )
+                            .await,
                         );
                         nonce = nonce + 1;
                     }
@@ -394,14 +394,9 @@ impl SharedState {
         // check if we can mine a block
         let resp: TxpoolStatus = crate::timeout!(
             5000,
-            jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.l2_node,
-                "txpool_status",
-                ()
-            )
-            .await
-            .unwrap()
+            jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, "txpool_status", ())
+                .await
+                .unwrap()
         );
         let pending_txs = resp.pending.as_u64();
 
