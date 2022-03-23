@@ -45,7 +45,7 @@ pub struct Proofs {
 }
 
 #[derive(Debug)]
-pub struct L1MessageBeacon {
+pub struct MessageBeacon {
     pub id: H256,
     pub from: Address,
     pub to: Address,

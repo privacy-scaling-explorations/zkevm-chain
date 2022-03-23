@@ -29,17 +29,23 @@ use crate::structs::*;
 use crate::utils::*;
 
 pub struct RoState {
-    pub leader_node: Uri,
+    pub l2_node: Uri,
     pub l1_node: Uri,
+
     pub l1_bridge_addr: Address,
-    pub l2_bridge_addr: Address,
-    pub l1_bridge_abi: Abi,
+    pub l2_message_deliverer_addr: Address,
+    pub l2_message_dispatcher_addr: Address,
+
     pub block_beacon_topic: H256,
     pub block_finalized_topic: H256,
-    pub message_beacon_topic: H256,
+    pub message_dispatched_topic: H256,
+    pub message_delivered_topic: H256,
+
     pub http_client: hyper::Client<HttpConnector>,
     pub l1_wallet: LocalWallet,
     pub l2_wallet: LocalWallet,
+
+    pub bridge_abi: Abi,
 }
 
 pub struct RwState {
@@ -47,10 +53,12 @@ pub struct RwState {
     pub nodes: Vec<Uri>,
     pub prover_requests: HashMap<U64, Option<Proofs>>,
     pub pending_proofs: u32,
-    pub last_sync_block: U64,
+    pub l1_last_sync_block: U64,
     pub l2_last_sync_block: U64,
-    pub l1_message_queue: Vec<L1MessageBeacon>,
-    pub l2_messages: Vec<H256>,
+    pub l1_message_queue: Vec<MessageBeacon>,
+    pub l2_delivered_messages: Vec<H256>,
+    pub l2_message_queue: Vec<MessageBeacon>,
+    pub l1_delivered_messages: Vec<H256>,
 }
 
 #[derive(Clone)]
@@ -61,7 +69,7 @@ pub struct SharedState {
 
 impl SharedState {
     pub fn new(
-        leader_url: Uri,
+        l2_url: Uri,
         l1_url: Uri,
         l1_bridge: Address,
         l1_wallet: LocalWallet,
@@ -71,32 +79,42 @@ impl SharedState {
             .parse(&[
                 "event BlockSubmitted()",
                 "event BlockFinalized(bytes32 blockHash)",
-                "event L1MessageSent(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+                "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+                "event MessageDelivered(bytes32 id)",
                 "function submitBlock(bytes)",
                 "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
-                "function processMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+                "function deliverMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+                "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
             ])
             .expect("parse abi");
 
         let beacon_topic = abi.event("BlockSubmitted").unwrap().signature();
         let block_finalized_topic = abi.event("BlockFinalized").unwrap().signature();
-        let message_topic = abi.event("L1MessageSent").unwrap().signature();
+        let message_dispatched_topic = abi.event("MessageDispatched").unwrap().signature();
+        let message_delivered_topic = abi.event("MessageDelivered").unwrap().signature();
 
         Self {
             ro: Arc::new(RoState {
-                leader_node: leader_url,
+                l2_node: l2_url,
                 l1_node: l1_url,
+
                 l1_bridge_addr: l1_bridge,
-                l2_bridge_addr: "0x0000000000000000000000000000000000010000"
+                l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
                     .parse()
                     .unwrap(),
-                l1_bridge_abi: abi,
+                l2_message_dispatcher_addr: "0x0000000000000000000000000000000000010001"
+                    .parse()
+                    .unwrap(),
+
                 block_beacon_topic: beacon_topic,
                 block_finalized_topic,
-                message_beacon_topic: message_topic,
+                message_dispatched_topic,
+                message_delivered_topic,
+
                 http_client: hyper::Client::new(),
                 l1_wallet,
                 l2_wallet,
+                bridge_abi: abi,
             }),
             rw: Arc::new(Mutex::new(RwState {
                 chain_state: ForkchoiceStateV1 {
@@ -107,10 +125,12 @@ impl SharedState {
                 nodes: Vec::new(),
                 prover_requests: HashMap::new(),
                 pending_proofs: 0,
-                last_sync_block: U64::zero(),
+                l1_last_sync_block: U64::zero(),
                 l2_last_sync_block: U64::zero(),
                 l1_message_queue: Vec::new(),
-                l2_messages: Vec::new(),
+                l2_delivered_messages: Vec::new(),
+                l2_message_queue: Vec::new(),
+                l1_delivered_messages: Vec::new(),
             })),
         }
     }
@@ -158,7 +178,7 @@ impl SharedState {
 
         let genesis: Block<H256> = crate::timeout!(
             5000,
-            jsonrpc_request(&self.ro.leader_node, "eth_getBlockByNumber", ("0x0", false))
+            jsonrpc_request(&self.ro.l2_node, "eth_getBlockByNumber", ("0x0", false))
                 .await
                 .unwrap()
         );
@@ -181,13 +201,14 @@ impl SharedState {
         )
         .await
         .expect("eth_blockNumber");
-        let mut from: U64 = self.rw.lock().await.last_sync_block + 1;
+        let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.ro.l1_bridge_addr))
             .topic0(ValueOrArray::Array(vec![
                 self.ro.block_beacon_topic,
                 self.ro.block_finalized_topic,
-                self.ro.message_beacon_topic,
+                self.ro.message_dispatched_topic,
+                self.ro.message_delivered_topic,
             ]));
 
         while from <= latest_block {
@@ -233,7 +254,7 @@ impl SharedState {
 
                     let resp: Result<serde_json::Value, String> = jsonrpc_request_client(
                         &self.ro.http_client,
-                        &self.ro.leader_node,
+                        &self.ro.l2_node,
                         "eth_getHeaderByHash",
                         [block_hash],
                     )
@@ -260,38 +281,21 @@ impl SharedState {
                     );
 
                     self.rw.lock().await.chain_state.finalized_block_hash = block_hash;
+                    self.record_l2_messages(block_hash).await;
                     continue;
                 }
 
-                if topic == self.ro.message_beacon_topic {
-                    // TODO: this is really ugly. consider finding a alternative
-                    let evt = self.ro.l1_bridge_abi.event("L1MessageSent").unwrap();
-                    let evt = evt
-                        .parse_log(RawLog::from((log.topics, log.data.to_vec())))
-                        .unwrap();
-
-                    let id: H256 = keccak256(log.data).into();
-                    let from = evt.params[0].value.to_owned().into_address().unwrap();
-                    let to = evt.params[1].value.to_owned().into_address().unwrap();
-                    let value = evt.params[2].value.to_owned().into_uint().unwrap();
-                    let fee = evt.params[3].value.to_owned().into_uint().unwrap();
-                    let deadline = evt.params[4].value.to_owned().into_uint().unwrap();
-                    let nonce = evt.params[5].value.to_owned().into_uint().unwrap();
-                    let calldata = evt.params[6].value.to_owned().into_bytes().unwrap();
-
-                    let beacon = L1MessageBeacon {
-                        id,
-                        from,
-                        to,
-                        value,
-                        fee,
-                        deadline,
-                        nonce,
-                        calldata,
-                    };
-
-                    log::info!("L1MessageSent: {:#?}", beacon);
+                if topic == self.ro.message_dispatched_topic {
+                    let beacon = self._parse_message_beacon(log);
+                    log::info!("L1:MessageDispatched:{:?}", beacon);
                     self.rw.lock().await.l1_message_queue.push(beacon);
+                    continue;
+                }
+
+                if topic == self.ro.message_delivered_topic {
+                    let id = H256::from_slice(log.data.as_ref());
+                    log::info!("L1:MessageDelivered:{:?}", id);
+                    self.rw.lock().await.l1_delivered_messages.push(id);
                     continue;
                 }
             }
@@ -299,13 +303,13 @@ impl SharedState {
             from = to + 1u64;
         }
 
-        self.rw.lock().await.last_sync_block = latest_block;
+        self.rw.lock().await.l1_last_sync_block = latest_block;
         self.sync_l2().await;
     }
 
     pub async fn mine(&self) {
         // TODO: verify that head_hash is correct
-        let head_hash = get_chain_head_hash(&self.ro.http_client, &self.ro.leader_node).await;
+        let head_hash = get_chain_head_hash(&self.ro.http_client, &self.ro.l2_node).await;
         self.rw.lock().await.chain_state.head_block_hash = head_hash;
 
         {
@@ -315,7 +319,7 @@ impl SharedState {
                 5000,
                 jsonrpc_request_client(
                     &self.ro.http_client,
-                    &self.ro.leader_node,
+                    &self.ro.l2_node,
                     "miner_init",
                     ()
                 )
@@ -334,13 +338,13 @@ impl SharedState {
             if len > 0 {
                 let mut messages = vec![];
                 // TODO: we are going to lose messages if we panic below
-                let todo: Vec<L1MessageBeacon> =
+                let todo: Vec<MessageBeacon> =
                     rw.l1_message_queue.drain(0..cmp::min(32, len)).collect();
                 drop(rw);
 
                 let mut nonce: U256 = jsonrpc_request_client(
                     &self.ro.http_client,
-                    &self.ro.leader_node,
+                    &self.ro.l2_node,
                     "eth_getTransactionCount",
                     (self.ro.l2_wallet.address(), "latest"),
                 )
@@ -352,16 +356,16 @@ impl SharedState {
                         .rw
                         .lock()
                         .await
-                        .l2_messages
+                        .l2_delivered_messages
                         .iter()
                         .any(|&e| e == msg.id);
 
-                    log::info!("processMessage: skip={} {:#?}", found, msg);
+                    log::info!("L2:deliverMessage: skip={} {:#?}", found, msg);
                     if !found {
                         let calldata = self
                             .ro
-                            .l1_bridge_abi
-                            .function("processMessage")
+                            .bridge_abi
+                            .function("deliverMessage")
                             .unwrap()
                             .encode_input(&[
                                 msg.from.into_token(),
@@ -374,7 +378,7 @@ impl SharedState {
                             ])
                             .expect("calldata");
                         messages.push(
-                            self.sign_l2(self.ro.l2_bridge_addr, U256::zero(), nonce, calldata)
+                            self.sign_l2(self.ro.l2_message_deliverer_addr, U256::zero(), nonce, calldata)
                                 .await,
                         );
                         nonce = nonce + 1;
@@ -392,7 +396,7 @@ impl SharedState {
             5000,
             jsonrpc_request_client(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 "txpool_status",
                 ()
             )
@@ -414,7 +418,7 @@ impl SharedState {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 &safe_hash,
                 &head_hash,
             )
@@ -426,7 +430,7 @@ impl SharedState {
                 {
                     let block_data: Bytes = jsonrpc_request_client(
                         &self.ro.http_client,
-                        &self.ro.leader_node,
+                        &self.ro.l2_node,
                         "debug_getHeaderRlp",
                         [block.number.unwrap().as_u64()],
                     )
@@ -435,7 +439,7 @@ impl SharedState {
 
                     let calldata = self
                         .ro
-                        .l1_bridge_abi
+                        .bridge_abi
                         .function("submitBlock")
                         .unwrap()
                         .encode_input(&[block_data.into_token()])
@@ -455,7 +459,7 @@ impl SharedState {
         if final_hash != safe_hash {
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 &final_hash,
                 &safe_hash,
             )
@@ -516,7 +520,7 @@ impl SharedState {
 
                     let calldata = self
                         .ro
-                        .l1_bridge_abi
+                        .bridge_abi
                         .function("finalizeBlock")
                         .unwrap()
                         .encode_input(&[
@@ -553,7 +557,7 @@ impl SharedState {
     ) -> Result<H256, String> {
         send_transaction_to_l2(
             &self.ro.http_client,
-            &self.ro.leader_node,
+            &self.ro.l2_node,
             &self.ro.l2_wallet,
             to,
             value,
@@ -564,7 +568,7 @@ impl SharedState {
 
     pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
         let wallet = &self.ro.l2_wallet;
-        let node_uri = &self.ro.leader_node;
+        let node_uri = &self.ro.l2_node;
         let client = &self.ro.http_client;
         let wallet_addr: Address = wallet.address();
         let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
@@ -586,7 +590,7 @@ impl SharedState {
         tx.rlp_signed(wallet.chain_id(), &sig)
     }
 
-    async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+    pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
         // request new block
         let ts = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -600,7 +604,7 @@ impl SharedState {
             5000,
             jsonrpc_request_client(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 "miner_sealBlock",
                 [SealBlockRequest {
                     parent,
@@ -613,7 +617,7 @@ impl SharedState {
             .expect("miner_mineTransaction")
         );
         log::info!(
-            "submitted block assembly request to leader node - txs: {}",
+            "submitted block assembly request to l2 node - txs: {}",
             prepared_block.transactions.len()
         );
 
@@ -625,7 +629,7 @@ impl SharedState {
             5000,
             jsonrpc_request_client(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 "miner_setHead",
                 [block_hash]
             )
@@ -642,7 +646,7 @@ impl SharedState {
         // TODO: DRY syncing mechanics w/ l1
         let latest_block: U64 = jsonrpc_request_client(
             &self.ro.http_client,
-            &self.ro.leader_node,
+            &self.ro.l2_node,
             "eth_blockNumber",
             (),
         )
@@ -650,8 +654,8 @@ impl SharedState {
         .expect("eth_blockNumber");
         let mut from: U64 = self.rw.lock().await.l2_last_sync_block + 1;
         let mut filter = Filter::new()
-            .address(ValueOrArray::Value(self.ro.l2_bridge_addr))
-            .topic0(ValueOrArray::Value(self.ro.message_beacon_topic));
+            .address(ValueOrArray::Value(self.ro.l2_message_deliverer_addr))
+            .topic0(ValueOrArray::Value(self.ro.message_delivered_topic));
         let mut executed_msgs = vec![];
 
         while from <= latest_block {
@@ -662,7 +666,7 @@ impl SharedState {
 
             let logs: Vec<Log> = jsonrpc_request_client(
                 &self.ro.http_client,
-                &self.ro.leader_node,
+                &self.ro.l2_node,
                 "eth_getLogs",
                 [&filter],
             )
@@ -670,7 +674,7 @@ impl SharedState {
             .expect("eth_getLogs");
 
             for log in logs {
-                let message_id: H256 = keccak256(log.data).into();
+                let message_id = H256::from_slice(log.data.as_ref());
                 executed_msgs.push(message_id);
             }
 
@@ -679,11 +683,124 @@ impl SharedState {
 
         let mut rw = self.rw.lock().await;
         rw.l2_last_sync_block = latest_block;
-        rw.l2_messages.extend_from_slice(&executed_msgs);
+        rw.l2_delivered_messages.extend_from_slice(&executed_msgs);
+    }
+
+    /// keeps track of L2 > L1 message events
+    async fn record_l2_messages(&self, block_hash: H256) {
+        let filter = Filter::new()
+            .address(ValueOrArray::Value(self.ro.l2_message_dispatcher_addr))
+            .topic0(ValueOrArray::Value(self.ro.message_dispatched_topic))
+            .at_block_hash(block_hash);
+        let logs: Vec<Log> = jsonrpc_request_client(
+            &self.ro.http_client,
+            &self.ro.l2_node,
+            "eth_getLogs",
+            [&filter],
+        )
+        .await
+        .expect("eth_getLogs");
+
+        log::info!("L2: {} relay events for {}", logs.len(), block_hash);
+        let mut pending = vec![];
+        for log in logs {
+            let beacon = self._parse_message_beacon(log);
+            log::info!("L1Relay: {:#?}", beacon);
+            pending.push(beacon);
+        }
+
+        let mut rw = self.rw.lock().await;
+        rw.l2_message_queue.extend(pending);
+    }
+
+    pub async fn relay_to_l1(&self) {
+        let mut rw = self.rw.lock().await;
+        let len = rw.l2_message_queue.len();
+
+        if len == 0 {
+            return;
+        }
+
+        // TODO: we are going to lose messages if we panic below
+        let todo: Vec<MessageBeacon> = rw.l2_message_queue.drain(0..cmp::min(32, len)).collect();
+        drop(rw);
+
+        for msg in todo {
+            let found = self
+                .rw
+                .lock()
+                .await
+                .l1_delivered_messages
+                .iter()
+                .any(|&e| e == msg.id);
+
+            log::info!("L1:deliverMessageWithProof: skip={} {:#?}", found, msg);
+            if found {
+                continue;
+            }
+
+            // TODO: use eth_getProof
+            let proof = Bytes::from([]);
+            let calldata = self
+                .ro
+                .bridge_abi
+                .function("deliverMessageWithProof")
+                .unwrap()
+                .encode_input(&[
+                    msg.from.into_token(),
+                    msg.to.into_token(),
+                    msg.value.into_token(),
+                    msg.fee.into_token(),
+                    msg.deadline.into_token(),
+                    msg.nonce.into_token(),
+                    Token::Bytes(msg.calldata),
+                    proof.into_token(),
+                ])
+                .expect("calldata");
+            self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
+                .await;
+        }
+    }
+
+    fn _parse_message_beacon(&self, log: Log) -> MessageBeacon {
+        // TODO: this is really ugly. consider finding a alternative
+        let evt = self.ro.bridge_abi.event("MessageDispatched").unwrap();
+        let evt = evt
+            .parse_log(RawLog::from((log.topics, log.data.to_vec())))
+            .unwrap();
+
+        let id: H256 = keccak256(log.data).into();
+        let from = evt.params[0].value.to_owned().into_address().unwrap();
+        let to = evt.params[1].value.to_owned().into_address().unwrap();
+        let value = evt.params[2].value.to_owned().into_uint().unwrap();
+        let fee = evt.params[3].value.to_owned().into_uint().unwrap();
+        let deadline = evt.params[4].value.to_owned().into_uint().unwrap();
+        let nonce = evt.params[5].value.to_owned().into_uint().unwrap();
+        let calldata = evt.params[6].value.to_owned().into_bytes().unwrap();
+
+        MessageBeacon {
+            id,
+            from,
+            to,
+            value,
+            fee,
+            deadline,
+            nonce,
+            calldata,
+        }
     }
 }
 
 pub async fn request_proof(block_num: U64) -> Result<Proofs, String> {
+    if var("DUMMY_PROVER").is_ok() {
+        log::warn!("DUMMY_PROVER");
+        let proof = Proofs {
+            evm_proof: Bytes::from([0xffu8]),
+            state_proof: Bytes::from([0xffu8]),
+        };
+        return Ok(proof);
+    }
+
     // TODO: this should be invoked via rpc without waiting for the proof to be computed
     let output = Command::new("./prover_cmd")
         .kill_on_drop(true)

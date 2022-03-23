@@ -1,7 +1,7 @@
 #!/bin/sh
 
 docker run --rm -w /app -v $(pwd):/app \
-  ethereum/solc:0.8.12 \
+  ethereum/solc:0.8.13 \
   --overwrite \
   --metadata-hash none \
   --asm-json \
@@ -9,5 +9,7 @@ docker run --rm -w /app -v $(pwd):/app \
   --bin \
   --bin-runtime \
   --abi \
+  --optimize \
+  --userdoc \
   -o build/contracts/ \
   $(find contracts/ -iname '*.sol')
