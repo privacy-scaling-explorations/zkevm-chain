@@ -102,7 +102,7 @@ impl SharedState {
                 l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
                     .parse()
                     .unwrap(),
-                l2_message_dispatcher_addr: "0x0000000000000000000000000000000000010001"
+                l2_message_dispatcher_addr: "0x0000000000000000000000000000000000020000"
                     .parse()
                     .unwrap(),
 
