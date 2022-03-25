@@ -1,18 +1,18 @@
 ### Layer 1 - Bridge
 
-The `ZkEvmL1Bridge` is responsible for
+The [`ZkEvmL1Bridge`][ZkEvmL1Bridge] is responsible for
 - submission and finalisation of L2 blocks
 - cross chain messaging
 
-Sending messages and/or ETH to L2 requires calling [`dispatchMessage`](TODO) on the `ZkEvmL1Bridge`.
+Sending messages and/or ETH to L2 requires calling [`dispatchMessage`][IZkEvmMessageDispatcher] on the [`ZkEvmL1Bridge`][ZkEvmL1Bridge].
 
 Receiving messages from L2 to L1 requires waiting until the corresponding L2 block that includes the given message is finalized on L1 and then calling
-[`deliverMessageWithProof`](TODO) on the L1 bridge.
+[`deliverMessageWithProof`][IZkEvmMessageDelivererWithProof] on the L1 bridge.
 
-Messages can also be dropped to reclaim ETH if they exceed the message `deadline` via [`dropMessage`](TODO).
+Messages can also be dropped to reclaim ETH if they exceed the message `deadline` via [`dropMessage`][IZkEvmMessageDispatcher].
 
 ###### Addresses on L1 testnet
-- [`ZkEvmL1Bridge`](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL1Bridge.sol)
+- [`ZkEvmL1Bridge`][ZkEvmL1Bridge]
   - `936a70c0b28532aa22240dce21f89a8399d6ac60`
 - [`L1OptimismBridge`](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/optimism/L1OptimismBridge.sol) - A Optimisms `ICrossDomainMessenger` compatibility contract
   - `936a70c0b28532aa22240dce21f89a8399d6ac61`
@@ -21,15 +21,15 @@ Messages can also be dropped to reclaim ETH if they exceed the message `deadline
 
 There are two zkEVM related bridge contracts on L2:
 
-- [`ZkEvmL2MessageDeliverer`](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol)
+- [`ZkEvmL2MessageDeliverer`][ZkEvmL2MessageDeliverer]
   - `0000000000000000000000000000000000010000`
-- [`ZkEvmL2MessageDispatcher`](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDispatcher.sol)
+- [`ZkEvmL2MessageDispatcher`][ZkEvmL2MessageDispatcher]
   - `0000000000000000000000000000000000020000`
 
 The `ZkEvmL2MessageDeliverer` is responsible for processing messages from L1 to L2 and holds `uint256(-1)` ETH to allow for deposits to happen in regular transactions.
-Messages from L2 to L1 can be invoked via calling [`deliverMessage`](TODO) on `ZkEvmL2MessageDispatcher`. A message can be delivered on L1 via `deliverMessageWithProof` once the transaction was included in a L2 Block and finalized on L1.
+Messages from L2 to L1 can be invoked via calling [`dispatchMessage`][IZkEvmMessageDispatcher] on [`ZkEvmL2MessageDispatcher`][ZkEvmL2MessageDispatcher]. A message can be delivered on L1 via `deliverMessageWithProof` once the transaction was included in a L2 Block and finalized on L1.
 
-**Note**: The Coordinator **MUST** make sure that no transaction to the `ZkEvmL2MessageDeliverer` is made in regular L2 Blocks. It's the responsibility of the Coordinator to build blocks with `deliverMessage` on `ZkEvmL2MessageDispatcher`. This **MUST** also be enforced on the `ZkEvmL1Bridge`.
+**Note**: The Coordinator **MUST** make sure that no transaction to the `ZkEvmL2MessageDeliverer` is made in regular L2 Blocks. It's the responsibility of the Coordinator to build blocks with [`deliverMessage`][IZkEvmMessageDelivererWithoutProof] on [`ZkEvmL2MessageDeliverer`][ZkEvmL2MessageDeliverer]. This **MUST** also be enforced on the [`ZkEvmL1Bridge`][ZkEvmL1Bridge].
 
 ### Layer 2 - go-ethereum
 
@@ -106,3 +106,9 @@ mine_l1_to_l2_messages --> L1-MessageDispatched-events --> ZkEvmL2MessageDeliver
 mine --> tx_pool_pending? --> miner_sealBlock --> verify_block --> miner_setHead
 ```
 
+[IZkEvmMessageDispatcher]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDispatcher.sol
+[ZkEvmL2MessageDispatcher]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDispatcher.sol
+[ZkEvmL2MessageDeliverer]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol
+[IZkEvmMessageDelivererWithProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithProof.sol
+[IZkEvmMessageDelivererWithoutProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithoutProof.sol
+[ZkEvmL1Bridge]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL1Bridge.sol
