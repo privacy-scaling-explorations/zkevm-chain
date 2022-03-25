@@ -29,7 +29,7 @@ There are two zkEVM related bridge contracts on L2:
 The `ZkEvmL2MessageDeliverer` is responsible for processing messages from L1 to L2 and holds `uint256(-1)` ETH to allow for deposits to happen in regular transactions.
 Messages from L2 to L1 can be invoked via calling [`deliverMessage`](TODO) on `ZkEvmL2MessageDispatcher`. A message can be delivered on L1 via `deliverMessageWithProof` once the transaction was included in a L2 Block and finalized on L1.
 
-**Note**: The Coordinator MUST make sure that no transaction to the `ZkEvmL2MessageDeliverer` is made in regular L2 Blocks. It's the responsibility of the Coordinator to build blocks with `deliverMessage` on `ZkEvmL2MessageDispatcher`. This MUST also be enforced on the `ZkEvmL1Bridge`.
+**Note**: The Coordinator **MUST** make sure that no transaction to the `ZkEvmL2MessageDeliverer` is made in regular L2 Blocks. It's the responsibility of the Coordinator to build blocks with `deliverMessage` on `ZkEvmL2MessageDispatcher`. This **MUST** also be enforced on the `ZkEvmL1Bridge`.
 
 ### Layer 2 - go-ethereum
 
@@ -78,7 +78,7 @@ Additionaly, only partial data of each L2 Block is submitted on L1 and therefore
 
 ### Layer 2 - ETH genesis allocations
 - `L2_CLIQUE_PROPOSER` (0.1 ETH) as initial balance to allow for deposits to be delivered.
-  **The ZkEvmL1Bridge should hold the initial amount to account for the L2 balance of the L2_CLIQUE_PROPOSER**
+  **The ZkEvmL1Bridge **MUST** hold the initial amount to account for the L2 balance of the L2_CLIQUE_PROPOSER**
   - `0x000000000000000000000000000000000000000000000000016345785d8a0000`
 - `ZkEvmL2MessageDeliverer` - `uint256(-1)` minus the initial balance for `L2_CLIQUE_PROPOSER`
   - `0xfffffffffffffffffffffffffffffffffffffffffffffffffe9cba87a275ffff`
@@ -103,6 +103,6 @@ sync --> l2-geth --> l2-bridge-events --> coordinator
 ```mermaid
 flowchart LR
 mine_l1_to_l2_messages --> L1-MessageDispatched-events --> ZkEvmL2MessageDeliverer --> deliverMessage --> miner_sealBlock --> miner_setHead
-mine --> tx_pool_pending? --> miner_sealBlock --> verify block --> miner_setHead
+mine --> tx_pool_pending? --> miner_sealBlock --> verify_block --> miner_setHead
 ```
 
