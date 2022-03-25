@@ -60,7 +60,7 @@ services:
       - L2_RPC_URL=http://leader-testnet-geth:8545
       - L1_RPC_URL=http://l1-testnet-geth:8545
       - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
-      - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
+      - L1_PRIV=$MINER_PRIV_KEY
       - DUMMY_PROVER=1
 
   dev:
@@ -82,7 +82,7 @@ services:
       - L2_RPC_URL=http://leader-testnet-geth:8545
       - L1_RPC_URL=http://l1-testnet-geth:8545
       - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
-      - L1_PRIV=2bdd21761a483f71054e14f5b827213567971c676928d9a1808cbfa4b7501200
+      - L1_PRIV=$MINER_PRIV_KEY
       - DUMMY_PROVER=1
     ports:
       - 8000:8000
