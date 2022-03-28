@@ -216,6 +216,7 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.mine().await;
     ctx.submit_blocks().await;
     ctx.finalize_blocks().await;
+    ctx.relay_to_l1().await;
 }
 
 #[tokio::main]
