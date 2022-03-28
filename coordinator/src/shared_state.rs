@@ -355,7 +355,7 @@ impl SharedState {
                         .iter()
                         .any(|&e| e == msg.id);
 
-                    log::info!("L2:deliverMessage: skip={} {:#?}", found, msg);
+                    log::info!("L2:deliverMessage: skip={} {:?}", found, msg);
                     if !found {
                         let calldata = self
                             .ro
@@ -700,7 +700,7 @@ impl SharedState {
         let mut pending = vec![];
         for log in logs {
             let beacon = self._parse_message_beacon(log);
-            log::info!("L1Relay: {:#?}", beacon);
+            log::info!("L1Relay: {:?}", beacon);
             pending.push(beacon);
         }
 
@@ -729,7 +729,7 @@ impl SharedState {
                 .iter()
                 .any(|&e| e == msg.id);
 
-            log::info!("L1:deliverMessageWithProof: skip={} {:#?}", found, msg);
+            log::info!("L1:deliverMessageWithProof: skip={} {:?}", found, msg);
             if found {
                 continue;
             }
