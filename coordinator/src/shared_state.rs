@@ -346,7 +346,14 @@ impl SharedState {
                 .await
                 .expect("nonce");
 
+                const LOG_TAG: &str = "L2:deliverMessage:";
+                let ts = U256::from(timestamp());
                 for msg in todo {
+                    if msg.deadline < ts {
+                        log::info!("{} {:?} deadline exceeded", LOG_TAG, msg);
+                        continue;
+                    }
+
                     let found = self
                         .rw
                         .lock()
@@ -355,7 +362,7 @@ impl SharedState {
                         .iter()
                         .any(|&e| e == msg.id);
 
-                    log::info!("L2:deliverMessage: skip={} {:?}", found, msg);
+                    log::info!("{} skip={} {:?}", LOG_TAG, found, msg);
                     if !found {
                         let calldata = self
                             .ro
@@ -587,10 +594,7 @@ impl SharedState {
 
     pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
         // request new block
-        let ts = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("time")
-            .as_secs();
+        let ts = timestamp();
         let parent = self.rw.lock().await.chain_state.head_block_hash;
         let random = H256::zero();
         let timestamp: U64 = ts.into();
@@ -720,7 +724,17 @@ impl SharedState {
         let todo: Vec<MessageBeacon> = rw.l2_message_queue.drain(0..cmp::min(32, len)).collect();
         drop(rw);
 
+        const LOG_TAG: &str = "L1:deliverMessageWithProof:";
         for msg in todo {
+            {
+                // check deadline
+                let ts_with_padding = U256::from(timestamp() + 900);
+                if msg.deadline < ts_with_padding {
+                    log::info!("{} {:?} deadline exceeded", LOG_TAG, msg);
+                    continue;
+                }
+            }
+
             let found = self
                 .rw
                 .lock()
@@ -729,7 +743,7 @@ impl SharedState {
                 .iter()
                 .any(|&e| e == msg.id);
 
-            log::info!("L1:deliverMessageWithProof: skip={} {:?}", found, msg);
+            log::info!("{} skip={} {:?}", LOG_TAG, found, msg);
             if found {
                 continue;
             }
@@ -820,4 +834,11 @@ pub async fn request_proof(block_num: U64) -> Result<Proofs, String> {
             Ok(proof)
         }
     }
+}
+
+fn timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("time")
+        .as_secs()
 }
