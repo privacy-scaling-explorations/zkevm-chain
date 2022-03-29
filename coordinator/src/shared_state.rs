@@ -25,6 +25,9 @@ use ethers_signers::Signer;
 use hyper::client::HttpConnector;
 use hyper::Uri;
 
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+
 use crate::structs::*;
 use crate::utils::*;
 
@@ -176,12 +179,10 @@ impl SharedState {
             panic!("init");
         }
 
-        let genesis: Block<H256> = crate::timeout!(
-            5000,
-            jsonrpc_request(&self.ro.l2_node, "eth_getBlockByNumber", ("0x0", false))
-                .await
-                .unwrap()
-        );
+        let genesis: Block<H256> = self
+            .request_l2("eth_getBlockByNumber", ("0x0", false))
+            .await
+            .expect("genesis block");
         let h = genesis.hash.unwrap();
         log::info!("init with genesis: {:?}", h);
 
@@ -193,14 +194,10 @@ impl SharedState {
 
     pub async fn sync(&self) {
         // sync events
-        let latest_block: U64 = jsonrpc_request_client(
-            &self.ro.http_client,
-            &self.ro.l1_node,
-            "eth_blockNumber",
-            (),
-        )
-        .await
-        .expect("eth_blockNumber");
+        let latest_block: U64 = self
+            .request_l1("eth_blockNumber", ())
+            .await
+            .expect("eth_blockNumber");
         let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.ro.l1_bridge_addr))
@@ -217,28 +214,20 @@ impl SharedState {
             log::info!("fetching l1 logs from={} to={}", from, to);
             filter = filter.from_block(from).to_block(to);
 
-            let logs: Vec<Log> = jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.l1_node,
-                "eth_getLogs",
-                [&filter],
-            )
-            .await
-            .expect("eth_getLogs");
+            let logs: Vec<Log> = self
+                .request_l1("eth_getLogs", [&filter])
+                .await
+                .expect("eth_getLogs");
 
             for log in logs {
                 let topic = log.topics[0];
 
                 if topic == self.ro.block_beacon_topic {
                     let tx_hash = log.transaction_hash.expect("log txhash");
-                    let tx: Transaction = jsonrpc_request_client(
-                        &self.ro.http_client,
-                        &self.ro.l1_node,
-                        "eth_getTransactionByHash",
-                        [tx_hash],
-                    )
-                    .await
-                    .expect("tx");
+                    let tx: Transaction = self
+                        .request_l1("eth_getTransactionByHash", [tx_hash])
+                        .await
+                        .expect("tx");
 
                     let tx_data = tx.input.as_ref();
 
@@ -252,13 +241,8 @@ impl SharedState {
                     let block_hash = H256::from(keccak256(&tx_data[start..end]));
                     log::info!("BlockSubmitted: {:?} via {:?}", block_hash, tx_hash);
 
-                    let resp: Result<serde_json::Value, String> = jsonrpc_request_client(
-                        &self.ro.http_client,
-                        &self.ro.l2_node,
-                        "eth_getHeaderByHash",
-                        [block_hash],
-                    )
-                    .await;
+                    let resp: Result<serde_json::Value, String> =
+                        self.request_l2("eth_getHeaderByHash", [block_hash]).await;
 
                     if resp.is_err() {
                         log::error!(
@@ -315,12 +299,7 @@ impl SharedState {
         {
             // always send a miner_init request to enable transaction pool etc.
             // just to account for the case that the node was restarted
-            let _: Option<Address> = crate::timeout!(
-                5000,
-                jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, "miner_init", ())
-                    .await
-                    .unwrap_or_default()
-            );
+            let _: Option<Address> = self.request_l2("miner_init", ()).await.unwrap_or_default();
         }
 
         {
@@ -337,14 +316,13 @@ impl SharedState {
                     rw.l1_message_queue.drain(0..cmp::min(32, len)).collect();
                 drop(rw);
 
-                let mut nonce: U256 = jsonrpc_request_client(
-                    &self.ro.http_client,
-                    &self.ro.l2_node,
-                    "eth_getTransactionCount",
-                    (self.ro.l2_wallet.address(), "latest"),
-                )
-                .await
-                .expect("nonce");
+                let mut nonce: U256 = self
+                    .request_l2(
+                        "eth_getTransactionCount",
+                        (self.ro.l2_wallet.address(), "latest"),
+                    )
+                    .await
+                    .expect("nonce");
 
                 const LOG_TAG: &str = "L2:deliverMessage:";
                 let ts = U256::from(timestamp());
@@ -399,12 +377,7 @@ impl SharedState {
         }
 
         // check if we can mine a block
-        let resp: TxpoolStatus = crate::timeout!(
-            5000,
-            jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, "txpool_status", ())
-                .await
-                .unwrap()
-        );
+        let resp: TxpoolStatus = self.request_l2("txpool_status", ()).await.unwrap();
         let pending_txs = resp.pending.as_u64();
 
         if pending_txs != 0 {
@@ -430,14 +403,10 @@ impl SharedState {
             for block in blocks.iter().rev() {
                 log::info!("submit_block: {}", format_block(block));
                 {
-                    let block_data: Bytes = jsonrpc_request_client(
-                        &self.ro.http_client,
-                        &self.ro.l2_node,
-                        "debug_getHeaderRlp",
-                        [block.number.unwrap().as_u64()],
-                    )
-                    .await
-                    .expect("block");
+                    let block_data: Bytes = self
+                        .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
+                        .await
+                        .expect("block");
 
                     let calldata = self
                         .ro
@@ -570,12 +539,8 @@ impl SharedState {
 
     pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
         let wallet = &self.ro.l2_wallet;
-        let node_uri = &self.ro.l2_node;
-        let client = &self.ro.http_client;
         let wallet_addr: Address = wallet.address();
-        let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
-            .await
-            .expect("gasPrice");
+        let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await.expect("gasPrice");
         let tx = TransactionRequest::new()
             .from(wallet_addr)
             .to(to)
@@ -583,13 +548,36 @@ impl SharedState {
             .value(value)
             .gas_price(gas_price * 2u64)
             .data(calldata);
-        let estimate: U256 = jsonrpc_request_client(client, node_uri, "eth_estimateGas", [&tx])
+        let estimate: U256 = self
+            .request_l2("eth_estimateGas", [&tx])
             .await
             .expect("estimateGas");
         let tx = tx.gas(estimate).into();
         let sig = wallet.sign_transaction(&tx).await.unwrap();
 
         tx.rlp_signed(wallet.chain_id(), &sig)
+    }
+
+    pub async fn request_l1<T: Serialize + Send + Sync, R: DeserializeOwned>(
+        &self,
+        method: &str,
+        args: T,
+    ) -> Result<R, String> {
+        crate::timeout!(
+            5000,
+            jsonrpc_request_client(&self.ro.http_client, &self.ro.l1_node, method, args).await
+        )
+    }
+
+    pub async fn request_l2<T: Serialize + Send + Sync, R: DeserializeOwned>(
+        &self,
+        method: &str,
+        args: T,
+    ) -> Result<R, String> {
+        crate::timeout!(
+            5000,
+            jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, method, args).await
+        )
     }
 
     pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
@@ -599,22 +587,18 @@ impl SharedState {
         let random = H256::zero();
         let timestamp: U64 = ts.into();
 
-        let prepared_block: Block<Transaction> = crate::timeout!(
-            5000,
-            jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.l2_node,
+        let prepared_block: Block<Transaction> = self
+            .request_l2(
                 "miner_sealBlock",
                 [SealBlockRequest {
                     parent,
                     random,
                     timestamp,
-                    transactions
-                }]
+                    transactions,
+                }],
             )
             .await
-            .expect("miner_mineTransaction")
-        );
+            .expect("miner_mineTransaction");
         log::info!(
             "submitted block assembly request to l2 node - txs: {}",
             prepared_block.transactions.len()
@@ -624,17 +608,10 @@ impl SharedState {
 
         // set canonical chain head
         // always returns true or throws
-        let _: bool = crate::timeout!(
-            5000,
-            jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.l2_node,
-                "miner_setHead",
-                [block_hash]
-            )
+        let _: bool = self
+            .request_l2("miner_setHead", [block_hash])
             .await
-            .expect("miner_setHead")
-        );
+            .expect("miner_setHead");
         self.rw.lock().await.chain_state.head_block_hash = block_hash;
 
         prepared_block
@@ -643,14 +620,10 @@ impl SharedState {
     /// keeps track of l2 bridge message events
     async fn sync_l2(&self) {
         // TODO: DRY syncing mechanics w/ l1
-        let latest_block: U64 = jsonrpc_request_client(
-            &self.ro.http_client,
-            &self.ro.l2_node,
-            "eth_blockNumber",
-            (),
-        )
-        .await
-        .expect("eth_blockNumber");
+        let latest_block: U64 = self
+            .request_l2("eth_blockNumber", ())
+            .await
+            .expect("eth_blockNumber");
         let mut from: U64 = self.rw.lock().await.l2_last_sync_block + 1;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.ro.l2_message_deliverer_addr))
@@ -663,14 +636,10 @@ impl SharedState {
             log::info!("fetching logs from={} to={}", from, to);
             filter = filter.from_block(from).to_block(to);
 
-            let logs: Vec<Log> = jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.l2_node,
-                "eth_getLogs",
-                [&filter],
-            )
-            .await
-            .expect("eth_getLogs");
+            let logs: Vec<Log> = self
+                .request_l2("eth_getLogs", [&filter])
+                .await
+                .expect("eth_getLogs");
 
             for log in logs {
                 let message_id = H256::from_slice(log.data.as_ref());
@@ -691,14 +660,10 @@ impl SharedState {
             .address(ValueOrArray::Value(self.ro.l2_message_dispatcher_addr))
             .topic0(ValueOrArray::Value(self.ro.message_dispatched_topic))
             .at_block_hash(block_hash);
-        let logs: Vec<Log> = jsonrpc_request_client(
-            &self.ro.http_client,
-            &self.ro.l2_node,
-            "eth_getLogs",
-            [&filter],
-        )
-        .await
-        .expect("eth_getLogs");
+        let logs: Vec<Log> = self
+            .request_l2("eth_getLogs", [&filter])
+            .await
+            .expect("eth_getLogs");
 
         log::info!("L2: {} relay events for {}", logs.len(), block_hash);
         let mut pending = vec![];
