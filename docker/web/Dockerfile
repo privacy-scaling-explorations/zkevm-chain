@@ -1,4 +1,4 @@
-FROM node:14-alpine as builder
+FROM --platform=$BUILDPLATFORM node:14-alpine as builder
 WORKDIR /
 RUN apk add git alpine-sdk python3 jq
 RUN git clone --depth=1 https://github.com/appliedzkp/hop.git
