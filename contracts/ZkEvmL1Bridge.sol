@@ -30,6 +30,11 @@ contract ZkEvmL1Bridge is
 
   function finalizeBlock (bytes32 blockHash, bytes calldata _witness, bytes calldata _proof) external {
     finalizedBlockHash = blockHash;
+    assembly {
+      let stateRootOffset := add(_witness.offset, 91)
+      let val := calldataload(stateRootOffset)
+      sstore(stateRoot.slot, val)
+    }
 
     emit BlockFinalized(blockHash);
   }
