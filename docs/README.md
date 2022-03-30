@@ -1,3 +1,34 @@
+### Testnet Setup
+The testnet setup consists of 6 entities where 2 of them are stateful (L1 node - 'upstream', L2 node - zkevm).
+The Ethereum accounts for L1/L2 Clique Block Producer and management tasks like cross chain message forwarding are done via the
+`MINER_PRIV_KEY` that has to be provided along `MINER_ADDRESS` - the Ethereum adress of that private key, in the `.env` file, see [.env.example][env-example] for guidance.
+
+###### leader-testnet-geth
+The stateful L2 node `leader-testnet-geth` is used for block sealing and in general used for all L2 data that the `coordinator` needs.
+If changes are made to the [L2 Genesis Template][l2-genesis-template] then the L2 chain has to be initialized from scratch.
+
+###### server-testnet-geth
+Volatile geth nodes that sync from `leader-testnet-geth` to serve JSON-RPC requests coming from the `coordinator`.
+This entity can be dynamically scaled down or up and the `coordinator` checks the healthiness at periodic intervals and forwards requests to these nodes at random.
+The `coordinator` periodically queries the Docker DNS service to get a list of active instances and maintains that list accordingly.
+
+###### l1-testnet-geth
+This node resembles the upstream or mainnet node and contains the relevant L1 Bridge contract(s) for zkEVM.
+If changes are made to the [L1 Genesis Template][l1-genesis-template] then the L1 chain has to be initialized from scratch.
+
+###### coordinator
+This daemon handles all relevant tasks:
+- sealing L2 blocks
+- submitting L2 blocks to L1 bridge
+- requesting/computing proofs and finalizing L2 blocks on the L1 bridge
+- Execution of L2 to L1 and L1 to L2 cross chain messages.
+- Checking the healthiness and forwarding L2 JSON-RPC requests to a set of `server-testnet-geth` nodes.
+
+###### web
+Serves the hop-protocol webapp and provides proxies at the following paths via nginx:
+- `/rpc/l1` to `l1-testnet-geth`
+- `/rpc/l2` to `coordinator` that in turn chooses a replica of `server-testnet-geth` at random.
+
 ### Layer 1 - Bridge
 
 The [`ZkEvmL1Bridge`][ZkEvmL1Bridge] is responsible for
@@ -112,3 +143,6 @@ mine --> tx_pool_pending? --> miner_sealBlock --> verify_block --> miner_setHead
 [IZkEvmMessageDelivererWithProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithProof.sol
 [IZkEvmMessageDelivererWithoutProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithoutProof.sol
 [ZkEvmL1Bridge]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL1Bridge.sol
+[l1-genesis-template]: https://github.com/appliedzkp/zkevm-chain/blob/master/testnet/l1-genesis-template.json
+[l2-genesis-template]: https://github.com/appliedzkp/zkevm-chain/blob/master/testnet/l2-genesis-template.json
+[env-example]: https://github.com/appliedzkp/zkevm-chain/blob/master/.env.example
