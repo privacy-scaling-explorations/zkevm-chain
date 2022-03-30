@@ -9,7 +9,6 @@ use tokio::sync::Mutex;
 use tokio::task::spawn;
 
 use ethers_core::abi::Abi;
-use ethers_core::abi::AbiEncode;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::RawLog;
 use ethers_core::abi::Token;
@@ -88,6 +87,7 @@ impl SharedState {
                 "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
                 "function deliverMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
                 "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
+                "function stateRoot() returns (bytes32)",
             ])
             .expect("parse abi");
 
@@ -482,7 +482,10 @@ impl SharedState {
                     log::info!("found proof: {:?} for {}", proof, format_block(block));
 
                     let block_hash = block.hash.unwrap();
-                    let witness = Bytes::from(block_hash.encode());
+                    let witness: Bytes = self
+                        .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
+                        .await
+                        .expect("debug_getHeaderRlp");
                     let mut proof_data = vec![];
                     proof_data.extend_from_slice(proof.evm_proof.as_ref());
                     proof_data.extend_from_slice(proof.state_proof.as_ref());
@@ -713,6 +716,9 @@ impl SharedState {
                 continue;
             }
 
+            let state_root = self.state_root_l1().await.expect("l1.stateRoot");
+            log::info!("L1:stateRoot: {:?}", state_root);
+
             // TODO: use eth_getProof
             let proof = Bytes::from([]);
             let calldata = self
@@ -762,6 +768,33 @@ impl SharedState {
             nonce,
             calldata,
         }
+    }
+
+    async fn state_root_l1(&self) -> Result<H256, String> {
+        let calldata = Bytes::from(
+            self.ro
+                .bridge_abi
+                .function("stateRoot")
+                .unwrap()
+                .encode_input(&[])
+                .expect("calldata"),
+        );
+        let resp: Result<H256, String> = self
+            .request_l1(
+                "eth_call",
+                serde_json::json!(
+                [
+                {
+                    "to": self.ro.l1_bridge_addr,
+                    "data": calldata,
+                },
+                "latest"
+                ]
+                ),
+            )
+            .await;
+
+        resp
     }
 }
 
