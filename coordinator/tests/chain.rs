@@ -11,6 +11,7 @@ use ethers_core::types::U256;
 use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
+use std::env::var;
 use std::sync::Mutex;
 use std::time::Duration;
 use tokio::sync::OnceCell;
@@ -66,7 +67,7 @@ macro_rules! finalize_chain {
 fn init_logger() {
     let _ = env_logger::builder()
         .filter_level(log::LevelFilter::max())
-        .is_test(true)
+        .is_test(var("VERBOSE").is_err())
         .try_init();
 }
 
