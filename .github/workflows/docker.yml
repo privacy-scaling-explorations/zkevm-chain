@@ -15,6 +15,10 @@ jobs:
   build:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile']
+        PLATFORM: ['linux/amd64', 'linux/arm64']
     steps:
       - uses: actions/checkout@v2
         with:
@@ -26,4 +30,7 @@ jobs:
         run: printf "$PAT" | docker login --username _ --password-stdin ghcr.io
 
       - name: Build and push Docker images
+        env:
+          DOCKERFILE: ${{ matrix.DOCKERFILE }}
+          PLATFORM: ${{ matrix.PLATFORM }}
         run: ./.github/workflows/docker.sh
