@@ -18,7 +18,6 @@ jobs:
     strategy:
       matrix:
         DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile']
-        PLATFORM: ['linux/amd64', 'linux/arm64']
     steps:
       - uses: actions/checkout@v2
         with:
@@ -32,5 +31,5 @@ jobs:
       - name: Build and push Docker images
         env:
           DOCKERFILE: ${{ matrix.DOCKERFILE }}
-          PLATFORM: ${{ matrix.PLATFORM }}
+          PLATFORM: 'linux/amd64,linux/arm64'
         run: ./.github/workflows/docker.sh
