@@ -716,11 +716,33 @@ impl SharedState {
                 continue;
             }
 
+            // latest state root known on L1
             let state_root = self.state_root_l1().await.expect("l1.stateRoot");
             log::info!("L1:stateRoot: {:?}", state_root);
 
-            // TODO: use eth_getProof
-            let proof = Bytes::from([]);
+            // latest finalized block hash, should include `state_root`
+            let block_hash = self.rw.lock().await.chain_state.finalized_block_hash;
+
+            // calculate the storage slot for this message
+            let storage_slot = msg.storage_slot();
+            // request proof
+            let proof_obj: ProofRequest = self
+                .request_l2(
+                    "eth_getProof",
+                    (
+                        self.ro.l2_message_dispatcher_addr,
+                        [storage_slot],
+                        block_hash,
+                    ),
+                )
+                .await
+                .expect("eth_getProof");
+
+            // encode proof and send it
+            let proof: Bytes = Bytes::from(marshal_proof(
+                &proof_obj.account_proof,
+                &proof_obj.storage_proof[0].proof,
+            ));
             let calldata = self
                 .ro
                 .bridge_abi

@@ -244,3 +244,23 @@ pub async fn get_blocks_between(
 
     ret
 }
+
+/// encodes the proof from `eth_getCode` suitable for the PatriciaValidator contract.
+pub fn marshal_proof(account_proof: &[Bytes], storage_proof: &[Bytes]) -> Vec<u8> {
+    let mut ret: Vec<u8> = Vec::new();
+    ret.extend([account_proof.len() as u8]);
+
+    for b in account_proof.iter() {
+        let data = b.as_ref();
+        ret.extend(data);
+    }
+
+    ret.extend([storage_proof.len() as u8]);
+
+    for b in storage_proof.iter() {
+        let data = b.as_ref();
+        ret.extend(data);
+    }
+
+    ret
+}

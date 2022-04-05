@@ -7,8 +7,6 @@ import './ZkEvmMagicNumbers.sol';
 import './ZkEvmBridgeEvents.sol';
 
 contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMagicNumbers, ZkEvmBridgeEvents {
-  mapping (bytes32 => uint256) pendingMessages;
-
   /// @inheritdoc IZkEvmMessageDispatcher
   function dispatchMessage (
     address to,
@@ -47,8 +45,9 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
 
     messageHash = keccak256(abi.encode(msg.sender, to, value, fee, deadline, nonce, data));
 
-    require(pendingMessages[messageHash] == 0, 'DMH');
-    pendingMessages[messageHash] = uint256(uint160(msg.sender));
+    bytes32 storageSlot = _PENDING_MESSAGE_KEY(messageHash);
+    require(_sload(messageHash) == 0, 'DMH');
+    _sstore(storageSlot, bytes32(uint256(1)));
 
     emit MessageDispatched(msg.sender, to, value, fee, deadline, nonce, data);
   }
@@ -66,8 +65,9 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
 
     bytes32 messageHash = keccak256(abi.encode(from, to, value, fee, deadline, nonce, data));
 
-    require(pendingMessages[messageHash] != 0, 'DMH');
-    pendingMessages[messageHash] = 0;
+    bytes32 storageSlot = _PENDING_MESSAGE_KEY(messageHash);
+    require(_sload(messageHash) != 0, 'DMH');
+    _sstore(storageSlot, 0);
 
     uint256 amount = value + fee;
     if (amount != 0) {
@@ -75,5 +75,25 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
     }
 
     emit MessageDropped(messageHash);
+  }
+
+  function _PENDING_MESSAGE_KEY (bytes32 messageId) internal pure returns (bytes32 ret) {
+    assembly {
+      mstore(0, 0x31df76a4)
+      mstore(32, messageId)
+      ret := keccak256(0, 64)
+    }
+  }
+
+  function _sload (bytes32 key) internal view returns (uint256 ret) {
+    assembly {
+      ret := sload(key)
+    }
+  }
+
+  function _sstore (bytes32 key, bytes32 value) internal {
+    assembly {
+      sstore(key, value)
+    }
   }
 }
