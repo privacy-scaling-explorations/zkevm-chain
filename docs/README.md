@@ -72,7 +72,7 @@ The zkEVM fork option includes the same EIPs as
 - [EIP-2718: Typed Transaction Envelope](https://eips.ethereum.org/EIPS/eip-2718)
 - [EIP-2930: Optional access lists](https://eips.ethereum.org/EIPS/eip-2930)
 - [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
-- [EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)
+- ~~[EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)~~
 
 The zkEVM runs on the `Clique` consensus with one single proposer and the block submission to `ZkEvmL1Bridge` is permissioned.
 **TBD**
