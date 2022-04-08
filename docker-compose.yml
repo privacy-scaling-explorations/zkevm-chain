@@ -63,6 +63,18 @@ services:
       - L1_PRIV=$MINER_PRIV_KEY
       - DUMMY_PROVER=1
 
+  prover-rpcd:
+    init: true
+    build:
+      dockerfile: docker/prover/Dockerfile
+    image: ghcr.io/appliedzkp/zkevm-chain/prover:latest
+    restart: unless-stopped
+    volumes:
+      - ./testnet:/host:ro
+    environment:
+      - BIND=[::]:8545
+      - PARAMS_PATH=/host/params
+
   dev:
     profiles:
       - dev
