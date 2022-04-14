@@ -564,3 +564,78 @@ async fn patricia_validator() {
         cumulative_gas / samples
     );
 }
+
+#[tokio::test]
+async fn witness_verifier() {
+    init_logger();
+
+    let shared_state = get_shared_state().await.lock().unwrap();
+
+    shared_state.sync().await;
+    shared_state.mine().await;
+
+    // transfer ETH to self
+    let tx_nonce: U256 = shared_state
+        .request_l2(
+            "eth_getTransactionCount",
+            (shared_state.ro.l2_wallet.address(), "latest"),
+        )
+        .await
+        .expect("nonce");
+    let to = shared_state.ro.l2_wallet.address();
+    let value = U256::from(1u64);
+    let tx = shared_state.sign_l2(to, value, tx_nonce, vec![]).await;
+
+    shared_state.mine_block(Some(vec![tx])).await;
+
+    let block_num: U64 = shared_state
+        .request_l2("eth_blockNumber", ())
+        .await
+        .expect("blockNumber");
+    let witness = shared_state
+        .request_witness(&block_num)
+        .await
+        .expect("witness");
+    log::debug!("{:#?} input_len={}", witness, witness.input.as_ref().len());
+
+    let abi = AbiParser::default()
+        .parse(&[
+               "function testPublicInput(uint256 zeta, bytes calldata witness) external returns (uint256, uint256, uint256)",
+        ])
+        .expect("parse abi");
+    let calldata = abi
+        .function("testPublicInput")
+        .unwrap()
+        .encode_input(&[witness.randomness.into_token(), witness.input.into_token()])
+        .expect("calldata");
+
+    let req = serde_json::json!([
+        {
+            "to": "0x00000000000000000000000000000000000f0000",
+            "data": Bytes::from(calldata),
+        },
+        "latest"
+    ]);
+
+    // verify that it 'runs'
+    let result: U64 = shared_state
+        .request_l1("eth_estimateGas", &req)
+        .await
+        .expect("estimateGas");
+    log::info!("gas={}", result);
+
+    let result: Bytes = shared_state
+        .request_l1("eth_call", &req)
+        .await
+        .expect("eth_call");
+    let mut result = abi
+        .function("testPublicInput")
+        .unwrap()
+        .decode_output(result.as_ref())
+        .expect("decode output");
+    let pi = U256::from_token(result.pop().unwrap()).expect("U256");
+    let lagrange = U256::from_token(result.pop().unwrap()).expect("U256");
+    let vanish = U256::from_token(result.pop().unwrap()).expect("U256");
+
+    log::info!("vanish: {} lagrange: {} pi: {}", vanish, lagrange, pi);
+}

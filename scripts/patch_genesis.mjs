@@ -6,7 +6,7 @@ const L1_CONTRACTS = {
   '936a70c0b28532aa22240dce21f89a8399d6ac60': 'ZkEvmL1Bridge.bin-runtime',
   '936a70c0b28532aa22240dce21f89a8399d6ac61': 'L1OptimismBridge.bin-runtime',
   // for tests
-  '00000000000000000000000000000000000f0000': 'TestPatricia.bin-runtime',
+  '00000000000000000000000000000000000f0000': 'ZkEvmTest.bin-runtime',
 };
 const L2_CONTRACTS = {
   '0000000000000000000000000000000000010000': 'ZkEvmL2MessageDeliverer.bin-runtime',

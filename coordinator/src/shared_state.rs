@@ -33,6 +33,7 @@ use crate::utils::*;
 pub struct RoState {
     pub l2_node: Uri,
     pub l1_node: Uri,
+    pub prover_node: Uri,
 
     pub l1_bridge_addr: Address,
     pub l2_message_deliverer_addr: Address,
@@ -76,6 +77,7 @@ impl SharedState {
         l1_bridge: Address,
         l1_wallet: LocalWallet,
         l2_wallet: LocalWallet,
+        prover_node: Uri,
     ) -> SharedState {
         let abi = AbiParser::default()
             .parse(&[
@@ -100,6 +102,7 @@ impl SharedState {
             ro: Arc::new(RoState {
                 l2_node: l2_url,
                 l1_node: l1_url,
+                prover_node,
 
                 l1_bridge_addr: l1_bridge,
                 l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
@@ -171,7 +174,12 @@ impl SharedState {
             .expect("LocalWallet from L1_PRIV")
             .with_chain_id(chain_id.as_u64());
 
-        Self::new(l2_url, l1_url, l1_bridge, l1_wallet, l2_wallet)
+        let prover_node = var("PROVER_RPCD_URL")
+            .expect("PROVER_RPCD_URL env var")
+            .parse::<Uri>()
+            .expect("Uri from PROVER_RPCD_URL");
+
+        Self::new(l2_url, l1_url, l1_bridge, l1_wallet, l2_wallet, prover_node)
     }
 
     pub async fn init(&self) {
@@ -817,6 +825,19 @@ impl SharedState {
             .await;
 
         resp
+    }
+
+    pub async fn request_witness(&self, block_num: &U64) -> Result<Witness, String> {
+        crate::timeout!(
+            5000,
+            jsonrpc_request_client(
+                &self.ro.http_client,
+                &self.ro.prover_node,
+                "witness",
+                (block_num.as_u64(), self.ro.l2_node.to_string())
+            )
+            .await
+        )
     }
 }
 

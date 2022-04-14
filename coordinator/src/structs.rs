@@ -110,3 +110,9 @@ pub struct StorageProof {
     pub value: U256,
     pub proof: Vec<Bytes>,
 }
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Witness {
+    pub randomness: U256,
+    pub input: Bytes,
+}
