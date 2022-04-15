@@ -4,9 +4,7 @@ use std::env::var;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use tokio::process::Command;
 use tokio::sync::Mutex;
-use tokio::task::spawn;
 
 use ethers_core::abi::Abi;
 use ethers_core::abi::AbiParser;
@@ -452,70 +450,47 @@ impl SharedState {
     }
 
     pub async fn finalize_block(&self, block: &Block<H256>) {
-        log::debug!("TODO finalize_block: {}", format_block(block));
+        const LOG_TAG: &str = "L1:finalize_block:";
+        log::debug!("{} {}", LOG_TAG, format_block(block));
 
-        let k = block.number.unwrap();
-        let mut rw = self.rw.lock().await;
-        let v = rw.prover_requests.get(&k);
+        let block_num = block.number.unwrap();
+        let proofs: Result<Option<Proofs>, String> = self.request_proof(&block_num).await;
 
-        match v {
-            None => {
-                const MAX_PENDING_PROOFS: u32 = 1;
-                if rw.pending_proofs >= MAX_PENDING_PROOFS {
-                    log::debug!("waiting MAX_PENDING_PROOFS");
-                    return;
-                }
-                rw.prover_requests.insert(k, Option::default());
-                rw.pending_proofs += 1;
-                drop(rw);
+        if let Err(err) = proofs {
+            log::error!("{} {:?}", LOG_TAG, err);
+            return;
+        }
 
-                log::info!("requesting proof: {}", format_block(block));
+        match proofs.unwrap() {
+            None => log::info!("{} proof not yet computed for: {}", LOG_TAG, block_num),
+            Some(proof) => {
+                log::info!("{} found proof: {:?} for {}", LOG_TAG, proof, block_num);
 
-                let ctx = self.clone();
-                spawn(async move {
-                    // NOTE: if this panics then this loops forever - not a problem once switched to
-                    // prover rpc
-                    let res = request_proof(k).await;
-                    let mut rw = ctx.rw.lock().await;
-                    rw.pending_proofs -= 1;
-                    match res {
-                        Err(_) => rw.prover_requests.remove(&k),
-                        Ok(proof) => rw.prover_requests.insert(k, Option::Some(proof)),
-                    }
-                });
+                let block_hash = block.hash.unwrap();
+                let witness: Bytes = self
+                    .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
+                    .await
+                    .expect("debug_getHeaderRlp");
+                let mut proof_data = vec![];
+                proof_data.extend_from_slice(proof.evm_proof.as_ref());
+                proof_data.extend_from_slice(proof.state_proof.as_ref());
+                let proof_data = Bytes::from(proof_data);
+
+                let calldata = self
+                    .ro
+                    .bridge_abi
+                    .function("finalizeBlock")
+                    .unwrap()
+                    .encode_input(&[
+                        block_hash.into_token(),
+                        witness.into_token(),
+                        proof_data.into_token(),
+                    ])
+                    .expect("calldata");
+
+                self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
+                    .await;
             }
-            Some(opt) => match opt {
-                None => log::info!("proof not yet computed for: {}", k),
-                Some(proof) => {
-                    log::info!("found proof: {:?} for {}", proof, format_block(block));
-
-                    let block_hash = block.hash.unwrap();
-                    let witness: Bytes = self
-                        .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
-                        .await
-                        .expect("debug_getHeaderRlp");
-                    let mut proof_data = vec![];
-                    proof_data.extend_from_slice(proof.evm_proof.as_ref());
-                    proof_data.extend_from_slice(proof.state_proof.as_ref());
-                    let proof_data = Bytes::from(proof_data);
-                    drop(rw);
-
-                    let calldata = self
-                        .ro
-                        .bridge_abi
-                        .function("finalizeBlock")
-                        .unwrap()
-                        .encode_input(&[
-                            block_hash.into_token(),
-                            witness.into_token(),
-                            proof_data.into_token(),
-                        ])
-                        .expect("calldata");
-
-                    self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
-                        .await;
-                }
-            },
         }
     }
 
@@ -839,40 +814,39 @@ impl SharedState {
             .await
         )
     }
-}
 
-pub async fn request_proof(block_num: U64) -> Result<Proofs, String> {
-    if var("DUMMY_PROVER").is_ok() {
-        log::warn!("DUMMY_PROVER");
-        let proof = Proofs {
-            evm_proof: Bytes::from([0xffu8]),
-            state_proof: Bytes::from([0xffu8]),
-        };
-        return Ok(proof);
-    }
-
-    // TODO: this should be invoked via rpc without waiting for the proof to be computed
-    let output = Command::new("./prover_cmd")
-        .kill_on_drop(true)
-        .env("BLOCK_NUM", block_num.to_string())
-        .env("RPC_URL", var("L2_RPC_URL").expect("L2_RPC_URL env var"))
-        .output();
-    let output = output.await.expect("proof");
-
-    match output.status.success() {
-        false => {
-            log::error!(
-                "computing proof for: {} stdout: {} stderr: {}",
-                block_num,
-                String::from_utf8(output.stdout).unwrap(),
-                String::from_utf8(output.stderr).unwrap()
-            );
-            Err("poof".to_string())
+    pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
+        if var("DUMMY_PROVER").is_ok() {
+            log::warn!("DUMMY_PROVER");
+            let proof = Proofs {
+                evm_proof: Bytes::from([0xffu8]),
+                state_proof: Bytes::from([0xffu8]),
+            };
+            return Ok(Some(proof));
         }
-        true => {
-            let proof: Proofs = serde_json::from_slice(&output.stdout).expect("parse proofs");
-            log::debug!("proof for: {} data: {:?}", block_num, proof);
-            Ok(proof)
+
+        let resp = crate::timeout!(
+            5000,
+            jsonrpc_request_client(
+                &self.ro.http_client,
+                &self.ro.prover_node,
+                "proof",
+                (block_num.as_u64(), self.ro.l2_node.to_string(), false)
+            )
+            .await
+        );
+
+        match resp {
+            Err(err) => {
+                match err.as_ref() {
+                    "no result in response" => {
+                        // ...not an error
+                        Ok(None)
+                    }
+                    _ => Err(err),
+                }
+            }
+            Ok(val) => Ok(Some(val)),
         }
     }
 }
