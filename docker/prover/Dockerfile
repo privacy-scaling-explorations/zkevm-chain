@@ -11,7 +11,7 @@ ENV RUSTFLAGS='-C linker=rust-lld -Lnative=/usr/lib -Lnative=/usr/lib/gcc/aarch6
 
 WORKDIR /
 #RUN git clone --depth=1 https://github.com/appliedzkp/zkevm-circuits.git
-RUN git clone --depth=1 -b prover-inputs https://github.com/pinkiebell/zkevm-circuits.git
+RUN git clone --depth=1 -b test https://github.com/pinkiebell/zkevm-circuits.git
 WORKDIR /zkevm-circuits
 RUN cargo build --bins --release --target-dir /target --package prover
 
