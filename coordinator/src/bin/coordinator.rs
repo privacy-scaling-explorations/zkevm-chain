@@ -2,11 +2,14 @@ use std::env::var;
 use std::net::ToSocketAddrs;
 use std::time::Duration;
 
+use coordinator::faucet::Faucet;
 use coordinator::shared_state::SharedState;
 use coordinator::structs::*;
 use coordinator::utils::*;
 
 use env_logger::Env;
+
+use ethers_core::types::Address;
 
 use tokio::task::spawn;
 use tokio::time::sleep;
@@ -82,6 +85,7 @@ fn set_headers(headers: &mut HeaderMap, extended: bool) {
 
 async fn handle_request(
     shared_state: SharedState,
+    faucet: Option<Faucet>,
     client: hyper::Client<HttpConnector>,
     req: Request<Body>,
 ) -> Result<Response<Body>, hyper::Error> {
@@ -172,6 +176,32 @@ async fn handle_request(
             Ok(resp)
         }
 
+        // returns 503 if faucet is disabled else 200 and enqueues a faucet requests
+        // that is processed asyncly.
+        // The faucet transfer can still fail if the `l1_wallet` has not enough ETH.
+        (&Method::GET, "/faucet") => {
+            let receiver = req
+                .uri()
+                .query()
+                .expect("uri query")
+                .parse::<Address>()
+                .expect("receiver address");
+            let mut resp = Response::default();
+
+            match faucet {
+                None => {
+                    *resp.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
+                }
+                Some(faucet) => {
+                    faucet.queue.lock().await.push_back(receiver);
+                    *resp.status_mut() = StatusCode::OK;
+                }
+            }
+
+            set_headers(resp.headers_mut(), false);
+            Ok(resp)
+        }
+
         // everything else
         _ => {
             let mut not_found = Response::default();
@@ -219,12 +249,27 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.relay_to_l1().await;
 }
 
+fn maybe_init_faucet() -> Option<Faucet> {
+    match var("ENABLE_FAUCET") {
+        Err(_) => None,
+        Ok(res) => match res.as_str() {
+            "" => None,
+            "0" => None,
+            "false" => None,
+            _ => Some(Faucet::default()),
+        },
+    }
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let shared_state = SharedState::from_env().await;
     shared_state.init().await;
+
+    let faucet: Option<Faucet> = maybe_init_faucet();
+    log::info!("faucet enabled: {}", faucet.is_some());
 
     {
         let addr = var("LISTEN")
@@ -233,13 +278,15 @@ async fn main() {
             .expect("valid socket address");
         let client = hyper::Client::new();
         let shared_state = shared_state.clone();
+        let faucet = faucet.clone();
         // start the http server
         spawn(async move {
             let service = make_service_fn(move |_| {
                 let shared_state = shared_state.clone();
+                let faucet = faucet.clone();
                 let client = client.clone();
                 let service = service_fn(move |req| {
-                    handle_request(shared_state.clone(), client.to_owned(), req)
+                    handle_request(shared_state.clone(), faucet.clone(), client.to_owned(), req)
                 });
 
                 async move { Ok::<_, hyper::Error>(service) }
@@ -261,6 +308,12 @@ async fn main() {
 
                 if let Err(err) = res {
                     log::error!("task: {}", err);
+                }
+
+                // handle faucet requests
+                if let Some(_faucet) = &faucet {
+                    // only consume up to 3 items each time
+                    _faucet.drain(ctx.clone(), 3).await;
                 }
 
                 sleep(EVENT_LOOP_COOLDOWN).await;
