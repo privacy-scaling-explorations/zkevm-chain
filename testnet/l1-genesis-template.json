@@ -25,7 +25,7 @@
   "alloc": {
     "MINER_ADDRESS": {
       "comment": "miner",
-      "balance": "0x000000000000000000000000000000000000000000000000ffffffffffffffff"
+      "balance": "0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff"
     },
     "710bda329b2a6224e4b44833de30f38e7f81d564": {
       "comment": "hop:bonder",
