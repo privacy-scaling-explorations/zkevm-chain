@@ -64,6 +64,7 @@ services:
       - L1_PRIV=$MINER_PRIV_KEY
       - PROVER_RPCD_URL=http://prover-rpcd:8545
       - DUMMY_PROVER=1
+      - ENABLE_FAUCET=1
 
   prover-rpcd:
     init: true
@@ -100,6 +101,7 @@ services:
       - L1_PRIV=$MINER_PRIV_KEY
       - PROVER_RPCD_URL=http://prover-rpcd:8545
       - DUMMY_PROVER=1
+      - ENABLE_FAUCET=1
     ports:
       - 8000:8000
     working_dir: /app/coordinator
