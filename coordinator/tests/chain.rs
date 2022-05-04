@@ -17,9 +17,7 @@ use std::env::var;
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::Mutex;
-use std::time::Duration;
 use tokio::sync::OnceCell;
-use tokio::time::sleep;
 
 macro_rules! sync {
     ($shared_state:expr) => {
@@ -28,8 +26,6 @@ macro_rules! sync {
         while $shared_state.rw.lock().await.l1_message_queue.len() > 0 {
             $shared_state.mine().await;
             $shared_state.sync().await;
-            // sleep a bit to avoid mining too fast (timestamp)
-            sleep(Duration::from_millis(1000)).await;
         }
     };
 }
@@ -63,7 +59,10 @@ macro_rules! finalize_chain {
             $shared_state.submit_blocks().await;
             $shared_state.finalize_blocks().await;
             sync!($shared_state);
-            $shared_state.relay_to_l1().await;
+            while $shared_state.rw.lock().await.l2_message_queue.len() != 0 {
+                $shared_state.relay_to_l1().await;
+                sync!($shared_state);
+            }
         }
     };
 }
@@ -167,9 +166,6 @@ async fn native_deposit() {
                 .any(|e| e == &id);
             assert_eq!(true, found, "message id should exist");
         }
-
-        // the node may not catch up immediately
-        sleep(Duration::from_millis(300)).await;
 
         let balance: U256 = jsonrpc_request(
             &shared_state.ro.l2_node,
@@ -427,9 +423,6 @@ async fn hop_cross_chain_message() {
         shared_state.mine().await;
         wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
     }
-
-    // sleep a bit to avoid block timestamp errors
-    sleep(Duration::from_millis(1000)).await;
 
     {
         // commit the hop stateroot and initiate L2 > L1 message

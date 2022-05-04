@@ -2,9 +2,11 @@ use std::cmp;
 use std::collections::HashMap;
 use std::env::var;
 use std::sync::Arc;
+use std::time::Duration;
 use std::time::SystemTime;
 
 use tokio::sync::Mutex;
+use tokio::time::sleep;
 
 use ethers_core::abi::Abi;
 use ethers_core::abi::AbiParser;
@@ -567,6 +569,9 @@ impl SharedState {
     }
 
     pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+        // sleep a bit to avoid mining too fast (timestamp)
+        sleep(Duration::from_millis(1000)).await;
+
         // request new block
         let ts = timestamp();
         let parent = self.rw.lock().await.chain_state.head_block_hash;
