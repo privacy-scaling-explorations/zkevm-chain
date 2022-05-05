@@ -821,7 +821,7 @@ impl SharedState {
     }
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
-        if var("DUMMY_PROVER").is_ok() {
+        if crate::option_enabled!("DUMMY_PROVER", true).is_some() {
             log::warn!("DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),

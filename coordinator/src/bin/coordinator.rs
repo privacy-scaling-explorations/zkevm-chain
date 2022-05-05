@@ -249,18 +249,6 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.relay_to_l1().await;
 }
 
-fn maybe_init_faucet() -> Option<Faucet> {
-    match var("ENABLE_FAUCET") {
-        Err(_) => None,
-        Ok(res) => match res.as_str() {
-            "" => None,
-            "0" => None,
-            "false" => None,
-            _ => Some(Faucet::default()),
-        },
-    }
-}
-
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
@@ -268,7 +256,7 @@ async fn main() {
     let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
-    let faucet: Option<Faucet> = maybe_init_faucet();
+    let faucet: Option<Faucet> = coordinator::option_enabled!("ENABLE_FAUCET", Faucet::default());
     log::info!("faucet enabled: {}", faucet.is_some());
 
     {
