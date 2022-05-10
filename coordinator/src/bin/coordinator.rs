@@ -292,16 +292,32 @@ async fn main() {
             let client = hyper::Client::new();
             loop {
                 log::debug!("spawning event_loop task");
-                let res = spawn(event_loop(ctx.clone(), client.to_owned())).await;
 
-                if let Err(err) = res {
-                    log::error!("task: {}", err);
+                {
+                    // the event_loop handles l1/l2 chain events and chain progression
+                    let res = spawn(event_loop(ctx.clone(), client.to_owned())).await;
+
+                    if let Err(err) = res {
+                        log::error!("event_loop: {}", err);
+                    }
                 }
 
-                // handle faucet requests
-                if let Some(_faucet) = &faucet {
-                    // only consume up to 3 items each time
-                    _faucet.drain(ctx.clone(), 3).await;
+                {
+                    // The faucet shares the same l1 wallet with the event_loop
+                    // above, therefore it should be invoked in serial.
+                    let ctx = ctx.clone();
+                    let faucet = faucet.clone();
+                    let res = spawn(async move {
+                        if let Some(_faucet) = &faucet {
+                            // only consume up to 3 items each time
+                            _faucet.drain(ctx, 3).await;
+                        }
+                    })
+                    .await;
+
+                    if let Err(err) = res {
+                        log::error!("faucet: {}", err);
+                    }
                 }
 
                 sleep(EVENT_LOOP_COOLDOWN).await;
