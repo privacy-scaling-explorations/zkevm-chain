@@ -1,5 +1,9 @@
 version: '3.9'
 
+networks:
+  default:
+    name: zkevm-chain
+
 services:
   #TODO: add additional bootnode
   leader-testnet-geth:
