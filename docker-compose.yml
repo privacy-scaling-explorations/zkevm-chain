@@ -7,7 +7,7 @@ networks:
 services:
   #TODO: add additional bootnode
   leader-testnet-geth:
-    image: ghcr.io/appliedzkp/go-ethereum:latest
+    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
@@ -23,7 +23,7 @@ services:
   server-testnet-geth:
     deploy:
       replicas: 2
-    image: ghcr.io/appliedzkp/go-ethereum:latest
+    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - ./testnet:/host:ro
@@ -34,7 +34,7 @@ services:
     command: -c 'geth init /host/l2-genesis-generated.json && geth console --exec admin.addTrustedPeer\(\"$$BOOTNODE\"\) && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes $$BOOTNODE'
 
   l1-testnet-geth:
-    image: ghcr.io/appliedzkp/go-ethereum:latest
+    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
     restart: unless-stopped
     volumes:
       - l1-testnet-geth:/root
@@ -49,7 +49,7 @@ services:
     init: true
     build:
       dockerfile: docker/coordinator/Dockerfile
-    image: ghcr.io/appliedzkp/zkevm-chain/coordinator:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/coordinator:latest
     depends_on:
       - leader-testnet-geth
       - server-testnet-geth
@@ -74,7 +74,7 @@ services:
     init: true
     build:
       dockerfile: docker/prover/Dockerfile
-    image: ghcr.io/appliedzkp/zkevm-chain/prover:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
     restart: unless-stopped
     volumes:
       - ./testnet:/host:ro
@@ -120,7 +120,7 @@ services:
     restart: unless-stopped
     build:
       dockerfile: docker/web/Dockerfile
-    image: ghcr.io/appliedzkp/zkevm-chain/web:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/web:latest
     ports:
       - 8000:8000
 
