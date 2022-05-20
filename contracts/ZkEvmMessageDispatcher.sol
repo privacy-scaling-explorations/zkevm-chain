@@ -5,8 +5,9 @@ import './interfaces/IZkEvmMessageDispatcher.sol';
 import './ZkEvmUtils.sol';
 import './ZkEvmMagicNumbers.sol';
 import './ZkEvmBridgeEvents.sol';
+import './ZkEvmStorage.sol';
 
-contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMagicNumbers, ZkEvmBridgeEvents {
+contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMagicNumbers, ZkEvmBridgeEvents, ZkEvmStorage {
   /// @inheritdoc IZkEvmMessageDispatcher
   function dispatchMessage (
     address to,
@@ -75,14 +76,6 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
     }
 
     emit MessageDropped(messageHash);
-  }
-
-  function _PENDING_MESSAGE_KEY (bytes32 messageId) internal pure returns (bytes32 ret) {
-    assembly {
-      mstore(0, 0x31df76a4)
-      mstore(32, messageId)
-      ret := keccak256(0, 64)
-    }
   }
 
   function _sload (bytes32 key) internal view returns (uint256 ret) {

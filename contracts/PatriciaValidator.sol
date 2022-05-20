@@ -139,7 +139,7 @@ contract PatriciaValidator {
       }
 
       // decodes all RLP encoded data and stores their DATA items
-      // in a continous memory region.
+      // [length - 128 bits | calldata offset - 128 bits] in a continous memory region.
       // Expects that the RLP starts with a list that defines the length
       // of the whole RLP region.
       function decodeFlat (_ptr) -> ptr, memStart, nItems, hash {

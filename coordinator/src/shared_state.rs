@@ -2,11 +2,9 @@ use std::cmp;
 use std::collections::HashMap;
 use std::env::var;
 use std::sync::Arc;
-use std::time::Duration;
 use std::time::SystemTime;
 
 use tokio::sync::Mutex;
-use tokio::time::sleep;
 
 use ethers_core::abi::Abi;
 use ethers_core::abi::AbiParser;
@@ -62,6 +60,9 @@ pub struct RwState {
     pub l2_delivered_messages: Vec<H256>,
     pub l2_message_queue: Vec<MessageBeacon>,
     pub l1_delivered_messages: Vec<H256>,
+
+    /// keeps track of the timestamp used for preparing the last block
+    _prev_timestamp: u64,
 }
 
 #[derive(Clone)]
@@ -87,9 +88,9 @@ impl SharedState {
                 "event MessageDelivered(bytes32 id)",
                 "function submitBlock(bytes)",
                 "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
-                "function deliverMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
                 "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
                 "function stateRoot() returns (bytes32)",
+                "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
             ])
             .expect("parse abi");
 
@@ -137,6 +138,8 @@ impl SharedState {
                 l2_delivered_messages: Vec::new(),
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
+
+                _prev_timestamp: 0,
             })),
         }
     }
@@ -333,6 +336,44 @@ impl SharedState {
                     .expect("nonce");
 
                 const LOG_TAG: &str = "L2:deliverMessage:";
+
+                // anchors a L1 block into L2
+                let l1_block_header: BlockHeader = self
+                    .request_l1("eth_getHeaderByNumber", ["latest"])
+                    .await
+                    .expect("l1 block header");
+                // TODO: figure out how to get by hash - gonna be safer
+                // Or just hash it and compare against l1_block_header.hash.
+                let block_data: Bytes = self
+                    .request_l1("debug_getHeaderRlp", [l1_block_header.number.as_u64()])
+                    .await
+                    .expect("block_data");
+                // import l1 block
+                let calldata = self
+                    .ro
+                    .bridge_abi
+                    .function("importBlockHeader")
+                    .unwrap()
+                    .encode_input(&[
+                        U256::from(l1_block_header.number.as_u64()).into_token(),
+                        l1_block_header.hash.into_token(),
+                        block_data.into_token(),
+                    ])
+                    .expect("calldata");
+                let block_import_tx = self
+                    .sign_l2(
+                        self.ro.l2_message_deliverer_addr,
+                        U256::zero(),
+                        nonce,
+                        calldata,
+                    )
+                    .await;
+                messages.push(block_import_tx.clone());
+                nonce = nonce + 1;
+                // Use this block to run the messages against.
+                // This is required for proper gas calculation.
+                let temporary_block = self._prepare_block(Some(vec![block_import_tx])).await;
+
                 let ts = U256::from(timestamp());
                 for msg in todo {
                     if msg.deadline < ts {
@@ -350,10 +391,25 @@ impl SharedState {
 
                     log::info!("{} skip={} {:?}", LOG_TAG, found, msg);
                     if !found {
+                        // calculate the storage slot for this message
+                        let storage_slot = msg.storage_slot();
+                        // request proof
+                        let proof_obj: ProofRequest = self
+                            .request_l1(
+                                "eth_getProof",
+                                (self.ro.l1_bridge_addr, [storage_slot], l1_block_header.hash),
+                            )
+                            .await
+                            .expect("eth_getProof");
+                        // encode proof
+                        let proof: Bytes = Bytes::from(marshal_proof(
+                            &proof_obj.account_proof,
+                            &proof_obj.storage_proof[0].proof,
+                        ));
                         let calldata = self
                             .ro
                             .bridge_abi
-                            .function("deliverMessage")
+                            .function("deliverMessageWithProof")
                             .unwrap()
                             .encode_input(&[
                                 msg.from.into_token(),
@@ -363,14 +419,16 @@ impl SharedState {
                                 msg.deadline.into_token(),
                                 msg.nonce.into_token(),
                                 Token::Bytes(msg.calldata),
+                                proof.into_token(),
                             ])
                             .expect("calldata");
                         messages.push(
-                            self.sign_l2(
+                            self.sign_l2_given_block_tag(
                                 self.ro.l2_message_deliverer_addr,
                                 U256::zero(),
                                 nonce,
                                 calldata,
+                                Some(format!("{:#066x}", temporary_block.hash.unwrap())),
                             )
                             .await,
                         );
@@ -525,7 +583,24 @@ impl SharedState {
         .await
     }
 
+    /// Estimates gas against "latest" block and returns a raw signed transaction.
+    /// Throws on error.
     pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
+        self.sign_l2_given_block_tag(to, value, nonce, calldata, None)
+            .await
+    }
+
+    /// Estimates gas against `option_block` or "latest" block and returns a raw signed
+    /// transaction.
+    /// Throws on error.
+    pub async fn sign_l2_given_block_tag(
+        &self,
+        to: Address,
+        value: U256,
+        nonce: U256,
+        calldata: Vec<u8>,
+        option_block: Option<String>,
+    ) -> Bytes {
         let wallet = &self.ro.l2_wallet;
         let wallet_addr: Address = wallet.address();
         let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await.expect("gasPrice");
@@ -536,8 +611,9 @@ impl SharedState {
             .value(value)
             .gas_price(gas_price * 2u64)
             .data(calldata);
+        let block_tag = option_block.unwrap_or_else(|| "latest".into());
         let estimate: U256 = self
-            .request_l2("eth_estimateGas", [&tx])
+            .request_l2("eth_estimateGas", (&tx, block_tag))
             .await
             .expect("estimateGas");
         let tx = tx.gas(estimate).into();
@@ -568,16 +644,19 @@ impl SharedState {
         )
     }
 
-    pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
-        // sleep a bit to avoid mining too fast (timestamp)
-        sleep(Duration::from_millis(1000)).await;
-
-        // request new block
-        let ts = timestamp();
+    async fn _prepare_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+        let mut ts = timestamp();
+        let prev_timestamp = self.rw.lock().await._prev_timestamp;
+        if prev_timestamp >= ts {
+            // This can potentially lead to a timestamp too far into the future
+            // if mining too fast.
+            ts = prev_timestamp + 1;
+        }
         let parent = self.rw.lock().await.chain_state.head_block_hash;
         let random = H256::zero();
         let timestamp: U64 = ts.into();
 
+        // request new block
         let prepared_block: Block<Transaction> = self
             .request_l2(
                 "miner_sealBlock",
@@ -595,6 +674,13 @@ impl SharedState {
             prepared_block.transactions.len()
         );
 
+        self.rw.lock().await._prev_timestamp = ts;
+
+        prepared_block
+    }
+
+    pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+        let prepared_block = self._prepare_block(transactions).await;
         let block_hash = prepared_block.hash.unwrap();
 
         // set canonical chain head
