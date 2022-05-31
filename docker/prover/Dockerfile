@@ -10,7 +10,7 @@ ENV CFLAGS='-Wa,--compress-debug-sections=none -Wl,--compress-debug-sections=non
 ENV RUSTFLAGS='-C linker=rust-lld -Lnative=/usr/lib -Lnative=/usr/lib/gcc/aarch64-alpine-linux-musl/10.3.1/ -Lnative=/usr/lib/gcc/x86_64-alpine-linux-musl/10.3.1/'
 
 WORKDIR /
-#RUN git clone --depth=1 https://github.com/appliedzkp/zkevm-circuits.git
+#RUN git clone --depth=1 https://github.com/privacy-scaling-explorations/zkevm-circuits.git
 RUN git clone --depth=1 -b test https://github.com/pinkiebell/zkevm-circuits.git
 WORKDIR /zkevm-circuits
 RUN cargo build --bins --release --target-dir /target --package prover

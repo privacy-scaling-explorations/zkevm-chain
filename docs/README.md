@@ -45,7 +45,7 @@ Messages can also be dropped to reclaim ETH if they exceed the message `deadline
 ###### Addresses on L1 testnet
 - [`ZkEvmL1Bridge`][ZkEvmL1Bridge]
   - `936a70c0b28532aa22240dce21f89a8399d6ac60`
-- [`L1OptimismBridge`](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/optimism/L1OptimismBridge.sol) - A Optimisms `ICrossDomainMessenger` compatibility contract
+- [`L1OptimismBridge`][L1OptimismBridge] - A Optimisms `ICrossDomainMessenger` compatibility contract
   - `936a70c0b28532aa22240dce21f89a8399d6ac61`
 
 ### Layer 2 - Bridge
@@ -64,7 +64,7 @@ Messages from L2 to L1 can be invoked via calling [`dispatchMessage`][IZkEvmMess
 
 ### Layer 2 - go-ethereum
 
-The [geth fork](https://github.com/appliedzkp/go-ethereum) aims to be even with - or as close as possible to upstream.
+The [geth fork][geth-fork] aims to be even with - or as close as possible to upstream.
 The zkEVM fork option includes the same EIPs as
 [Arrow Glacier](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/arrow-glacier.md)
 **except**:
@@ -92,9 +92,9 @@ Additionaly, only partial data of each L2 Block is submitted on L1 and therefore
     Returns the block if successful.
 
 ### Layer 2 - Genesis Contracts
-- [zkEVM Layer 2 Message Deliverer](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol)
+- [zkEVM Layer 2 Message Deliverer][ZkEvmL2MessageDeliverer]
   - `0000000000000000000000000000000000010000`
-- [zkEVM Layer 2 Message Dispatcher](https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDispatcher.sol)
+- [zkEVM Layer 2 Message Dispatcher][ZkEvmL2MessageDispatcher]
   - `0000000000000000000000000000000000020000`
 - [Optimism WETH9](https://optimistic.etherscan.io/address/0x4200000000000000000000000000000000000006)
   - `4200000000000000000000000000000000000006`
@@ -137,12 +137,14 @@ mine_l1_to_l2_messages --> L1-MessageDispatched-events --> ZkEvmL2MessageDeliver
 mine --> tx_pool_pending? --> miner_sealBlock --> verify_block --> miner_setHead
 ```
 
-[IZkEvmMessageDispatcher]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDispatcher.sol
-[ZkEvmL2MessageDispatcher]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDispatcher.sol
-[ZkEvmL2MessageDeliverer]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL2MessageDeliverer.sol
-[IZkEvmMessageDelivererWithProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithProof.sol
-[IZkEvmMessageDelivererWithoutProof]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/interfaces/IZkEvmMessageDelivererWithoutProof.sol
-[ZkEvmL1Bridge]: https://github.com/appliedzkp/zkevm-chain/blob/master/contracts/ZkEvmL1Bridge.sol
-[l1-genesis-template]: https://github.com/appliedzkp/zkevm-chain/blob/master/testnet/l1-genesis-template.json
-[l2-genesis-template]: https://github.com/appliedzkp/zkevm-chain/blob/master/testnet/l2-genesis-template.json
-[env-example]: https://github.com/appliedzkp/zkevm-chain/blob/master/.env.example
+[IZkEvmMessageDispatcher]: ../contracts/interfaces/IZkEvmMessageDispatcher.sol
+[ZkEvmL2MessageDispatcher]: ../contracts/ZkEvmL2MessageDispatcher.sol
+[ZkEvmL2MessageDeliverer]: ../contracts/ZkEvmL2MessageDeliverer.sol
+[IZkEvmMessageDelivererWithProof]: ../contracts/interfaces/IZkEvmMessageDelivererWithProof.sol
+[IZkEvmMessageDelivererWithoutProof]: ../contracts/interfaces/IZkEvmMessageDelivererWithoutProof.sol
+[ZkEvmL1Bridge]: ../contracts/ZkEvmL1Bridge.sol
+[l1-genesis-template]: ../testnet/l1-genesis-template.json
+[l2-genesis-template]: ../testnet/l2-genesis-template.json
+[env-example]: ../.env.example
+[L1OptimismBridge]: ../contracts/optimism/L1OptimismBridge.sol
+[geth-fork]: https://github.com/privacy-scaling-explorations/go-ethereum
