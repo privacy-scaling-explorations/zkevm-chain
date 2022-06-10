@@ -7,43 +7,84 @@ networks:
 services:
   #TODO: add additional bootnode
   leader-testnet-geth:
-    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
+    build:
+      dockerfile: docker/geth/Dockerfile
+    image: ghcr.io/privacy-scaling-explorations/geth:latest
     restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
-      - ./testnet:/host
     ports:
       - 30303:30303
     environment:
       - MINER_PRIV_KEY
       - MINER_ADDRESS
-    entrypoint: '/host/init.sh'
-    command: /host/l2-genesis-template.json /host/l2-genesis-generated.json --gcmode archive --networkid 99 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
+      - GENESIS=l2-testnet
+    command:
+      --networkid 99
+      --gcmode archive
+      --unlock $MINER_ADDRESS
+      --password /dev/null
+      --allow-insecure-unlock
+      --miner.gaslimit 4000000
+      --nodiscover
+      --http
+      --http.addr "[::]"
+      --http.port 8545
+      --http.corsdomain=*
+      --http.vhosts=*
+      --http.api eth,net,web3,txpool,miner,debug
+      --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
 
   server-testnet-geth:
+    depends_on:
+      - leader-testnet-geth
     deploy:
       replicas: 2
-    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
+    build:
+      dockerfile: docker/geth/Dockerfile
+    image: ghcr.io/privacy-scaling-explorations/geth:latest
     restart: unless-stopped
-    volumes:
-      - ./testnet:/host:ro
     environment:
+      - MINER_ADDRESS
+      - GENESIS=l2-testnet
       - BOOTNODE=enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303
-    entrypoint: /bin/sh
     # normally those serving nodes should not serving the debug namespace + gcmode archive - only for testnet
-    command: -c 'geth init /host/l2-genesis-generated.json && geth console --exec admin.addTrustedPeer\(\"$$BOOTNODE\"\) && exec geth --gcmode archive --syncmode full --http --http.addr "[::]" --http.port 8545 --http.api eth,net,web3,debug --networkid 99 --bootnodes $$BOOTNODE'
+    command:
+      --networkid 99
+      --gcmode archive
+      --syncmode full
+      --http
+      --http.addr "[::]"
+      --http.port 8545
+      --http.corsdomain=*
+      --http.vhosts=*
+      --http.api eth,net,web3,debug
 
   l1-testnet-geth:
-    image: ghcr.io/privacy-scaling-explorations/go-ethereum:latest
+    build:
+      dockerfile: docker/geth/Dockerfile
+    image: ghcr.io/privacy-scaling-explorations/geth:latest
     restart: unless-stopped
     volumes:
       - l1-testnet-geth:/root
-      - ./testnet:/host
     environment:
       - MINER_PRIV_KEY
       - MINER_ADDRESS
-    entrypoint: '/host/init.sh'
-    command: /host/l1-genesis-template.json /root/genesis.json --networkid 98 --unlock $MINER_ADDRESS --password /dev/null --miner.gaslimit 10000000 --mine
+      - GENESIS=l1-testnet
+    command:
+      --networkid 98
+      --unlock $MINER_ADDRESS
+      --password /dev/null
+      --allow-insecure-unlock
+      --nodiscover
+      --miner.gaslimit 10000000
+      --mine
+      --http
+      --http.addr "[::]"
+      --http.port 8545
+      --http.corsdomain=*
+      --http.vhosts=*
+      --http.api eth,net,web3,debug
 
   coordinator:
     init: true
@@ -56,11 +97,8 @@ services:
       - l1-testnet-geth
       - prover-rpcd
     restart: unless-stopped
-    volumes:
-      - ./testnet:/host:ro
     environment:
       - LISTEN=[::]:8545
-      - PARAMS_PATH=/host/params
       - RPC_SERVER_NODES=server-testnet-geth:8545
       - L2_RPC_URL=http://leader-testnet-geth:8545
       - L1_RPC_URL=http://l1-testnet-geth:8545
@@ -76,11 +114,9 @@ services:
       dockerfile: docker/prover/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
     restart: unless-stopped
-    volumes:
-      - ./testnet:/host:ro
     environment:
       - BIND=[::]:8545
-      - PARAMS_PATH=/host/params
+      - PARAMS_PATH=/testnet-params
 
   dev:
     profiles:
@@ -90,7 +126,7 @@ services:
       - server-testnet-geth
       - l1-testnet-geth
       - prover-rpcd
-    image: rust:1.58.1
+    image: rust:1.61.0
     volumes:
       - .:/app
       - dev-build-cache:/app/coordinator/target:overlay
