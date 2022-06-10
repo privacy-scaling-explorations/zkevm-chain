@@ -143,8 +143,8 @@ mine --> tx_pool_pending? --> miner_sealBlock --> verify_block --> miner_setHead
 [IZkEvmMessageDelivererWithProof]: ../contracts/interfaces/IZkEvmMessageDelivererWithProof.sol
 [IZkEvmMessageDelivererWithoutProof]: ../contracts/interfaces/IZkEvmMessageDelivererWithoutProof.sol
 [ZkEvmL1Bridge]: ../contracts/ZkEvmL1Bridge.sol
-[l1-genesis-template]: ../testnet/l1-genesis-template.json
-[l2-genesis-template]: ../testnet/l2-genesis-template.json
+[l1-genesis-template]: ../docker/geth/templates/l1-testnet.json
+[l2-genesis-template]: ../docker/geth/templates/l2-testnet.json
 [env-example]: ../.env.example
 [L1OptimismBridge]: ../contracts/optimism/L1OptimismBridge.sol
 [geth-fork]: https://github.com/privacy-scaling-explorations/go-ethereum

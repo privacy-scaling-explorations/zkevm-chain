@@ -133,7 +133,6 @@ services:
       - dev-cargo-cache:/usr/local:overlay
     environment:
       - LISTEN=[::]:8000
-      - PARAMS_PATH=/app/testnet/params
       - RPC_SERVER_NODES=server-testnet-geth:8545
       - L2_RPC_URL=http://leader-testnet-geth:8545
       - L1_RPC_URL=http://l1-testnet-geth:8545

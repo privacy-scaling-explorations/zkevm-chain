@@ -13,8 +13,8 @@ const L2_CONTRACTS = {
   '0000000000000000000000000000000000020000': 'ZkEvmL2MessageDispatcher.bin-runtime',
   '4200000000000000000000000000000000000007': 'L2OptimisimBridge.bin-runtime',
 };
-const L1_TEMPLATE_PATH = './testnet/l1-genesis-template.json';
-const L2_TEMPLATE_PATH = './testnet/l2-genesis-template.json';
+const L1_TEMPLATE_PATH = 'docker/geth/templates/l1-testnet.json';
+const L2_TEMPLATE_PATH = 'docker/geth/templates/l2-testnet.json';
 
 const OBJS = [
   [L1_TEMPLATE_PATH, L1_CONTRACTS],

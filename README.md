@@ -6,7 +6,6 @@
 |`contracts/`|l1/l2 bridge contracts|
 |`docker/`|dockerfiles for various purposes|
 |`scripts/`|helpful scripts|
-|`testnet/`|contains files associated with the zkevm testnet|
 
 ## Setup
 `cp .env.example .env` and edit the values. The account you specify in that file will be the miner of the clique network and will have ETH allocated in the genesis block.
