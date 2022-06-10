@@ -282,7 +282,8 @@ impl SharedState {
 
                 if topic == self.ro.message_dispatched_topic {
                     let beacon = self._parse_message_beacon(log);
-                    log::info!("L1:MessageDispatched:{:?}", beacon);
+                    log::info!("L1:MessageDispatched:{:?}", beacon.id);
+                    log::debug!("{:?}", beacon);
                     self.rw.lock().await.l1_message_queue.push(beacon);
                     continue;
                 }
@@ -377,7 +378,8 @@ impl SharedState {
                 let ts = U256::from(timestamp());
                 for msg in todo {
                     if msg.deadline < ts {
-                        log::info!("{} {:?} deadline exceeded", LOG_TAG, msg);
+                        log::info!("{} {:?} deadline exceeded", LOG_TAG, msg.id);
+                        log::debug!("{:?}", msg);
                         continue;
                     }
 
@@ -389,7 +391,8 @@ impl SharedState {
                         .iter()
                         .any(|&e| e == msg.id);
 
-                    log::info!("{} skip={} {:?}", LOG_TAG, found, msg);
+                    log::info!("{} skip={} {:?}", LOG_TAG, found, msg.id);
+                    log::debug!("{:?}", msg);
                     if !found {
                         // calculate the storage slot for this message
                         let storage_slot = msg.storage_slot();
@@ -746,7 +749,8 @@ impl SharedState {
         let mut pending = vec![];
         for log in logs {
             let beacon = self._parse_message_beacon(log);
-            log::info!("L1Relay: {:?}", beacon);
+            log::info!("L1Relay: {:?}", beacon.id);
+            log::debug!("{:?}", beacon);
             pending.push(beacon);
         }
 
@@ -772,7 +776,8 @@ impl SharedState {
                 // check deadline
                 let ts_with_padding = U256::from(timestamp() + 900);
                 if msg.deadline < ts_with_padding {
-                    log::info!("{} {:?} deadline exceeded", LOG_TAG, msg);
+                    log::info!("{} {:?} deadline exceeded", LOG_TAG, msg.id);
+                    log::debug!("{:?}", msg);
                     continue;
                 }
             }
@@ -785,7 +790,8 @@ impl SharedState {
                 .iter()
                 .any(|&e| e == msg.id);
 
-            log::info!("{} skip={} {:?}", LOG_TAG, found, msg);
+            log::info!("{} skip={} {:?}", LOG_TAG, found, msg.id);
+            log::debug!("{:?}", msg);
             if found {
                 continue;
             }
