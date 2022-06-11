@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile']
+        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile', 'docker/geth/Dockerfile']
     steps:
       - uses: actions/checkout@v2
         with:
