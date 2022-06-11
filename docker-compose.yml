@@ -126,7 +126,7 @@ services:
       - server-testnet-geth
       - l1-testnet-geth
       - prover-rpcd
-    image: rust:1.61.0
+    image: rust:1.58.1
     volumes:
       - .:/app
       - dev-build-cache:/app/coordinator/target:overlay
