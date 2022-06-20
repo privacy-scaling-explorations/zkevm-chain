@@ -5,7 +5,6 @@ networks:
     name: zkevm-chain
 
 services:
-  #TODO: add additional bootnode
   leader-testnet-geth:
     build:
       dockerfile: docker/geth/Dockerfile
@@ -13,20 +12,20 @@ services:
     restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
-    ports:
-      - 30303:30303
     environment:
       - MINER_PRIV_KEY
       - MINER_ADDRESS
       - GENESIS=l2-testnet
+      # only used to get faster initial p2p connection setup
+      - BOOTNODE=enode://61f076e9af396ecb5a0a8fb1a2c17491c3514f2abea0c228a3fcee49395339df2008fe201b37c7c0a565b775c5f8f5389b0b3de1701dc532c951a094af841cac@bootnode:30303
     command:
       --networkid 99
+      --nodiscover
       --gcmode archive
       --unlock $MINER_ADDRESS
       --password /dev/null
       --allow-insecure-unlock
       --miner.gaslimit 4000000
-      --nodiscover
       --http
       --http.addr "[::]"
       --http.port 8545
@@ -35,9 +34,33 @@ services:
       --http.api eth,net,web3,txpool,miner,debug
       --nodekeyhex abebb96d7d9bbc99730439f230afd0008c0e0cb93eafb6874fecb256572252a4
 
-  server-testnet-geth:
+  bootnode:
     depends_on:
       - leader-testnet-geth
+    build:
+      dockerfile: docker/geth/Dockerfile
+    image: ghcr.io/privacy-scaling-explorations/geth:latest
+    restart: unless-stopped
+    volumes:
+      - bootnode:/root
+    ports:
+      - 30303:30303
+    environment:
+      - MINER_ADDRESS
+      - GENESIS=l2-testnet
+      - BOOTNODE=enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303
+    command:
+      --networkid 99
+      --syncmode full
+      --nodiscover
+      --gcmode archive
+      --light.serve 100
+      --light.nosyncserve
+      --nodekeyhex be6e66a76b664af9debbe2f4b3b9f21257fcce34412e10dfe383aabca9b4a9c0
+
+  server-testnet-geth:
+    depends_on:
+      - bootnode
     deploy:
       replicas: 2
     build:
@@ -47,12 +70,11 @@ services:
     environment:
       - MINER_ADDRESS
       - GENESIS=l2-testnet
-      - BOOTNODE=enode://f28f5a7706e5aec836f3136feb7d5e7264a7f0da04ac4984f0ff2421ee1dd2b135894cf0d4f5ff8c412442b95b9bb0780a9c8a8c64de2d4a8c458586fdb20829@leader-testnet-geth:30303
-    # normally those serving nodes should not serving the debug namespace + gcmode archive - only for testnet
+      - BOOTNODE=enode://61f076e9af396ecb5a0a8fb1a2c17491c3514f2abea0c228a3fcee49395339df2008fe201b37c7c0a565b775c5f8f5389b0b3de1701dc532c951a094af841cac@bootnode:30303
     command:
       --networkid 99
-      --gcmode archive
-      --syncmode full
+      --syncmode light
+      --nodiscover
       --http
       --http.addr "[::]"
       --http.port 8545
@@ -105,7 +127,7 @@ services:
       - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - L1_PRIV=$MINER_PRIV_KEY
       - PROVER_RPCD_URL=http://prover-rpcd:8545
-      - DUMMY_PROVER=1
+      - DUMMY_PROVER=${DUMMY_PROVER:-1}
       - ENABLE_FAUCET=1
 
   prover-rpcd:
@@ -139,7 +161,7 @@ services:
       - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - L1_PRIV=$MINER_PRIV_KEY
       - PROVER_RPCD_URL=http://prover-rpcd:8545
-      - DUMMY_PROVER=1
+      - DUMMY_PROVER=${DUMMY_PROVER:-1}
       - ENABLE_FAUCET=1
     ports:
       - 8000:8000
@@ -164,3 +186,4 @@ volumes:
   dev-cargo-cache:
   leader-testnet-geth:
   l1-testnet-geth:
+  bootnode:
