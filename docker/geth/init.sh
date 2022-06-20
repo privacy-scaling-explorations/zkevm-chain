@@ -17,8 +17,13 @@ if [[ ! -z $MINER_PRIV_KEY ]]; then
 fi
 
 if [[ ! -z $BOOTNODE ]]; then
-  geth $DEFAULT_GETH_ARGS --exec 'admin.addTrustedPeer("'$BOOTNODE'")' console
-  DEFAULT_GETH_ARGS="$DEFAULT_GETH_ARGS --bootnodes $BOOTNODE"
+  cat > /geth.toml << EOF
+[Node.P2P]
+BootstrapNodes = ["$BOOTNODE"]
+StaticNodes = ["$BOOTNODE"]
+EOF
+
+  DEFAULT_GETH_ARGS="$DEFAULT_GETH_ARGS --config /geth.toml"
 fi
 
 exec geth $DEFAULT_GETH_ARGS $@
