@@ -632,3 +632,25 @@ async fn witness_verifier() {
 
     log::info!("vanish: {} lagrange: {} pi: {}", vanish, lagrange, pi);
 }
+
+#[tokio::test]
+async fn test_sstore_regression() {
+    init_logger();
+
+    let shared_state = get_shared_state().await.lock().unwrap();
+
+    // test for: https://github.com/privacy-scaling-explorations/zkevm-chain/issues/5
+    // CODESIZE
+    // CODESIZE
+    // SSTORE
+    let tx = serde_json::json!([
+        {
+            "data": "0x383855",
+        },
+        "latest"
+    ]);
+    let _: U64 = shared_state
+        .request_l2("eth_estimateGas", &tx)
+        .await
+        .expect("should not crash");
+}
