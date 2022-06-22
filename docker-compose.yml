@@ -8,7 +8,7 @@ services:
   leader-testnet-geth:
     build:
       dockerfile: docker/geth/Dockerfile
-    image: ghcr.io/privacy-scaling-explorations/geth:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
     restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
@@ -39,7 +39,7 @@ services:
       - leader-testnet-geth
     build:
       dockerfile: docker/geth/Dockerfile
-    image: ghcr.io/privacy-scaling-explorations/geth:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
     restart: unless-stopped
     volumes:
       - bootnode:/root
@@ -65,7 +65,7 @@ services:
       replicas: 2
     build:
       dockerfile: docker/geth/Dockerfile
-    image: ghcr.io/privacy-scaling-explorations/geth:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
     restart: unless-stopped
     environment:
       - MINER_ADDRESS
@@ -85,7 +85,7 @@ services:
   l1-testnet-geth:
     build:
       dockerfile: docker/geth/Dockerfile
-    image: ghcr.io/privacy-scaling-explorations/geth:latest
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
     restart: unless-stopped
     volumes:
       - l1-testnet-geth:/root
