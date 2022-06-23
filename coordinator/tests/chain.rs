@@ -633,24 +633,68 @@ async fn witness_verifier() {
     log::info!("vanish: {} lagrange: {} pi: {}", vanish, lagrange, pi);
 }
 
+// test for: https://github.com/privacy-scaling-explorations/zkevm-chain/issues/5
 #[tokio::test]
-async fn test_sstore_regression() {
+async fn access_list_regression() {
     init_logger();
-
     let shared_state = get_shared_state().await.lock().unwrap();
 
-    // test for: https://github.com/privacy-scaling-explorations/zkevm-chain/issues/5
+    // CODESIZE
+    // CODESIZE
+    // SLOAD
+    //
     // CODESIZE
     // CODESIZE
     // SSTORE
-    let tx = serde_json::json!([
+    //
+    // RETURNDATASIZE
+    // CODESIZE
+    // SSTORE
+    //
+    // CODESIZE
+    // CODESIZE
+    // SLOAD
+    //
+    // ADDRESS
+    // EXTCODESIZE
+    //
+    // RETURNDATASIZE
+    // NOT
+    // EXTCODESIZE
+    //
+    // CALLVALUE
+    // EXTCODEHASH
+    //
+    // RETURNDATASIZE
+    // RETURNDATASIZE
+    // RETURNDATASIZE
+    // RETURNDATASIZE
+    // CODESIZE
+    // CALLVALUE
+    // GAS
+    // CALL
+    let req = serde_json::json!([
         {
-            "data": "0x383855",
+            "data": "0x3838543838553d3855383854303b3d193b343f3d3d3d3d38345af1",
+            "value": "0xfafbfc",
         },
-        "latest"
+        "latest",
+        {
+            "stateOverrides": {
+                "0x0000000000000000000000000000000000000000": {
+                    "balance": "0xffffffff",
+                },
+            },
+        },
     ]);
-    let _: U64 = shared_state
-        .request_l2("eth_estimateGas", &tx)
+    let l2: serde_json::Value = shared_state
+        .request_l2("debug_traceCall", &req)
         .await
         .expect("should not crash");
+    let l1: serde_json::Value = shared_state
+        .request_l1("debug_traceCall", &req)
+        .await
+        .expect("should not crash");
+
+    assert_eq!(l1, l2, "trace should be equal");
 }
