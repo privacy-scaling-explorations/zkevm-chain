@@ -520,7 +520,7 @@ impl SharedState {
         let proofs: Result<Option<Proofs>, String> = self.request_proof(&block_num).await;
 
         if let Err(err) = proofs {
-            log::error!("{} {:?}", LOG_TAG, err);
+            log::error!("{}:{} {:?}", LOG_TAG, block_num, err);
             return;
         }
 
