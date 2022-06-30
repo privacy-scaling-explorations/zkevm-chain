@@ -12,8 +12,6 @@
     "istanbulBlock": 0,
     "muirGlacierBlock": 0,
     "berlinBlock": 0,
-    "londonBlock": 0,
-    "arrowGlacierBlock": 0,
     "zkevmBlock": 0,
     "clique": {
       "period": 0,

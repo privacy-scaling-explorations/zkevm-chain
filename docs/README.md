@@ -65,14 +65,14 @@ Messages from L2 to L1 can be invoked via calling [`dispatchMessage`][IZkEvmMess
 ### Layer 2 - go-ethereum
 
 The [geth fork][geth-fork] aims to be even with - or as close as possible to upstream.
-The zkEVM fork option includes the same EIPs as
-[Arrow Glacier](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/arrow-glacier.md)
-**except**:
-- [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)
+The zkEVM fork option depends on [Berlin](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md)
+and disables:
 - [EIP-2718: Typed Transaction Envelope](https://eips.ethereum.org/EIPS/eip-2718)
 - [EIP-2930: Optional access lists](https://eips.ethereum.org/EIPS/eip-2930)
-- [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
-- ~~[EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)~~
+
+In addition, zkEVM enables these EIPs included in `london`:
+- [EIP-3541: Reject new contracts starting with the 0xEF byte](https://eips.ethereum.org/EIPS/eip-3541)
+- [EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)
 
 The zkEVM runs on the `Clique` consensus with one single proposer and the block submission to `ZkEvmL1Bridge` is permissioned.
 **TBD**
