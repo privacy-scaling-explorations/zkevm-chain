@@ -1,3 +1,5 @@
+FROM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:a38ef4d64a38e9137b06f32e7121d22a5c9de6034195c0c133e53acec4499152 AS params
+
 FROM rust:1.58.1-alpine as builder
 RUN apk add --no-cache git musl-dev
 
@@ -11,7 +13,7 @@ ENV RUSTFLAGS='-C linker=rust-lld -Lnative=/usr/lib -Lnative=/usr/lib/gcc/aarch6
 
 WORKDIR /
 #RUN git clone --depth=1 https://github.com/privacy-scaling-explorations/zkevm-circuits.git
-RUN git clone --depth=1 -b test https://github.com/pinkiebell/zkevm-circuits.git
+RUN git clone --depth=1 -b v2022-07-04 https://github.com/pinkiebell/zkevm-circuits.git
 WORKDIR /zkevm-circuits
 RUN cargo build --bins --release --target-dir /target --package prover
 
@@ -19,5 +21,5 @@ FROM scratch
 COPY --from=builder /target/release/prover_rpcd /
 COPY --from=builder /target/release/prover_cmd /
 COPY --from=builder /target/release/gen_params /
-COPY docker/prover/testnet-params /
+COPY --from=params /testnet /testnet
 ENTRYPOINT ["/prover_rpcd"]
