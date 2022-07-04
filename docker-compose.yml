@@ -129,6 +129,7 @@ services:
       - PROVER_RPCD_URL=http://prover-rpcd:8545
       - DUMMY_PROVER=${DUMMY_PROVER:-1}
       - ENABLE_FAUCET=1
+      - PARAMS_PATH=${PARAMS_PATH:-/testnet/19.bin}
 
   prover-rpcd:
     init: true
@@ -138,7 +139,6 @@ services:
     restart: unless-stopped
     environment:
       - BIND=[::]:8545
-      - PARAMS_PATH=/testnet-params
 
   dev:
     profiles:
@@ -163,6 +163,7 @@ services:
       - PROVER_RPCD_URL=http://prover-rpcd:8545
       - DUMMY_PROVER=${DUMMY_PROVER:-1}
       - ENABLE_FAUCET=1
+      - PARAMS_PATH=${PARAMS_PATH:-/testnet/19.bin}
     ports:
       - 8000:8000
     working_dir: /app/coordinator
