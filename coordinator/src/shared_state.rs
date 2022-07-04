@@ -47,6 +47,9 @@ pub struct RoState {
     pub l2_wallet: LocalWallet,
 
     pub bridge_abi: Abi,
+
+    /// The path of the default parameter file to use
+    pub prover_default_param: String,
 }
 
 pub struct RwState {
@@ -79,6 +82,7 @@ impl SharedState {
         l1_wallet: LocalWallet,
         l2_wallet: LocalWallet,
         prover_node: Uri,
+        prover_default_param: String,
     ) -> SharedState {
         let abi = AbiParser::default()
             .parse(&[
@@ -122,6 +126,8 @@ impl SharedState {
                 l1_wallet,
                 l2_wallet,
                 bridge_abi: abi,
+
+                prover_default_param,
             }),
             rw: Arc::new(Mutex::new(RwState {
                 chain_state: ForkchoiceStateV1 {
@@ -182,7 +188,20 @@ impl SharedState {
             .parse::<Uri>()
             .expect("Uri from PROVER_RPCD_URL");
 
-        Self::new(l2_url, l1_url, l1_bridge, l1_wallet, l2_wallet, prover_node)
+        let prover_default_param = var("PARAMS_PATH")
+            .expect("PARAMS_PATH env var")
+            .parse::<String>()
+            .unwrap();
+
+        Self::new(
+            l2_url,
+            l1_url,
+            l1_bridge,
+            l1_wallet,
+            l2_wallet,
+            prover_node,
+            prover_default_param,
+        )
     }
 
     pub async fn init(&self) {
@@ -922,13 +941,19 @@ impl SharedState {
             return Ok(Some(proof));
         }
 
+        let proof_options = ProofRequestOptions {
+            block: block_num.as_u64(),
+            rpc: self.ro.l2_node.to_string(),
+            retry: false,
+            param: self.ro.prover_default_param.clone(),
+        };
         let resp = crate::timeout!(
             5000,
             jsonrpc_request_client(
                 &self.ro.http_client,
                 &self.ro.prover_node,
                 "proof",
-                (block_num.as_u64(), self.ro.l2_node.to_string(), false)
+                [proof_options],
             )
             .await
         );

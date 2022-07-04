@@ -116,3 +116,15 @@ pub struct Witness {
     pub randomness: U256,
     pub input: Bytes,
 }
+
+#[derive(Debug, Default, Clone, serde::Serialize)]
+pub struct ProofRequestOptions {
+    /// the block number
+    pub block: u64,
+    /// the rpc url
+    pub rpc: String,
+    /// retry proof computation if error
+    pub retry: bool,
+    /// parameter file to use
+    pub param: String,
+}
