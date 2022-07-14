@@ -13,7 +13,7 @@ ENV RUSTFLAGS='-C linker=rust-lld -Lnative=/usr/lib -Lnative=/usr/lib/gcc/aarch6
 
 WORKDIR /
 #RUN git clone --depth=1 https://github.com/privacy-scaling-explorations/zkevm-circuits.git
-RUN git clone --depth=1 -b v2022-07-05-3 https://github.com/pinkiebell/zkevm-circuits.git
+RUN git clone --depth=1 -b v2022-07-14 https://github.com/pinkiebell/zkevm-circuits.git
 WORKDIR /zkevm-circuits
 RUN cargo build --bins --release --target-dir /target --package prover
 
