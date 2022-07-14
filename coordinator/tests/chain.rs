@@ -480,7 +480,7 @@ async fn patricia_validator() {
     let shared_state = get_shared_state().await.lock().unwrap();
     sync!(shared_state);
 
-    let mut cumulative_gas = U256::zero();
+    let mut cumulative_gas = 0;
     let mut samples = 0;
     for entry in std::fs::read_dir("tests/patricia/").unwrap() {
         let path = entry.expect("path").path();
@@ -544,18 +544,28 @@ async fn patricia_validator() {
                         .await
                         .expect("estimateGas");
                 // remove 'tx' cost
-                cumulative_gas += gas_estimate - 21_000;
+                cumulative_gas += gas_estimate.as_u64() - 21_000;
                 samples += 1;
             }
         }
     }
 
+    let avg: u64 = cumulative_gas / samples;
     log::info!(
         "patricia_cumulative_gas={} samples={} avg={}",
         cumulative_gas,
         samples,
-        cumulative_gas / samples
+        avg
     );
+
+    const MAX_DIFF: u64 = 1000;
+    const KNOWN_AVG: u64 = 62569;
+    if avg > (KNOWN_AVG + MAX_DIFF) || avg < (KNOWN_AVG - MAX_DIFF) {
+        panic!(
+            "patricia_validator: please update KNOWN_AVG ({}), new value: {}",
+            KNOWN_AVG, avg
+        );
+    }
 }
 
 #[tokio::test]
