@@ -139,6 +139,9 @@ services:
     restart: unless-stopped
     environment:
       - BIND=[::]:8545
+      - PROVERD_LOOKUP=prover-rpcd:8545
+    deploy:
+      replicas: 3
 
   dev:
     profiles:
