@@ -339,6 +339,9 @@ async fn main() {
             }
         });
 
-        let _ = tokio::join!(h1, h2);
+        // wait for all tasks
+        if tokio::try_join!(h1, h2).is_err() {
+            panic!("unexpected task error");
+        }
     }
 }
