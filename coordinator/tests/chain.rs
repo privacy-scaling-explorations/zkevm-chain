@@ -1,7 +1,6 @@
 use coordinator::shared_state::SharedState;
 use coordinator::structs::*;
-use coordinator::utils::jsonrpc_request;
-use coordinator::utils::marshal_proof;
+use coordinator::utils::*;
 use ethers_core::abi::encode;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::Tokenizable;
@@ -707,4 +706,135 @@ async fn access_list_regression() {
         .expect("should not crash");
 
     assert_eq!(l1, l2, "trace should be equal");
+}
+
+#[tokio::test]
+async fn native_deposit_revert() {
+    init_logger();
+
+    let abi = zkevm_abi();
+    let shared_state = get_shared_state().await.lock().unwrap();
+    let mut deposits: Vec<H256> = Vec::new();
+    let receiver = Address::zero();
+    let mut expected_balance: U256 = jsonrpc_request(
+        &shared_state.ro.l2_node,
+        "eth_getBalance",
+        (receiver, "latest"),
+    )
+    .await
+    .expect("eth_getBalance");
+
+    {
+        // create deposits
+        let mut tx_nonce: U256 = jsonrpc_request(
+            &shared_state.ro.l1_node,
+            "eth_getTransactionCount",
+            (shared_state.ro.l1_wallet.address(), "latest"),
+        )
+        .await
+        .expect("nonce");
+
+        let mut txs = Vec::new();
+        for i in 0..300 {
+            let should_revert = i % 2 == 0;
+            let from = shared_state.ro.l1_wallet.address();
+            let to = match should_revert {
+                true => shared_state.ro.l2_message_deliverer_addr,
+                false => receiver,
+            };
+            let value = U256::from(1u64);
+            let fee = U256::zero();
+            let deadline = U256::from(0xffffffffffffffffu64);
+            let nonce: U256 = rand::random::<usize>().into();
+            let data = Bytes::from([]);
+
+            let calldata = abi
+                .function("dispatchMessage")
+                .unwrap()
+                .encode_input(&[
+                    to.into_token(),
+                    fee.into_token(),
+                    deadline.into_token(),
+                    nonce.into_token(),
+                    data.clone().into_token(),
+                ])
+                .expect("calldata");
+
+            let id: H256 = keccak256(encode(&[
+                from.into_token(),
+                to.into_token(),
+                value.into_token(),
+                fee.into_token(),
+                deadline.into_token(),
+                nonce.into_token(),
+                data.into_token(),
+            ]))
+            .into();
+
+            deposits.push(id);
+            if !should_revert {
+                expected_balance = expected_balance + value;
+            }
+
+            txs.push(
+                sign_transaction_l1(
+                    &shared_state.ro.http_client,
+                    &shared_state.ro.l1_node,
+                    &shared_state.ro.l1_wallet,
+                    shared_state.ro.l1_bridge_addr,
+                    value,
+                    calldata,
+                    tx_nonce,
+                )
+                .await,
+            );
+
+            tx_nonce = tx_nonce + 1;
+        }
+
+        let mut tx_hashes = Vec::new();
+        for raw_tx in &txs {
+            let resp: Result<H256, String> = jsonrpc_request_client(
+                &shared_state.ro.http_client,
+                &shared_state.ro.l1_node,
+                "eth_sendRawTransaction",
+                [raw_tx],
+            )
+            .await;
+
+            tx_hashes.push(resp.unwrap());
+        }
+
+        for tx_hash in tx_hashes {
+            wait_for_tx!(tx_hash, &shared_state.ro.l1_node);
+        }
+    }
+
+    sync!(shared_state);
+
+    // verify that all valid deposits are picked up
+    {
+        for i in 0..deposits.len() {
+            let id = deposits[i];
+            let found = shared_state
+                .rw
+                .lock()
+                .await
+                .l2_delivered_messages
+                .iter()
+                .any(|e| e == &id);
+
+            let should_revert = i % 2 == 0;
+            assert_eq!(should_revert, !found, "message id should exist");
+        }
+
+        let balance: U256 = jsonrpc_request(
+            &shared_state.ro.l2_node,
+            "eth_getBalance",
+            (receiver, "latest"),
+        )
+        .await
+        .expect("eth_getBalance");
+        assert_eq!(expected_balance, balance, "ETH balance");
+    }
 }

@@ -70,15 +70,31 @@ pub async fn send_transaction_to_l1(
     value: U256,
     calldata: Vec<u8>,
 ) {
-    let wallet_addr: Address = wallet.address();
     let nonce: U256 = jsonrpc_request_client(
         client,
         node_uri,
         "eth_getTransactionCount",
-        (wallet_addr, "latest"),
+        (wallet.address(), "latest"),
     )
     .await
     .expect("nonce");
+
+    let raw_tx = sign_transaction_l1(client, node_uri, wallet, to, value, calldata, nonce).await;
+    // wait up to 120 seconds
+    let _ = timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await);
+}
+
+/// may override any pending transactions
+pub async fn sign_transaction_l1(
+    client: &hyper::Client<HttpConnector>,
+    node_uri: &Uri,
+    wallet: &LocalWallet,
+    to: Address,
+    value: U256,
+    calldata: Vec<u8>,
+    nonce: U256,
+) -> Bytes {
+    let wallet_addr: Address = wallet.address();
 
     let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
         .await
@@ -109,10 +125,8 @@ pub async fn send_transaction_to_l1(
         .sign_transaction(&tx)
         .await
         .expect("sign_transaction");
-    let raw_tx = tx.rlp_signed(wallet.chain_id(), &sig);
 
-    // wait up to 120 seconds
-    let _ = timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await);
+    tx.rlp_signed(wallet.chain_id(), &sig)
 }
 
 /// may override any pending transactions

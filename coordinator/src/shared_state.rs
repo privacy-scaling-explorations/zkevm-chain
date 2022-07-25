@@ -1,5 +1,6 @@
 use std::cmp;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::env::var;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -59,7 +60,7 @@ pub struct RwState {
     pub pending_proofs: u32,
     pub l1_last_sync_block: U64,
     pub l2_last_sync_block: U64,
-    pub l1_message_queue: Vec<MessageBeacon>,
+    pub l1_message_queue: VecDeque<MessageBeacon>,
     pub l2_delivered_messages: Vec<H256>,
     pub l2_message_queue: Vec<MessageBeacon>,
     pub l1_delivered_messages: Vec<H256>,
@@ -140,7 +141,7 @@ impl SharedState {
                 pending_proofs: 0,
                 l1_last_sync_block: U64::zero(),
                 l2_last_sync_block: U64::zero(),
-                l1_message_queue: Vec::new(),
+                l1_message_queue: VecDeque::new(),
                 l2_delivered_messages: Vec::new(),
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
@@ -303,7 +304,7 @@ impl SharedState {
                     let beacon = self._parse_message_beacon(log);
                     log::info!("L1:MessageDispatched:{:?}", beacon.id);
                     log::debug!("{:?}", beacon);
-                    self.rw.lock().await.l1_message_queue.push(beacon);
+                    self.rw.lock().await.l1_message_queue.push_back(beacon);
                     continue;
                 }
 
@@ -335,18 +336,8 @@ impl SharedState {
 
         {
             // check l1 > l2 message queue
-            // TODO: state mgmt for messages, processing should be done in a different step
-            // and always go through the l2 bridge
-            let mut rw = self.rw.lock().await;
-            let len = rw.l1_message_queue.len();
-
+            let len = self.rw.lock().await.l1_message_queue.len();
             if len > 0 {
-                let mut messages = vec![];
-                // TODO: we are going to lose messages if we panic below
-                let todo: Vec<MessageBeacon> =
-                    rw.l1_message_queue.drain(0..cmp::min(32, len)).collect();
-                drop(rw);
-
                 let mut nonce: U256 = self
                     .request_l2(
                         "eth_getTransactionCount",
@@ -388,78 +379,148 @@ impl SharedState {
                         calldata,
                     )
                     .await;
-                messages.push(block_import_tx.clone());
                 nonce = nonce + 1;
+
                 // Use this block to run the messages against.
                 // This is required for proper gas calculation.
-                let temporary_block = self._prepare_block(Some(vec![block_import_tx])).await;
+                let mut messages = vec![block_import_tx];
+                let mut temporary_block = self
+                    ._prepare_block(Some(messages.clone()))
+                    .await
+                    .expect("prepare block with import tx");
 
                 let ts = U256::from(timestamp());
-                for msg in todo {
+                let mut drop_idxs = Vec::new();
+                let mut i = 0;
+                loop {
+                    let rw = self.rw.lock().await;
+                    let msg = rw.l1_message_queue.get(i);
+                    if msg.is_none() {
+                        break;
+                    }
+                    let msg = msg.unwrap().clone();
+                    drop(rw);
+
                     if msg.deadline < ts {
                         log::info!("{} {:?} deadline exceeded", LOG_TAG, msg.id);
                         log::debug!("{:?}", msg);
+                        drop_idxs.push(i);
+                        i += 1;
                         continue;
                     }
 
-                    let found = self
-                        .rw
-                        .lock()
-                        .await
-                        .l2_delivered_messages
-                        .iter()
-                        .any(|&e| e == msg.id);
-
-                    log::info!("{} skip={} {:?}", LOG_TAG, found, msg.id);
-                    log::debug!("{:?}", msg);
-                    if !found {
-                        // calculate the storage slot for this message
-                        let storage_slot = msg.storage_slot();
-                        // request proof
-                        let proof_obj: ProofRequest = self
-                            .request_l1(
-                                "eth_getProof",
-                                (self.ro.l1_bridge_addr, [storage_slot], l1_block_header.hash),
-                            )
+                    {
+                        let found = self
+                            .rw
+                            .lock()
                             .await
-                            .expect("eth_getProof");
-                        // encode proof
-                        let proof: Bytes = Bytes::from(marshal_proof(
-                            &proof_obj.account_proof,
-                            &proof_obj.storage_proof[0].proof,
-                        ));
-                        let calldata = self
-                            .ro
-                            .bridge_abi
-                            .function("deliverMessageWithProof")
-                            .unwrap()
-                            .encode_input(&[
-                                msg.from.into_token(),
-                                msg.to.into_token(),
-                                msg.value.into_token(),
-                                msg.fee.into_token(),
-                                msg.deadline.into_token(),
-                                msg.nonce.into_token(),
-                                Token::Bytes(msg.calldata),
-                                proof.into_token(),
-                            ])
-                            .expect("calldata");
-                        messages.push(
-                            self.sign_l2_given_block_tag(
-                                self.ro.l2_message_deliverer_addr,
-                                U256::zero(),
-                                nonce,
-                                calldata,
-                                Some(format!("{:#066x}", temporary_block.hash.unwrap())),
-                            )
-                            .await,
-                        );
-                        nonce = nonce + 1;
+                            .l2_delivered_messages
+                            .iter()
+                            .any(|&e| e == msg.id);
+
+                        log::info!("{} skip={} {:?}", LOG_TAG, found, msg.id);
+                        log::debug!("{:?}", msg);
+
+                        if found {
+                            drop_idxs.push(i);
+                            i += 1;
+                            continue;
+                        }
                     }
+
+                    // calculate the storage slot for this message
+                    let storage_slot = msg.storage_slot();
+                    // request proof
+                    let proof_obj: ProofRequest = self
+                        .request_l1(
+                            "eth_getProof",
+                            (self.ro.l1_bridge_addr, [storage_slot], l1_block_header.hash),
+                        )
+                        .await
+                        .expect("eth_getProof");
+                    // encode proof
+                    let proof: Bytes = Bytes::from(marshal_proof(
+                        &proof_obj.account_proof,
+                        &proof_obj.storage_proof[0].proof,
+                    ));
+                    let calldata = self
+                        .ro
+                        .bridge_abi
+                        .function("deliverMessageWithProof")
+                        .unwrap()
+                        .encode_input(&[
+                            msg.from.into_token(),
+                            msg.to.into_token(),
+                            msg.value.into_token(),
+                            msg.fee.into_token(),
+                            msg.deadline.into_token(),
+                            msg.nonce.into_token(),
+                            Token::Bytes(msg.calldata),
+                            proof.into_token(),
+                        ])
+                        .expect("calldata");
+
+                    // simulate against temporary block
+                    let tx = self
+                        .sign_l2_given_block_tag(
+                            self.ro.l2_message_deliverer_addr,
+                            U256::zero(),
+                            nonce,
+                            calldata,
+                            Some(format!("{:#066x}", temporary_block.hash.unwrap())),
+                        )
+                        .await;
+                    if let Err(err) = tx {
+                        log::debug!("{} simulate tx {}", LOG_TAG, err);
+                        drop_idxs.push(i);
+                        i += 1;
+                        continue;
+                    }
+
+                    // try to build that block
+                    messages.push(tx.unwrap());
+                    let tmp = self._prepare_block(Some(messages.clone())).await;
+                    if let Err(err) = tmp {
+                        log::debug!("{} {}", LOG_TAG, err);
+                        // bad tx
+                        messages.pop();
+
+                        match err.as_str() {
+                            "gas limit reached" => {
+                                // block is full
+                                break;
+                            }
+                            _ => {
+                                // another error, probably a revert
+                                drop_idxs.push(i);
+                                i += 1;
+                                continue;
+                            }
+                        }
+                    }
+
+                    // block looks good
+                    temporary_block = tmp.unwrap();
+                    log::debug!(
+                        "{} used={} limit={}",
+                        LOG_TAG,
+                        temporary_block.gas_used,
+                        temporary_block.gas_limit
+                    );
+                    nonce = nonce + 1;
+                    drop_idxs.push(i);
+                    i += 1;
                 }
 
-                if !messages.is_empty() {
+                // final step
+                if messages.len() > 1 {
                     self.mine_block(Some(messages)).await;
+                }
+
+                // everything went well
+                let mut rw = self.rw.lock().await;
+                for (i, original_pos) in drop_idxs.into_iter().enumerate() {
+                    rw.l1_message_queue.remove(original_pos - i);
                 }
             }
         }
@@ -610,11 +671,11 @@ impl SharedState {
     pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
         self.sign_l2_given_block_tag(to, value, nonce, calldata, None)
             .await
+            .expect("sign_l2")
     }
 
     /// Estimates gas against `option_block` or "latest" block and returns a raw signed
     /// transaction.
-    /// Throws on error.
     pub async fn sign_l2_given_block_tag(
         &self,
         to: Address,
@@ -622,10 +683,10 @@ impl SharedState {
         nonce: U256,
         calldata: Vec<u8>,
         option_block: Option<String>,
-    ) -> Bytes {
+    ) -> Result<Bytes, String> {
         let wallet = &self.ro.l2_wallet;
         let wallet_addr: Address = wallet.address();
-        let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await.expect("gasPrice");
+        let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await?;
         let tx = TransactionRequest::new()
             .from(wallet_addr)
             .to(to)
@@ -634,14 +695,14 @@ impl SharedState {
             .gas_price(gas_price * 2u64)
             .data(calldata);
         let block_tag = option_block.unwrap_or_else(|| "latest".into());
-        let estimate: U256 = self
-            .request_l2("eth_estimateGas", (&tx, block_tag))
-            .await
-            .expect("estimateGas");
+        let estimate: U256 = self.request_l2("eth_estimateGas", (&tx, block_tag)).await?;
         let tx = tx.gas(estimate).into();
-        let sig = wallet.sign_transaction(&tx).await.unwrap();
+        let sig = wallet
+            .sign_transaction(&tx)
+            .await
+            .map_err(|e| e.to_string())?;
 
-        tx.rlp_signed(wallet.chain_id(), &sig)
+        Ok(tx.rlp_signed(wallet.chain_id(), &sig))
     }
 
     pub async fn request_l1<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -666,7 +727,10 @@ impl SharedState {
         )
     }
 
-    async fn _prepare_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
+    async fn _prepare_block(
+        &self,
+        transactions: Option<Vec<Bytes>>,
+    ) -> Result<Block<Transaction>, String> {
         let mut ts = timestamp();
         let prev_timestamp = self.rw.lock().await._prev_timestamp;
         if prev_timestamp >= ts {
@@ -689,8 +753,7 @@ impl SharedState {
                     transactions,
                 }],
             )
-            .await
-            .expect("miner_mineTransaction");
+            .await?;
         log::info!(
             "submitted block assembly request to l2 node - txs: {}",
             prepared_block.transactions.len()
@@ -698,11 +761,14 @@ impl SharedState {
 
         self.rw.lock().await._prev_timestamp = ts;
 
-        prepared_block
+        Ok(prepared_block)
     }
 
     pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
-        let prepared_block = self._prepare_block(transactions).await;
+        let prepared_block = self
+            ._prepare_block(transactions)
+            .await
+            .expect("prepare_block");
         let block_hash = prepared_block.hash.unwrap();
 
         // set canonical chain head

@@ -45,7 +45,7 @@ pub struct Proofs {
     pub evm_proof: Bytes,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MessageBeacon {
     pub id: H256,
     pub from: Address,
