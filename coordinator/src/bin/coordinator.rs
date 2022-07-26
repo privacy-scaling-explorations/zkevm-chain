@@ -1,5 +1,5 @@
 use std::env::var;
-use std::net::ToSocketAddrs;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 
 use coordinator::faucet::Faucet;
@@ -211,29 +211,32 @@ async fn handle_request(
     }
 }
 
+/// Discovers healthy nodes via DNS service discovery.
+/// If nodes are discovered but are not up-to-date, then this function attempts to choose a
+/// fallback node.
 async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
     let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
-    // discover & update nodes
-    let addrs_iter = var("RPC_SERVER_NODES")
-        .expect("RPC_SERVER_NODES env var")
-        .to_socket_addrs()
-        .unwrap();
     let mut nodes = Vec::new();
-
     let mut fallback_node_uri = None;
     let mut fallback_node_num = U64::zero();
-    for addr in addrs_iter {
+    let mut addrs = var("RPC_SERVER_NODES")
+        .expect("RPC_SERVER_NODES env var")
+        .to_socket_addrs()
+        .unwrap()
+        .collect::<Vec<SocketAddr>>();
+    addrs.sort_unstable();
+    for addr in addrs {
         let uri = Uri::try_from(format!("http://{}", addr)).unwrap();
         let header = get_chain_head(&client, &uri).await;
 
         // use the most advanced node as fallback
-        if header.number > fallback_node_num {
+        if header.number >= fallback_node_num {
             fallback_node_num = header.number;
             fallback_node_uri = Some(uri.clone());
         }
 
         if header.hash != head_hash {
-            log::warn!("skipping inconsistent node: {}", uri);
+            log::debug!("skipping inconsistent node: {}", uri);
             continue;
         }
 
@@ -242,16 +245,15 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
 
     // update nodes
     let mut rw = ctx.rw.lock().await;
-    if rw.nodes.len() != nodes.len() {
+    if nodes.is_empty() && fallback_node_uri.is_some() {
+        nodes.push(fallback_node_uri.unwrap());
+        if rw.nodes != nodes {
+            log::info!("using {} as fallback node", nodes[0]);
+        }
+    } else if rw.nodes.len() != nodes.len() {
         log::info!("found {} ready rpc nodes", nodes.len());
     }
-    if nodes.is_empty() && fallback_node_uri.is_some() {
-        let uri = fallback_node_uri.unwrap();
-        log::info!("using {} as fallback node", uri);
-        rw.nodes = vec![uri];
-    } else {
-        rw.nodes = nodes;
-    }
+    rw.nodes = nodes;
 }
 
 async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
@@ -277,7 +279,7 @@ async fn main() {
     {
         let addr = var("LISTEN")
             .expect("LISTEN env var")
-            .parse::<std::net::SocketAddr>()
+            .parse::<SocketAddr>()
             .expect("valid socket address");
         let client = hyper::Client::new();
         let shared_state = shared_state.clone();
