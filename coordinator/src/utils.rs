@@ -5,7 +5,7 @@ use hyper::{Body, Request, Uri};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::structs::{JsonRpcRequest, JsonRpcResponse};
+use crate::structs::*;
 use crate::timeout;
 
 use ethers_core::types::transaction::eip2930::AccessListWithGasUsed;
@@ -208,7 +208,7 @@ pub async fn wait_for_tx(
     }
 }
 
-pub fn format_block(block: &Block<H256>) -> String {
+pub fn format_block<T>(block: &Block<T>) -> String {
     format!(
         "Block {}({}) {} txs",
         block.number.unwrap(),
@@ -217,20 +217,15 @@ pub fn format_block(block: &Block<H256>) -> String {
     )
 }
 
-pub async fn get_chain_head_hash(client: &hyper::Client<HttpConnector>, uri: &Uri) -> H256 {
-    #[derive(serde::Deserialize)]
-    struct BlockHeader {
-        hash: H256,
-    }
-
-    let block: BlockHeader = timeout!(
+pub async fn get_chain_head(client: &hyper::Client<HttpConnector>, uri: &Uri) -> BlockHeader {
+    let header: BlockHeader = timeout!(
         5000,
         jsonrpc_request_client(client, uri, "eth_getHeaderByNumber", ["latest"])
             .await
             .unwrap()
     );
 
-    block.hash
+    header
 }
 
 pub async fn get_blocks_between(

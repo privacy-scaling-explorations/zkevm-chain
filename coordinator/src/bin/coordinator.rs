@@ -9,7 +9,7 @@ use coordinator::utils::*;
 
 use env_logger::Env;
 
-use ethers_core::types::Address;
+use ethers_core::types::{Address, U64};
 
 use tokio::task::spawn;
 use tokio::time::sleep;
@@ -220,10 +220,19 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
         .unwrap();
     let mut nodes = Vec::new();
 
+    let mut fallback_node_uri = None;
+    let mut fallback_node_num = U64::zero();
     for addr in addrs_iter {
         let uri = Uri::try_from(format!("http://{}", addr)).unwrap();
-        let hash = get_chain_head_hash(&client, &uri).await;
-        if hash != head_hash {
+        let header = get_chain_head(&client, &uri).await;
+
+        // use the most advanced node as fallback
+        if header.number > fallback_node_num {
+            fallback_node_num = header.number;
+            fallback_node_uri = Some(uri.clone());
+        }
+
+        if header.hash != head_hash {
             log::warn!("skipping inconsistent node: {}", uri);
             continue;
         }
@@ -231,10 +240,16 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
         nodes.push(uri);
     }
 
+    // update nodes
     let mut rw = ctx.rw.lock().await;
-    if rw.nodes.len() != nodes.len() {
+    if rw.nodes != nodes {
         log::info!("found {} ready rpc nodes", nodes.len());
-        // update nodes
+    }
+    if nodes.is_empty() && fallback_node_uri.is_some() {
+        let uri = fallback_node_uri.unwrap();
+        log::info!("using {} as fallback node", uri);
+        rw.nodes = vec![uri];
+    } else {
         rw.nodes = nodes;
     }
 }

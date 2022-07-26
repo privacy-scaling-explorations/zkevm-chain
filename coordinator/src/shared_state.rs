@@ -325,7 +325,9 @@ impl SharedState {
 
     pub async fn mine(&self) {
         // TODO: verify that head_hash is correct
-        let head_hash = get_chain_head_hash(&self.ro.http_client, &self.ro.l2_node).await;
+        let head_hash = get_chain_head(&self.ro.http_client, &self.ro.l2_node)
+            .await
+            .hash;
         self.rw.lock().await.chain_state.head_block_hash = head_hash;
 
         {
@@ -384,12 +386,13 @@ impl SharedState {
                 // Use this block to run the messages against.
                 // This is required for proper gas calculation.
                 let mut messages = vec![block_import_tx];
+                let block_timestamp = self.next_timestamp().await;
                 let mut temporary_block = self
-                    ._prepare_block(Some(messages.clone()))
+                    .prepare_block(block_timestamp, Some(&messages))
                     .await
                     .expect("prepare block with import tx");
 
-                let ts = U256::from(timestamp());
+                let ts = U256::from(block_timestamp);
                 let mut drop_idxs = Vec::new();
                 let mut i = 0;
                 loop {
@@ -479,7 +482,7 @@ impl SharedState {
 
                     // try to build that block
                     messages.push(tx.unwrap());
-                    let tmp = self._prepare_block(Some(messages.clone())).await;
+                    let tmp = self.prepare_block(block_timestamp, Some(&messages)).await;
                     if let Err(err) = tmp {
                         log::debug!("{} {}", LOG_TAG, err);
                         // bad tx
@@ -513,8 +516,10 @@ impl SharedState {
                 }
 
                 // final step
-                if messages.len() > 1 {
-                    self.mine_block(Some(messages)).await;
+                if temporary_block.transactions.len() > 1 {
+                    self.set_chain_head(temporary_block.hash.unwrap())
+                        .await
+                        .expect("set_chain_head relay");
                 }
 
                 // everything went well
@@ -530,7 +535,7 @@ impl SharedState {
         let pending_txs = resp.pending.as_u64();
 
         if pending_txs != 0 {
-            self.mine_block(None).await;
+            self.mine_block(None).await.expect("mine_block regular");
         }
     }
 
@@ -727,29 +732,38 @@ impl SharedState {
         )
     }
 
-    async fn _prepare_block(
-        &self,
-        transactions: Option<Vec<Bytes>>,
-    ) -> Result<Block<Transaction>, String> {
+    /// Returns a timestamp that takes care of being greater than the previous one.
+    /// This can potentially lead to a timestamp too far into the future
+    /// if used too fast.
+    async fn next_timestamp(&self) -> u64 {
         let mut ts = timestamp();
-        let prev_timestamp = self.rw.lock().await._prev_timestamp;
-        if prev_timestamp >= ts {
-            // This can potentially lead to a timestamp too far into the future
-            // if mining too fast.
-            ts = prev_timestamp + 1;
-        }
-        let parent = self.rw.lock().await.chain_state.head_block_hash;
-        let random = H256::zero();
-        let timestamp: U64 = ts.into();
+        let mut rw = self.rw.lock().await;
 
+        if ts <= rw._prev_timestamp {
+            ts = rw._prev_timestamp + 1;
+        }
+        rw._prev_timestamp = ts;
+
+        ts
+    }
+
+    /// Creates a new block with `transactions` on `l2_node`.
+    /// If `transactions` is `Some` then any transaction errors
+    /// are returned as `Err`. Otherwise it draws from the transaction pool and reverted
+    /// transactions are not considered to be errors.
+    async fn prepare_block(
+        &self,
+        timestamp: u64,
+        transactions: Option<&Vec<Bytes>>,
+    ) -> Result<Block<Transaction>, String> {
         // request new block
         let prepared_block: Block<Transaction> = self
             .request_l2(
                 "miner_sealBlock",
                 [SealBlockRequest {
-                    parent,
-                    random,
-                    timestamp,
+                    parent: &self.rw.lock().await.chain_state.head_block_hash,
+                    random: &H256::zero(),
+                    timestamp: &timestamp.into(),
                     transactions,
                 }],
             )
@@ -759,27 +773,33 @@ impl SharedState {
             prepared_block.transactions.len()
         );
 
-        self.rw.lock().await._prev_timestamp = ts;
-
         Ok(prepared_block)
     }
 
-    pub async fn mine_block(&self, transactions: Option<Vec<Bytes>>) -> Block<Transaction> {
-        let prepared_block = self
-            ._prepare_block(transactions)
-            .await
-            .expect("prepare_block");
-        let block_hash = prepared_block.hash.unwrap();
+    /// Set canonical chain head on `l2_node` and update `chain_state`.
+    pub async fn set_chain_head(&self, block_hash: H256) -> Result<(), String> {
+        let res: bool = self.request_l2("miner_setHead", [block_hash]).await?;
 
-        // set canonical chain head
-        // always returns true or throws
-        let _: bool = self
-            .request_l2("miner_setHead", [block_hash])
-            .await
-            .expect("miner_setHead");
+        if !res {
+            return Err(format!("unable to set chain head to {:?}", block_hash));
+        }
+
         self.rw.lock().await.chain_state.head_block_hash = block_hash;
+        Ok(())
+    }
 
-        prepared_block
+    /// Mines a new block on `l2_node` and sets the chain head.
+    /// The transaction pool will be used if `transactions` is `None`.
+    pub async fn mine_block(
+        &self,
+        transactions: Option<&Vec<Bytes>>,
+    ) -> Result<Block<Transaction>, String> {
+        let block = self
+            .prepare_block(self.next_timestamp().await, transactions)
+            .await?;
+
+        self.set_chain_head(block.hash.unwrap()).await?;
+        Ok(block)
     }
 
     /// keeps track of l2 bridge message events

@@ -34,9 +34,10 @@ macro_rules! wait_for_tx {
         let mut resp: Option<TransactionReceipt> = None;
 
         while (resp.is_none()) {
-            resp = jsonrpc_request($url, "eth_getTransactionReceipt", [$tx_hash])
-                .await
-                .expect("eth_getTransactionReceipt");
+            resp = match jsonrpc_request($url, "eth_getTransactionReceipt", [$tx_hash]).await {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            };
         }
 
         if resp.unwrap().status.unwrap() != U64::from(1) {
@@ -64,6 +65,13 @@ macro_rules! finalize_chain {
             }
         }
     };
+}
+
+macro_rules! sleep {
+    ($ms:expr) => {{
+        use tokio::time::{sleep, Duration};
+        sleep(Duration::from_millis($ms)).await;
+    }};
 }
 
 fn init_logger() {
@@ -166,6 +174,7 @@ async fn native_deposit() {
             assert_eq!(true, found, "message id should exist");
         }
 
+        sleep!(1000);
         let balance: U256 = jsonrpc_request(
             &shared_state.ro.l2_node,
             "eth_getBalance",
@@ -251,7 +260,10 @@ async fn native_withdraw() {
             tx_nonce = tx_nonce + 1;
         }
 
-        shared_state.mine_block(Some(txs)).await;
+        shared_state
+            .mine_block(Some(&txs))
+            .await
+            .expect("mine_block");
     }
 
     finalize_chain!(shared_state);
@@ -588,7 +600,10 @@ async fn witness_verifier() {
     let value = U256::from(1u64);
     let tx = shared_state.sign_l2(to, value, tx_nonce, vec![]).await;
 
-    shared_state.mine_block(Some(vec![tx])).await;
+    shared_state
+        .mine_block(Some(&vec![tx]))
+        .await
+        .expect("mine_block");
 
     let block_num: U64 = shared_state
         .request_l2("eth_blockNumber", ())
@@ -828,6 +843,7 @@ async fn native_deposit_revert() {
             assert_eq!(should_revert, !found, "message id should exist");
         }
 
+        sleep!(1000);
         let balance: U256 = jsonrpc_request(
             &shared_state.ro.l2_node,
             "eth_getBalance",

@@ -72,11 +72,11 @@ impl MessageBeacon {
 }
 
 #[derive(Debug, serde::Serialize)]
-pub struct SealBlockRequest {
-    pub parent: H256,
-    pub random: H256,
-    pub timestamp: U64,
-    pub transactions: Option<Vec<Bytes>>,
+pub struct SealBlockRequest<'a> {
+    pub parent: &'a H256,
+    pub random: &'a H256,
+    pub timestamp: &'a U64,
+    pub transactions: Option<&'a Vec<Bytes>>,
 }
 
 #[derive(Debug, serde::Deserialize)]
