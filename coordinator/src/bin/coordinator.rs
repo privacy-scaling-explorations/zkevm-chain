@@ -242,7 +242,7 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
 
     // update nodes
     let mut rw = ctx.rw.lock().await;
-    if rw.nodes != nodes {
+    if rw.nodes.len() != nodes.len() {
         log::info!("found {} ready rpc nodes", nodes.len());
     }
     if nodes.is_empty() && fallback_node_uri.is_some() {
