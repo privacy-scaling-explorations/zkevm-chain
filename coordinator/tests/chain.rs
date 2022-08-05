@@ -854,3 +854,14 @@ async fn native_deposit_revert() {
         assert_eq!(expected_balance, balance, "ETH balance");
     }
 }
+
+#[tokio::test]
+async fn zero_eth_transfer() {
+    let shared_state = get_shared_state().await.lock().unwrap();
+    let tx_hash = shared_state
+        .transaction_to_l2(shared_state.ro.l2_wallet.address(), U256::zero(), vec![])
+        .await
+        .expect("tx_hash");
+    shared_state.mine().await;
+    wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
+}
