@@ -12,7 +12,7 @@ RUN \
   printf "$arch-unknown-linux-musl" > /tmp/target;
 
 WORKDIR /
-RUN git clone --depth 1 -b v2022-08-08 https://github.com/pinkiebell/zkevm-circuits.git
+RUN git clone --depth 1 -b v2022-08-17 https://github.com/pinkiebell/zkevm-circuits.git
 
 WORKDIR /zkevm-circuits/prover
 RUN rustup target add $(cat /tmp/target)
