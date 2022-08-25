@@ -1007,85 +1007,29 @@ impl SharedState {
     /// TODO: WIP - moved from prover/inputs
     /// Generates a witness suitable for the L1 Verifier contract(s) for block `block_num`.
     pub async fn request_witness(&self, block_num: &U64) -> Result<Witness, String> {
-        fn store_word_bytes(buf: &mut Vec<u8>, val: &[u8]) {
-            let mut tmp: Vec<u8> = Vec::with_capacity(32);
-            tmp.resize(32 - val.len(), 0);
-            tmp.extend(val);
-
-            buf.extend(tmp);
-        }
-
-        fn to_be_bytes(val: U256) -> [u8; 32] {
-            let mut bytes = [0u8; 32];
-            val.to_big_endian(&mut bytes);
-            bytes
-        }
-
-        macro_rules! store_word {
-            ($a:expr, $b:expr) => {
-                let mut tmp: Vec<u8> = vec![0; 32];
-                $b.to_big_endian(&mut tmp);
-                $a.extend(tmp);
-            };
-        }
-
         let block: Block<Transaction> = self
             .request_l2("eth_getBlockByNumber", (block_num, true))
             .await
             .expect("block");
-        let mut witness: Vec<u8> = Vec::new();
-
-        // TODO:
-        // some data is intentionally left out until the layout & contents
-        // requirements are decided on.
-        {
-            // block
-            let chain_id = self.ro.l2_wallet.chain_id();
-            store_word!(&mut witness, U256::from(chain_id));
-            store_word_bytes(&mut witness, block.author.as_ref());
-            store_word_bytes(&mut witness, &to_be_bytes(block.gas_limit));
-            store_word_bytes(&mut witness, &block_num.as_u64().to_be_bytes());
-            store_word!(&mut witness, block.timestamp);
-            store_word!(&mut witness, block.difficulty);
-            // base fee fixed to zero
-            store_word!(&mut witness, U256::zero());
-            // TODO: block_hash and history_hashes
-        }
-
-        {
-            // transactions
-            let iter = block.transactions.iter();
-            store_word_bytes(&mut witness, &iter.len().to_be_bytes());
-
-            for tx in iter {
-                // TODO: clarify which values are required
-                store_word_bytes(&mut witness, &to_be_bytes(tx.nonce));
-                store_word!(&mut witness, &tx.gas_price.unwrap());
-                store_word_bytes(&mut witness, &to_be_bytes(tx.gas));
-                if tx.to.is_none() {
-                    // set MSB
-                    let mut v = vec![0; 32];
-                    v[0] = 0x80;
-                    store_word_bytes(&mut witness, &v);
-                } else {
-                    store_word_bytes(&mut witness, tx.from.as_ref());
-                }
-                store_word!(&mut witness, tx.value);
-
-                let call_data = tx.input.as_ref();
-                store_word_bytes(&mut witness, &call_data.len().to_be_bytes());
-                // expand each byte to a full evm word (o.O)
-                for byte in call_data {
-                    store_word_bytes(&mut witness, &[*byte]);
-                }
+        let chain_id = self.ro.l2_wallet.chain_id();
+        let mut block_hash = block.parent_hash;
+        let mut history_hashes = Vec::with_capacity(256);
+        history_hashes.push(block_hash);
+        for _ in 0..255 {
+            if block_hash != H256::zero() {
+                let header: BlockHeader =
+                    self.request_l2("eth_getHeaderByHash", [block_hash]).await?;
+                block_hash = header.parent_hash;
             }
+            history_hashes.push(block_hash);
         }
-
-        let ret = Witness {
+        let witness: Vec<u8> = encode_verifier_witness(&block, &history_hashes, &chain_id)?;
+        let witness = Witness {
             randomness: U256::zero(),
             input: Bytes::from(witness),
         };
-        Ok(ret)
+
+        Ok(witness)
     }
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {

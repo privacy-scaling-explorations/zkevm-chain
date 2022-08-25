@@ -2,7 +2,7 @@
 pragma solidity <0.9.0;
 
 import '../PatriciaValidator.sol';
-import '../verifier/InstanceVerifier.sol';
+import '../generated/InstanceVerifier.sol';
 
 contract ZkEvmTest is PatriciaValidator, InstanceVerifier {
   function testPatricia (
@@ -13,9 +13,24 @@ contract ZkEvmTest is PatriciaValidator, InstanceVerifier {
     return _validatePatriciaProof(account, storageKey, proofData);
   }
 
-  function testPublicInput(uint256 zeta, bytes calldata witness) external returns (uint256, uint256, uint256) {
-    (uint256 vanish, uint256 lagrange, uint256 pi) = InstanceVerifier._verifyInstance(zeta, witness);
+  function testPublicInput(
+    uint256 zeta,
+    uint256 MAX_TXS,
+    uint256 MAX_CALLDATA,
+    uint256 chainId,
+    uint256 parentStateRoot,
+    bytes calldata witness
+  ) external returns (uint256[] memory) {
+    (uint256[] memory publicInput, uint256 blockHash) =
+      _buildTable(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, false);
 
-    return (vanish, lagrange, pi);
+    // Use of assembly here because it otherwise does
+    // a whole copy of `publicInput`.
+    assembly {
+      let ptr := sub(publicInput, 32)
+      mstore(ptr, 0x20)
+      let len := add(mul(mload(publicInput), 32), 64)
+      return(ptr, len)
+    }
   }
 }

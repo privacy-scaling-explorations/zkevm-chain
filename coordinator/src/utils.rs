@@ -9,11 +9,13 @@ use crate::structs::*;
 use crate::timeout;
 
 use ethers_core::types::transaction::eip2930::AccessListWithGasUsed;
+use ethers_core::types::Transaction;
 use ethers_core::types::{
     Address, Block, Bytes, Eip1559TransactionRequest, TransactionReceipt, TransactionRequest, H256,
     U256,
 };
 use ethers_core::utils::keccak256;
+use ethers_core::utils::rlp::RlpStream;
 use ethers_signers::{LocalWallet, Signer};
 
 pub async fn jsonrpc_request<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -274,4 +276,82 @@ pub fn marshal_proof(account_proof: &[Bytes], storage_proof: &[Bytes]) -> Vec<u8
     }
 
     ret
+}
+
+/// Generates a witness suitable for the L1 Verifier contract(s) for block `block_num`.
+pub fn encode_verifier_witness(
+    block: &Block<Transaction>,
+    history_hashes: &[H256],
+    chain_id: &u64,
+) -> Result<Vec<u8>, String> {
+    fn store_word_bytes(buf: &mut Vec<u8>, val: &[u8]) {
+        let mut tmp: Vec<u8> = Vec::with_capacity(32);
+        tmp.resize(32 - val.len(), 0);
+        tmp.extend(val);
+
+        buf.extend(tmp);
+    }
+
+    macro_rules! store_word {
+        ($a:expr, $b:expr) => {
+            let mut tmp: Vec<u8> = vec![0; 32];
+            $b.to_big_endian(&mut tmp);
+            $a.extend(tmp);
+        };
+    }
+
+    let mut witness: Vec<u8> = Vec::new();
+    // block header + extra fields
+    {
+        let mut rlp = RlpStream::new_list(15);
+        rlp.append(&block.parent_hash);
+        rlp.append(&block.uncles_hash);
+        rlp.append(&block.author);
+        rlp.append(&block.state_root);
+        rlp.append(&block.transactions_root);
+        rlp.append(&block.receipts_root);
+        rlp.append(&block.logs_bloom.expect("block.logs_bloom"));
+        rlp.append(&block.difficulty);
+        rlp.append(&block.number.expect("block.number"));
+        rlp.append(&block.gas_limit);
+        rlp.append(&block.gas_used);
+        rlp.append(&block.timestamp);
+        rlp.append(&block.extra_data.as_ref());
+        rlp.append(&block.mix_hash.expect("block.mix_hash"));
+        rlp.append(&block.nonce.expect("block.nonce"));
+        witness.extend(rlp.out());
+
+        for block_hash in history_hashes {
+            store_word_bytes(&mut witness, block_hash.as_ref());
+        }
+    }
+
+    // transactions + extra fields
+    for tx in block.transactions.iter() {
+        // https://eips.ethereum.org/EIPS/eip-155
+        let mut rlp = RlpStream::new_list(9);
+        rlp.append(&tx.nonce);
+        rlp.append(&tx.gas_price.expect("gas_price"));
+        rlp.append(&tx.gas);
+        if tx.to.is_some() {
+            rlp.append(&tx.to.unwrap().as_ref());
+        } else {
+            rlp.append_empty_data();
+        }
+        rlp.append(&tx.value);
+        rlp.append(&tx.input.as_ref());
+        rlp.append(chain_id);
+        rlp.append_empty_data();
+        rlp.append_empty_data();
+
+        witness.extend(rlp.out());
+
+        // extra fields
+        // FIXME: can we safely encode the recovery bit of the signature into `s`?
+        store_word_bytes(&mut witness, tx.from.as_ref());
+        store_word!(&mut witness, &tx.r);
+        store_word!(&mut witness, &tx.s);
+    }
+
+    Ok(witness)
 }

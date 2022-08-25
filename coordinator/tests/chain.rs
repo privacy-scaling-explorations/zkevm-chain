@@ -1,5 +1,4 @@
 use coordinator::shared_state::SharedState;
-use coordinator::structs::*;
 use coordinator::utils::*;
 use ethers_core::abi::encode;
 use ethers_core::abi::AbiParser;
@@ -13,8 +12,6 @@ use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
 use std::env::var;
-use std::fs::File;
-use std::io::BufReader;
 use std::sync::Mutex;
 use tokio::sync::OnceCell;
 
@@ -152,7 +149,7 @@ async fn native_deposit() {
             .into();
 
             deposits.push(id);
-            expected_balance = expected_balance + value;
+            expected_balance += value;
             shared_state
                 .transaction_to_l1(shared_state.ro.l1_bridge_addr, value, calldata)
                 .await;
@@ -171,7 +168,7 @@ async fn native_deposit() {
                 .l2_delivered_messages
                 .iter()
                 .any(|e| e == &id);
-            assert_eq!(true, found, "message id should exist");
+            assert!(found, "message id should exist");
         }
 
         sleep!(1000);
@@ -246,7 +243,7 @@ async fn native_withdraw() {
             .into();
 
             messages.push(id);
-            expected_balance = expected_balance + value;
+            expected_balance += value;
             txs.push(
                 shared_state
                     .sign_l2(
@@ -279,7 +276,7 @@ async fn native_withdraw() {
                 .l1_delivered_messages
                 .iter()
                 .any(|e| e == &id);
-            assert_eq!(true, found, "message id should exist");
+            assert!(found, "message id should exist");
         }
     }
 
@@ -472,257 +469,6 @@ async fn hop_cross_chain_message() {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct TestData {
-    block: BlockHeader,
-    proof: ProofRequest,
-}
-
-#[tokio::test]
-async fn patricia_validator() {
-    init_logger();
-
-    let abi = AbiParser::default()
-        .parse(&[
-               "function testPatricia(address account, bytes32 storageKey, bytes calldata proofData) external returns (bytes32 stateRoot, bytes32 storageValue)",
-        ])
-        .expect("parse abi");
-
-    let shared_state = get_shared_state().await.lock().unwrap();
-    sync!(shared_state);
-
-    let mut cumulative_gas = 0;
-    let mut samples = 0;
-    for entry in std::fs::read_dir("tests/patricia/").unwrap() {
-        let path = entry.expect("path").path();
-        let file = File::open(&path).expect("file");
-        let reader = BufReader::new(file);
-        let test_data: TestData = serde_json::from_reader(reader).expect("json");
-        let block_header = test_data.block;
-        let proof = test_data.proof;
-        let account = proof.address;
-
-        for storage_proof in proof.storage_proof {
-            let storage_key = storage_proof.key;
-            let proof_data: Bytes =
-                Bytes::from(marshal_proof(&proof.account_proof, &storage_proof.proof));
-            let calldata = abi
-                .function("testPatricia")
-                .unwrap()
-                .encode_input(&[
-                    account.into_token(),
-                    storage_key.into_token(),
-                    proof_data.into_token(),
-                ])
-                .expect("calldata");
-
-            let req = serde_json::json!([
-                {
-                    "to": "0x00000000000000000000000000000000000f0000",
-                    "data": Bytes::from(calldata),
-                },
-                "latest"
-            ]);
-
-            let result: Result<Bytes, String> =
-                jsonrpc_request(&shared_state.ro.l1_node, "eth_call", &req).await;
-            let error_expected = storage_proof.value.is_zero();
-            if result.is_err() != error_expected {
-                log::error!("{:?} {:?} {:?}", result.clone().err(), storage_proof, path);
-            }
-
-            assert_eq!(result.is_err(), error_expected);
-            if !error_expected {
-                let res = result.unwrap();
-                log::debug!("{}", res);
-                let mut res = abi
-                    .function("testPatricia")
-                    .unwrap()
-                    .decode_output(res.as_ref())
-                    .expect("decode output");
-                let storage_value = H256::from_token(res.pop().unwrap()).expect("bytes");
-                let state_root = H256::from_token(res.pop().unwrap()).expect("bytes");
-
-                assert_eq!(state_root, block_header.state_root, "state_root");
-                assert_eq!(
-                    U256::from(storage_value.as_ref()),
-                    storage_proof.value,
-                    "storage_value"
-                );
-
-                let gas_estimate: U256 =
-                    jsonrpc_request(&shared_state.ro.l1_node, "eth_estimateGas", &req)
-                        .await
-                        .expect("estimateGas");
-                // remove 'tx' cost
-                cumulative_gas += gas_estimate.as_u64() - 21_000;
-                samples += 1;
-            }
-        }
-    }
-
-    let avg: u64 = cumulative_gas / samples;
-    log::info!(
-        "patricia_cumulative_gas={} samples={} avg={}",
-        cumulative_gas,
-        samples,
-        avg
-    );
-
-    const MAX_DIFF: u64 = 1000;
-    const KNOWN_AVG: u64 = 62569;
-    if avg > (KNOWN_AVG + MAX_DIFF) || avg < (KNOWN_AVG - MAX_DIFF) {
-        panic!(
-            "patricia_validator: please update KNOWN_AVG ({}), new value: {}",
-            KNOWN_AVG, avg
-        );
-    }
-}
-
-#[tokio::test]
-async fn witness_verifier() {
-    init_logger();
-
-    let shared_state = get_shared_state().await.lock().unwrap();
-
-    shared_state.sync().await;
-    shared_state.mine().await;
-
-    // transfer ETH to self
-    let tx_nonce: U256 = shared_state
-        .request_l2(
-            "eth_getTransactionCount",
-            (shared_state.ro.l2_wallet.address(), "latest"),
-        )
-        .await
-        .expect("nonce");
-    let to = shared_state.ro.l2_wallet.address();
-    let value = U256::from(1u64);
-    let tx = shared_state.sign_l2(to, value, tx_nonce, vec![]).await;
-
-    shared_state
-        .mine_block(Some(&vec![tx]))
-        .await
-        .expect("mine_block");
-
-    let block_num: U64 = shared_state
-        .request_l2("eth_blockNumber", ())
-        .await
-        .expect("blockNumber");
-    let witness = shared_state
-        .request_witness(&block_num)
-        .await
-        .expect("witness");
-    log::debug!("{:#?} input_len={}", witness, witness.input.as_ref().len());
-
-    let abi = AbiParser::default()
-        .parse(&[
-               "function testPublicInput(uint256 zeta, bytes calldata witness) external returns (uint256, uint256, uint256)",
-        ])
-        .expect("parse abi");
-    let calldata = abi
-        .function("testPublicInput")
-        .unwrap()
-        .encode_input(&[witness.randomness.into_token(), witness.input.into_token()])
-        .expect("calldata");
-
-    let req = serde_json::json!([
-        {
-            "to": "0x00000000000000000000000000000000000f0000",
-            "data": Bytes::from(calldata),
-        },
-        "latest"
-    ]);
-
-    // verify that it 'runs'
-    let result: U64 = shared_state
-        .request_l1("eth_estimateGas", &req)
-        .await
-        .expect("estimateGas");
-    log::info!("gas={}", result);
-
-    let result: Bytes = shared_state
-        .request_l1("eth_call", &req)
-        .await
-        .expect("eth_call");
-    let mut result = abi
-        .function("testPublicInput")
-        .unwrap()
-        .decode_output(result.as_ref())
-        .expect("decode output");
-    let pi = U256::from_token(result.pop().unwrap()).expect("U256");
-    let lagrange = U256::from_token(result.pop().unwrap()).expect("U256");
-    let vanish = U256::from_token(result.pop().unwrap()).expect("U256");
-
-    log::info!("vanish: {} lagrange: {} pi: {}", vanish, lagrange, pi);
-}
-
-// test for: https://github.com/privacy-scaling-explorations/zkevm-chain/issues/5
-#[tokio::test]
-async fn access_list_regression() {
-    init_logger();
-    let shared_state = get_shared_state().await.lock().unwrap();
-
-    // CODESIZE
-    // CODESIZE
-    // SLOAD
-    //
-    // CODESIZE
-    // CODESIZE
-    // SSTORE
-    //
-    // RETURNDATASIZE
-    // CODESIZE
-    // SSTORE
-    //
-    // CODESIZE
-    // CODESIZE
-    // SLOAD
-    //
-    // ADDRESS
-    // EXTCODESIZE
-    //
-    // RETURNDATASIZE
-    // NOT
-    // EXTCODESIZE
-    //
-    // CALLVALUE
-    // EXTCODEHASH
-    //
-    // RETURNDATASIZE
-    // RETURNDATASIZE
-    // RETURNDATASIZE
-    // RETURNDATASIZE
-    // CODESIZE
-    // CALLVALUE
-    // GAS
-    // CALL
-    let req = serde_json::json!([
-        {
-            "data": "0x3838543838553d3855383854303b3d193b343f3d3d3d3d38345af1",
-            "value": "0xfafbfc",
-        },
-        "latest",
-        {
-            "stateOverrides": {
-                "0x0000000000000000000000000000000000000000": {
-                    "balance": "0xffffffff",
-                },
-            },
-        },
-    ]);
-    let l2: serde_json::Value = shared_state
-        .request_l2("debug_traceCall", &req)
-        .await
-        .expect("should not crash");
-    let l1: serde_json::Value = shared_state
-        .request_l1("debug_traceCall", &req)
-        .await
-        .expect("should not crash");
-
-    assert_eq!(l1, l2, "trace should be equal");
-}
-
 #[tokio::test]
 async fn native_deposit_revert() {
     init_logger();
@@ -788,7 +534,7 @@ async fn native_deposit_revert() {
 
             deposits.push(id);
             if !should_revert {
-                expected_balance = expected_balance + value;
+                expected_balance += value;
             }
 
             txs.push(
@@ -829,15 +575,14 @@ async fn native_deposit_revert() {
 
     // verify that all valid deposits are picked up
     {
-        for i in 0..deposits.len() {
-            let id = deposits[i];
+        for (i, id) in deposits.iter().enumerate() {
             let found = shared_state
                 .rw
                 .lock()
                 .await
                 .l2_delivered_messages
                 .iter()
-                .any(|e| e == &id);
+                .any(|e| e == id);
 
             let should_revert = i % 2 == 0;
             assert_eq!(should_revert, !found, "message id should exist");

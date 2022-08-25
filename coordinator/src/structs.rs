@@ -81,6 +81,8 @@ pub struct SealBlockRequest<'a> {
 
 #[derive(Debug, serde::Deserialize)]
 pub struct BlockHeader {
+    #[serde(rename = "parentHash")]
+    pub parent_hash: H256,
     pub hash: H256,
     pub number: U64,
     #[serde(rename = "stateRoot")]
