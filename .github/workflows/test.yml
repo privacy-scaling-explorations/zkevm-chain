@@ -6,15 +6,29 @@ on:
 
 jobs:
   test:
-    timeout-minutes: 45
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
-      - name: Coordinator
+      - uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/docker-cache
+          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}
+
+      - name: Build docker images
+        run: |
+          docker buildx create --name mybuilder --use
+          docker buildx bake
+          --load
+          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
+          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+
+      - name: Run coordinator tests
         run: |
           cp .env.example .env &&
           docker compose run --no-TTY --rm dev
           -c '../scripts/compile_contracts.sh && cargo test'
+
+      - name: Fix docker cache
+        if: success() && github.event_name == 'push'
+        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
