@@ -18,16 +18,11 @@ jobs:
       - name: Build docker images
         run: |
           docker buildx create --name mybuilder --use
-          docker buildx bake
-          --load
-          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
-          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+          docker buildx bake --load --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache" --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
 
       - name: Run coordinator tests
         run: |
-          cp .env.example .env &&
-          docker compose run --no-TTY --rm dev
-          -c '../scripts/compile_contracts.sh && cargo test'
+          cp .env.example .env && docker compose run --no-TTY --rm dev -c '../scripts/compile_contracts.sh && cargo test'
 
       - name: Fix docker cache
         if: success() && github.event_name == 'push'
