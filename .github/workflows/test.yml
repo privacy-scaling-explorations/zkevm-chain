@@ -14,4 +14,7 @@ jobs:
           fetch-depth: 0
 
       - name: Coordinator
-        run: cp .env.example .env && docker compose run --no-TTY --rm dev -c 'cargo test'
+        run: |
+          cp .env.example .env &&
+          docker compose run --no-TTY --rm dev
+          -c '../scripts/compile_contracts.sh && cargo test'
