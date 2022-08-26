@@ -966,6 +966,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "external-tracer"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=d16ac9b8bda39c45c82a41d2d59054c85abbc9a1#d16ac9b8bda39c45c82a41d2d59054c85abbc9a1"
+dependencies = [
+ "eth-types",
+ "geth-utils",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1182,6 +1193,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "geth-utils"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=d16ac9b8bda39c45c82a41d2d59054c85abbc9a1#d16ac9b8bda39c45c82a41d2d59054c85abbc9a1"
+dependencies = [
+ "gobuild",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1192,6 +1211,15 @@ dependencies = [
  "libc",
  "wasi",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "gobuild"
+version = "0.1.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e156a4ddbf3deb5e8116946c111413bd9a5679bdc1536c78a60618a7a9ac9e"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -1253,7 +1281,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.1.0-beta.1"
-source = "git+https://github.com/privacy-scaling-explorations/halo2.git?tag=v2022_06_03#1fc67702da729b41bfeebc9764c4c6effbd1f9ad"
+source = "git+https://github.com/pinkiebell/halo2.git?rev=1a61d3681e7fafab4981aadb3603d38b22632072#1a61d3681e7fafab4981aadb3603d38b22632072"
 dependencies = [
  "blake2b_simd 1.0.0",
  "bumpalo",
@@ -1715,6 +1743,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=d16ac9b8bda39c45c82a41d2d59054c85abbc9a1#d16ac9b8bda39c45c82a41d2d59054c85abbc9a1"
+dependencies = [
+ "eth-types",
+ "ethbloom",
+ "ethers-core",
+ "ethers-signers",
+ "external-tracer",
+ "itertools",
+ "lazy_static",
+ "rand",
+ "rand_chacha",
+]
+
+[[package]]
 name = "num"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2091,10 +2135,13 @@ dependencies = [
  "bus-mapping",
  "env_logger",
  "eth-types",
+ "ethers-core",
  "ethers-providers",
+ "ethers-signers",
  "halo2_proofs 0.1.0-beta.1",
  "hyper",
  "log",
+ "mock",
  "rand",
  "rand_xorshift",
  "serde",

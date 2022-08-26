@@ -1,3 +1,4 @@
+pub mod circuit_autogen;
 pub mod compute_proof;
 pub mod json_rpc;
 pub mod server;

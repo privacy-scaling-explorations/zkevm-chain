@@ -1,11 +1,7 @@
 use env_logger::Env;
-use halo2_proofs::pairing::bn256::G1Affine;
-use halo2_proofs::poly::commitment::Params;
+use prover::shared_state::SharedState;
+use prover::structs::ProofRequestOptions;
 use std::env::var;
-use std::fs::File;
-use std::io::BufReader;
-
-use prover::compute_proof::compute_proof;
 
 /// This command generates and prints the proofs to stdout.
 /// Required environment variables:
@@ -29,14 +25,21 @@ async fn main() {
         .parse()
         .expect("Cannot parse PARAMS_PATH env var");
 
-    // load polynomial commitment parameters
-    let params_fs = File::open(&params_path).expect("couldn't open params");
-    let params: Params<G1Affine> =
-        Params::read::<_>(&mut BufReader::new(params_fs)).expect("Failed to read params");
+    let state = SharedState::new(String::new(), None);
+    let request = ProofRequestOptions {
+        block: block_num,
+        rpc: rpc_url,
+        retry: false,
+        param: params_path,
+    };
 
-    let result = compute_proof(&params, &block_num, &rpc_url)
+    state.get_or_enqueue(&request).await;
+    state.duty_cycle().await;
+    let result = state
+        .get_or_enqueue(&request)
         .await
-        .expect("compute_proof");
+        .expect("some")
+        .expect("result");
 
     serde_json::to_writer(std::io::stdout(), &result).expect("serialize and write");
 }

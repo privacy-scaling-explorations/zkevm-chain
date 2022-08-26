@@ -14,12 +14,12 @@ fn init_logger() {
 async fn proverd_simple_signaling() {
     init_logger();
 
-    let node_a = SharedState::new("a".to_string(), "127.0.0.1:11111".to_string());
-    let node_b = SharedState::new("b".to_string(), "127.0.0.1:11112".to_string());
+    let node_a = SharedState::new("a".to_string(), Some("127.0.0.1:11111".to_string()));
+    let node_b = SharedState::new("b".to_string(), Some("127.0.0.1:11112".to_string()));
     // start http servers
     {
-        let _ = serve(&node_a, &node_b.ro.node_lookup);
-        let _ = serve(&node_b, &node_a.ro.node_lookup);
+        let _ = serve(&node_a, node_b.ro.node_lookup.as_ref().unwrap());
+        let _ = serve(&node_b, node_a.ro.node_lookup.as_ref().unwrap());
     }
 
     // wait a bit for the rpc server to start

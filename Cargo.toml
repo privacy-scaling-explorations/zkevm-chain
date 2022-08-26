@@ -6,7 +6,11 @@ members = [
 
 [patch.crates-io]
 bitvec = { git = "https://github.com/ed255/bitvec.git", rev = "5cfc5fa8496c66872d21905e677120fc3e79693c" }
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_06_03" }
+# halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_06_03" }
+halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", rev = "1a61d3681e7fafab4981aadb3603d38b22632072" }
 
 [patch."https://github.com/privacy-scaling-explorations/halo2wrong"]
 halo2wrong = { git = "https://github.com/pinkiebell/halo2wrong", branch = "cargo" }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2.git"]
+halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", rev = "1a61d3681e7fafab4981aadb3603d38b22632072" }

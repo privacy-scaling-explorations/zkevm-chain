@@ -1,5 +1,10 @@
+use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::plonk::create_proof;
+use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::transcript::Blake2bWrite;
+use halo2_proofs::transcript::Challenge255;
 
 use std::collections::HashMap;
 use std::env::var;
@@ -7,12 +12,15 @@ use std::fmt::Write;
 use std::fs::File;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
+use std::time::Instant;
 
+use eth_types::Bytes;
 use hyper::Uri;
+use rand::rngs::OsRng;
 use rand::{thread_rng, Rng};
 use tokio::sync::Mutex;
 
-use crate::compute_proof::compute_proof;
+use crate::compute_proof::*;
 use crate::json_rpc::jsonrpc_request_client;
 use crate::structs::*;
 
@@ -22,12 +30,13 @@ pub struct RoState {
     pub node_id: String,
     // a `HOSTNAME:PORT` conformant string that will be used for DNS service discovery of other
     // nodes
-    pub node_lookup: String,
+    pub node_lookup: Option<String>,
 }
 
 pub struct RwState {
     pub tasks: Vec<ProofRequest>,
     pub params_cache: HashMap<String, Arc<Params<G1Affine>>>,
+    pub pk_cache: HashMap<String, Arc<ProvingKey<G1Affine>>>,
     /// The current active task this instance wants to obtain or is working on.
     pub pending: Option<ProofRequestOptions>,
     /// `true` if this instance started working on `pending`
@@ -41,7 +50,7 @@ pub struct SharedState {
 }
 
 impl SharedState {
-    pub fn new(node_id: String, node_lookup: String) -> SharedState {
+    pub fn new(node_id: String, node_lookup: Option<String>) -> SharedState {
         Self {
             ro: RoState {
                 node_id,
@@ -50,6 +59,7 @@ impl SharedState {
             rw: Arc::new(Mutex::new(RwState {
                 tasks: Vec::new(),
                 params_cache: HashMap::new(),
+                pk_cache: HashMap::new(),
                 pending: None,
                 obtained: false,
             })),
@@ -174,21 +184,81 @@ impl SharedState {
         let self_copy = self.clone();
         let task_result: Result<Result<Proofs, String>, tokio::task::JoinError> =
             tokio::spawn(async move {
-                // lazily load the file and cache it
-                let param = self_copy.load_param(&task_options_copy.param).await;
-                let res = compute_proof(
-                    param.as_ref(),
-                    &task_options_copy.block,
-                    &task_options_copy.rpc,
-                )
-                .await;
+                let (block, txs, gas_used) =
+                    gen_block_witness(&task_options_copy.block, &task_options_copy.rpc)
+                        .await
+                        .map_err(|e| e.to_string())?;
 
-                if let Err(err) = res {
-                    // cast Error to string
-                    return Err(err.to_string());
-                }
+                let (evm_proof, k_used, duration) = crate::match_circuit_params!(
+                    gas_used,
+                    {
+                        log::info!(
+                            "Using circuit parameters: BLOCK_GAS_LIMIT={} MAX_TXS={} MAX_CALLDATA={} MAX_BYTECODE={} MIN_K={} STATE_CIRCUIT_PAD_TO={}",
+                            BLOCK_GAS_LIMIT, MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MIN_K, STATE_CIRCUIT_PAD_TO
+                        );
 
-                Ok(res.unwrap())
+                        // try to automatically choose a file if the path ends with a `/`.
+                        let param_path = match task_options_copy.param.ends_with('/') {
+                            true => format!("{}{}.bin", task_options_copy.param, MIN_K),
+                            false => task_options_copy.param,
+                        };
+
+                        // lazily load the file and cache it.
+                        // Note: we are not validating it for `MIN_K`,
+                        // this error will eventually bubble up later.
+                        let param = self_copy.load_param(&param_path).await;
+                        // generate and cache the prover key
+                        let pk = self_copy.gen_pk::<MAX_TXS, MAX_CALLDATA>(
+                            &param_path,
+                            BLOCK_GAS_LIMIT,
+                            MAX_BYTECODE,
+                            STATE_CIRCUIT_PAD_TO,
+                        ).await
+                        .map_err(|e| e.to_string())?;
+
+                        let time_started = Instant::now();
+
+                        let instance = match var("PROVERD_ENABLE_CIRCUIT_INSTANCE").unwrap_or_default().as_str() {
+                            "" | "0" | "false" => vec![],
+                            _ => {
+                                use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
+                                use halo2_proofs::arithmetic::BaseExt;
+                                // TODO: This should come from the circuit `circuit.instance()`.
+                                let mut instance: Vec<Vec<Fr>>= (1..POW_RAND_SIZE + 1)
+                                    .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n as usize - 64])
+                                    .collect();
+                                // SignVerifyChip -> ECDSAChip -> MainGate instance column
+                                instance.push(vec![]);
+
+                                instance
+                            }
+                        };
+                        let instance: Vec<&[Fr]> = instance.iter().map(|e| e.as_slice()).collect();
+                        let instances = match instance.is_empty() {
+                            true => vec![],
+                            false => vec![instance.as_slice()],
+                        };
+
+                        let circuit =
+                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs)?;
+                        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+                        create_proof(&param, &pk, &[circuit], &instances, OsRng, &mut transcript)
+                            .map_err(|e| e.to_string())?;
+
+                        (transcript.finalize(), param.k, Instant::now().duration_since(time_started).as_millis())
+                    },
+                    {
+                        return Err(format!("No circuit parameters found for block with gas used={}", gas_used));
+                    }
+                );
+                let res = Proofs {
+                    evm_proof: evm_proof.into(),
+                    state_proof: Bytes::default(),
+                    duration: duration as u64,
+                    k: k_used as u8,
+                };
+
+                Ok(res)
             })
             .await;
 
@@ -254,10 +324,16 @@ impl SharedState {
     pub async fn merge_tasks_from_peers(&self) -> Result<bool, String> {
         const LOG_TAG: &str = "merge_tasks_from_peers:";
 
+        if self.ro.node_lookup.is_none() {
+            return Ok(true);
+        }
+
         let hyper_client = hyper::Client::new();
         let addrs_iter = self
             .ro
             .node_lookup
+            .as_ref()
+            .unwrap()
             .to_socket_addrs()
             .map_err(|e| e.to_string())?;
 
@@ -303,6 +379,41 @@ impl SharedState {
         rw.params_cache.get(params_path).unwrap().clone()
     }
 
+    async fn gen_pk<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
+        &self,
+        params_path: &str,
+        block_gas_limit: usize,
+        max_bytecode: usize,
+        state_circuit_pad_to: usize,
+    ) -> Result<Arc<ProvingKey<G1Affine>>, Box<dyn std::error::Error>> {
+        let cache_key = format!(
+            "{}{}{}{}{}{}",
+            params_path, MAX_TXS, MAX_CALLDATA, block_gas_limit, max_bytecode, state_circuit_pad_to
+        );
+        let mut rw = self.rw.lock().await;
+        if !rw.pk_cache.contains_key(&cache_key) {
+            // drop, potentially long running
+            drop(rw);
+
+            let param = self.load_param(params_path).await;
+            let pk = gen_static_key::<MAX_TXS, MAX_CALLDATA>(
+                &param,
+                block_gas_limit,
+                max_bytecode,
+                state_circuit_pad_to,
+            )?;
+            let pk = Arc::new(pk);
+
+            // acquire lock and update
+            rw = self.rw.lock().await;
+            rw.pk_cache.insert(cache_key.clone(), pk);
+
+            log::info!("ProvingKey: generated and cached key={}", cache_key);
+        }
+
+        Ok(rw.pk_cache.get(&cache_key).unwrap().clone())
+    }
+
     async fn merge_tasks(&self, node_info: &NodeInformation) {
         const LOG_TAG: &str = "merge_tasks:";
         let mut rw = self.rw.lock().await;
@@ -346,11 +457,17 @@ impl SharedState {
             .expect("pending task")
             .clone();
 
+        if self.ro.node_lookup.is_none() {
+            return Ok(true);
+        }
+
         // resolve all other nodes for this service
         let hyper_client = hyper::Client::new();
         let addrs_iter = self
             .ro
             .node_lookup
+            .as_ref()
+            .unwrap()
             .to_socket_addrs()
             .map_err(|e| e.to_string())?;
         for addr in addrs_iter {
@@ -401,6 +518,6 @@ impl Default for SharedState {
 
         let addr: String = var("PROVERD_LOOKUP").expect("PROVERD_LOOKUP env var");
 
-        Self::new(node_id, addr)
+        Self::new(node_id, Some(addr))
     }
 }

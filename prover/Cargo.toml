@@ -19,3 +19,12 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d16ac9b8bda39c45c82a41d2d59054c85abbc9a1" }
+ethers-signers = "0.6"
+ethers-core = "0.6"
+
+[features]
+default = []
+autogen = []

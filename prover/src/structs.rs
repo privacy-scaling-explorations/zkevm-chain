@@ -2,7 +2,10 @@
 pub struct Proofs {
     pub state_proof: eth_types::Bytes,
     pub evm_proof: eth_types::Bytes,
+    /// proofing time
     pub duration: u64,
+    /// k of parameter file
+    pub k: u8,
 }
 
 impl std::fmt::Debug for Proofs {
@@ -11,6 +14,7 @@ impl std::fmt::Debug for Proofs {
             .field("state_proof", &format!("{}", &self.state_proof))
             .field("evm_proof", &format!("{}", &self.evm_proof))
             .field("duration", &self.duration)
+            .field("k", &self.k)
             .finish()
     }
 }
