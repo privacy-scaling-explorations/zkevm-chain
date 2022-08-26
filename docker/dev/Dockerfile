@@ -23,3 +23,5 @@ ENV AR=/usr/bin/ar
 COPY rust-toolchain /tmp/rust-toolchain
 RUN rustup-init -y --no-modify-path --profile complete --default-toolchain $(cat /tmp/rust-toolchain)
 COPY --from=solc /solc /usr/bin/solc
+# fix if linking to native libraries are involved
+ENV RUSTFLAGS='-C target-feature=-crt-static'
