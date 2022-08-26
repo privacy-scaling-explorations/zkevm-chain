@@ -155,6 +155,7 @@ services:
       - prover-rpcd
     build:
       dockerfile: docker/dev/Dockerfile
+    image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
     volumes:
       - .:/app
       - dev-build-cache:/app/coordinator/target:overlay
