@@ -1,7 +1,12 @@
 FROM --platform=$BUILDPLATFORM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:a38ef4d64a38e9137b06f32e7121d22a5c9de6034195c0c133e53acec4499152 AS params
 
-FROM --platform=$BUILDPLATFORM rust:1.58.1-alpine AS builder
-RUN apk add --no-cache git musl-dev clang
+FROM --platform=$BUILDPLATFORM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c AS builder
+RUN apk add --no-cache rustup git musl-dev gcc binutils clang
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=$CARGO_HOME/bin:$PATH
+ENV RUSTFLAGS='-C linker=rust-lld'
+ENV CC=/usr/bin/clang
+ENV AR=/usr/bin/ar
 
 ARG TARGETPLATFORM
 RUN \
@@ -11,18 +16,18 @@ RUN \
   esac; \
   printf "$arch-unknown-linux-musl" > /tmp/target;
 
-WORKDIR /
-RUN git clone --depth 1 -b v2022-08-23 https://github.com/pinkiebell/zkevm-circuits.git
+WORKDIR /target/src
+COPY rust-toolchain .
+RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain $(cat rust-toolchain) --target $(cat /tmp/target)
+# trigger fetch of crates index
+RUN cargo search --limit 0
 
-WORKDIR /zkevm-circuits/prover
-RUN rustup target add $(cat /tmp/target)
-RUN cargo fetch --target $(cat /tmp/target)
-ENV CC=/usr/bin/clang
-ENV AR=/usr/bin/ar
-ENV RUSTFLAGS='-C linker=rust-lld'
-RUN cargo build --bin prover_rpcd --release --target-dir /target --target $(cat /tmp/target)
+COPY . .
+RUN cargo build --locked --bin prover_rpcd --release --target-dir /target --target $(cat /tmp/target) && \
+      mv /target/*-unknown-linux-musl/release/prover_rpcd / && rm -rf /target
+
 
 FROM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
-COPY --from=builder /target/*-unknown-linux-musl/release/prover_rpcd /
+COPY --from=builder /prover_rpcd /
 COPY --from=params /testnet /testnet
 ENTRYPOINT ["/prover_rpcd"]

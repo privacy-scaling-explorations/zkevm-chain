@@ -1,3 +1,7 @@
 *
 !coordinator/
+!prover/
 !docker/
+!Cargo.lock
+!Cargo.toml
+!rust-toolchain
