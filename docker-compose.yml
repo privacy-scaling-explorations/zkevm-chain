@@ -159,7 +159,6 @@ services:
     volumes:
       - .:/app
       - dev-build-cache:/target:overlay
-      - dev-cargo-cache:/usr/local:overlay
     environment:
       - LISTEN=[::]:8000
       - RPC_SERVER_NODES=server-testnet-geth:8545
@@ -192,7 +191,6 @@ services:
 
 volumes:
   dev-build-cache:
-  dev-cargo-cache:
   leader-testnet-geth:
   l1-testnet-geth:
   bootnode:

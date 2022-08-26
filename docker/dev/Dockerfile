@@ -25,3 +25,4 @@ RUN rustup-init -y --no-modify-path --profile complete --default-toolchain $(cat
 COPY --from=solc /solc /usr/bin/solc
 # fix if linking to native libraries are involved
 ENV RUSTFLAGS='-C target-feature=-crt-static'
+ENV CARGO_HOME=/target/cargo
