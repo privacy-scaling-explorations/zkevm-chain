@@ -16,9 +16,12 @@ jobs:
           key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}
 
       - name: Build docker images
-        run: |
-          docker buildx create --name mybuilder --use
-          docker buildx bake --load --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache" --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+        run: >
+          docker buildx create --name mybuilder --use &&
+          docker buildx bake --load
+          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
+          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+          bootnode prover-rpcd dev
 
       - name: Run coordinator tests
         run: |
