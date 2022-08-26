@@ -1,0 +1,12 @@
+[workspace]
+members = [
+  "coordinator",
+  "prover"
+]
+
+[patch.crates-io]
+bitvec = { git = "https://github.com/ed255/bitvec.git", rev = "5cfc5fa8496c66872d21905e677120fc3e79693c" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_06_03" }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2wrong"]
+halo2wrong = { git = "https://github.com/pinkiebell/halo2wrong", branch = "cargo" }

@@ -158,9 +158,10 @@ services:
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
     volumes:
       - .:/app
-      - dev-build-cache:/app/coordinator/target:overlay
+      - dev-build-cache:/target:overlay
       - dev-cargo-cache:/usr/local:overlay
     environment:
+      - CARGO_TARGET_DIR=/target
       - LISTEN=[::]:8000
       - RPC_SERVER_NODES=server-testnet-geth:8545
       - L2_RPC_URL=http://leader-testnet-geth:8545
@@ -174,7 +175,7 @@ services:
       - PARAMS_PATH=${PARAMS_PATH:-/testnet/}
     ports:
       - 8000:8000
-    working_dir: /app/coordinator
+    working_dir: /app
     entrypoint: /bin/bash
     command: -c exit
     tty: true
