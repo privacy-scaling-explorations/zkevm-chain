@@ -174,7 +174,7 @@ services:
     ports:
       - 8000:8000
     working_dir: /app
-    entrypoint: /bin/sh
+    entrypoint: /bin/bash
     command: -c exit
     tty: true
     stdin_open: true
