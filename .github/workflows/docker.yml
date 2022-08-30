@@ -20,7 +20,9 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ${{ runner.temp }}/docker-cache
-          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ matrix.DOCKERFILE }}
+          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ matrix.DOCKERFILE }}-${{ github.run_id }}
+          restore-keys: |
+            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ matrix.DOCKERFILE }}-
 
       - name: setup swap
         run: |
