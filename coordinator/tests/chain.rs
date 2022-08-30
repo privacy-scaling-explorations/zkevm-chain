@@ -12,7 +12,7 @@ use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
 use std::env::var;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 
 macro_rules! sync {
@@ -71,6 +71,12 @@ macro_rules! sleep {
     }};
 }
 
+macro_rules! await_state {
+    () => {
+        get_shared_state().await.lock().await
+    };
+}
+
 fn init_logger() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
         .is_test(var("VERBOSE").is_err())
@@ -103,7 +109,7 @@ async fn native_deposit() {
     init_logger();
 
     let abi = zkevm_abi();
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
     let mut deposits: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
@@ -188,7 +194,7 @@ async fn native_withdraw() {
     init_logger();
 
     let abi = zkevm_abi();
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
     let mut messages: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
@@ -304,7 +310,7 @@ async fn hop_deposit() {
         ])
         .expect("parse abi");
 
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
 
     // hop-protocol deposit
     {
@@ -384,7 +390,7 @@ async fn hop_cross_chain_message() {
     );
 
     let chain_id = U256::from(98u64);
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
 
     sync!(shared_state);
 
@@ -474,7 +480,7 @@ async fn native_deposit_revert() {
     init_logger();
 
     let abi = zkevm_abi();
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
     let mut deposits: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
@@ -602,7 +608,7 @@ async fn native_deposit_revert() {
 
 #[tokio::test]
 async fn zero_eth_transfer() {
-    let shared_state = get_shared_state().await.lock().unwrap();
+    let shared_state = await_state!();
     let tx_hash = shared_state
         .transaction_to_l2(shared_state.ro.l2_wallet.address(), U256::zero(), vec![])
         .await
