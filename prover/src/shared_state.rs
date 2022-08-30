@@ -1,3 +1,4 @@
+use halo2_proofs::dev::MockProver;
 use halo2_proofs::pairing::bn256::Fr;
 use halo2_proofs::pairing::bn256::G1Affine;
 use halo2_proofs::plonk::create_proof;
@@ -233,17 +234,25 @@ impl SharedState {
                                 instance
                             }
                         };
-                        let instance: Vec<&[Fr]> = instance.iter().map(|e| e.as_slice()).collect();
-                        let instances = match instance.is_empty() {
+                        let instance_ref: Vec<&[Fr]> = instance.iter().map(|e| e.as_slice()).collect();
+                        let instances_ref = match instance_ref.is_empty() {
                             true => vec![],
-                            false => vec![instance.as_slice()],
+                            false => vec![instance_ref.as_slice()],
                         };
 
                         let circuit =
-                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs)?;
+                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone())?;
                         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
-                        create_proof(&param, &pk, &[circuit], &instances, OsRng, &mut transcript)
-                            .map_err(|e| e.to_string())?;
+
+                        let res = create_proof(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
+                        // run the `MockProver` and return (hopefully) useful errors
+                        if let Err(proof_err) = res {
+                            let circuit =
+                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs)?;
+                            let prover = MockProver::run(param.k, &circuit, instance).expect("MockProver::run");
+                            let res = prover.verify();
+                            panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+                        }
 
                         (transcript.finalize(), param.k, Instant::now().duration_since(time_started).as_millis())
                     },
