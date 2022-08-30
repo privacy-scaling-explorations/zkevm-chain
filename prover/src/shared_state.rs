@@ -185,7 +185,7 @@ impl SharedState {
         let self_copy = self.clone();
         let task_result: Result<Result<Proofs, String>, tokio::task::JoinError> =
             tokio::spawn(async move {
-                let (block, txs, gas_used) =
+                let (block, txs, gas_used, keccak_inputs) =
                     gen_block_witness(&task_options_copy.block, &task_options_copy.rpc)
                         .await
                         .map_err(|e| e.to_string())?;
@@ -241,14 +241,14 @@ impl SharedState {
                         };
 
                         let circuit =
-                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone())?;
+                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
                         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
                         let res = create_proof(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
                         // run the `MockProver` and return (hopefully) useful errors
                         if let Err(proof_err) = res {
                             let circuit =
-                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs)?;
+                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
                             let prover = MockProver::run(param.k, &circuit, instance).expect("MockProver::run");
                             let res = prover.verify();
                             panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);

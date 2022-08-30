@@ -152,6 +152,7 @@ impl<F: Field> Assignment<F> for Assembly {
 fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTECODE: usize>(
     input_block: witness::Block<Fr>,
     txs: Vec<geth_types::Transaction>,
+    keccak_inputs: Vec<Vec<u8>>,
 ) -> Result<Assembly, String> {
     let chain_id = input_block.context.chain_id;
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(OsRng).to_affine();
@@ -165,6 +166,7 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
         block: input_block,
         fixed_table_tags: FixedTableTag::iter().collect(),
         tx_circuit,
+        keccak_inputs,
         bytecode_size: MAX_BYTECODE,
     };
 
@@ -217,6 +219,7 @@ macro_rules! estimate {
         let block_number = history_hashes.len();
         let input_block;
         let txs: Vec<geth_types::Transaction>;
+        let keccak_inputs;
         let chain_id: u64 = 99;
 
         // prepare block
@@ -278,6 +281,7 @@ macro_rules! estimate {
             builder
                 .handle_block(&block.eth_block, &block.geth_traces)
                 .expect("could not handle block tx");
+            keccak_inputs = builder.keccak_inputs().expect("keccak_inputs");
             input_block = block_convert(&builder.block, &builder.code_db);
             // check gas used
             {
@@ -295,8 +299,12 @@ macro_rules! estimate {
         }
         // calculate circuit stats
         {
-            let assembly =
-                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(input_block, txs).unwrap();
+            let assembly = run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(
+                input_block,
+                txs,
+                keccak_inputs,
+            )
+            .unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(assembly.highest_row);
             let remaining_rows = (1 << k) - assembly.highest_row;

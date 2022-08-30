@@ -6,9 +6,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_06_03" }
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d16ac9b8bda39c45c82a41d2d59054c85abbc9a1" }
-eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d16ac9b8bda39c45c82a41d2d59054c85abbc9a1" }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d16ac9b8bda39c45c82a41d2d59054c85abbc9a1", features = ["test"] }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "a12b2b2826e195fd0e5b689a5f592d87bad322f7" }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "a12b2b2826e195fd0e5b689a5f592d87bad322f7" }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "a12b2b2826e195fd0e5b689a5f592d87bad322f7", features = ["test"] }
 env_logger = "0.9.0"
 ethers-providers = "0.6"
 hyper = { version = "0.14.16", features = ["server"] }
@@ -21,7 +21,7 @@ strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
-mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d16ac9b8bda39c45c82a41d2d59054c85abbc9a1" }
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "a12b2b2826e195fd0e5b689a5f592d87bad322f7" }
 ethers-signers = "0.6"
 ethers-core = "0.6"
 

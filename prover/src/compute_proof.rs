@@ -28,6 +28,7 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     bytecode_size: usize,
     block: witness::Block<Fr>,
     txs: Vec<geth_types::Transaction>,
+    keccak_inputs: Vec<Vec<u8>>,
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
     let chain_id = block.context.chain_id;
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(OsRng).to_affine();
@@ -36,6 +37,7 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
         block,
         fixed_table_tags: FixedTableTag::iter().collect(),
         tx_circuit,
+        keccak_inputs,
         bytecode_size,
     };
 
@@ -64,6 +66,7 @@ pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
         .iter()
         .map(geth_types::Transaction::from)
         .collect();
+    let keccak_inputs = Vec::new();
 
     let code_db = CodeDB::new();
     let chain_id = U256::from(99);
@@ -71,7 +74,7 @@ pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     let mut block = witness::block_convert(&block, &code_db);
     block.state_circuit_pad_to = state_circuit_pad_to;
 
-    let circuit = gen_circuit::<MAX_TXS, MAX_CALLDATA>(max_bytecode, block, txs)?;
+    let circuit = gen_circuit::<MAX_TXS, MAX_CALLDATA>(max_bytecode, block, txs, keccak_inputs)?;
     let vk = keygen_vk(params, &circuit)?;
     let pk = keygen_pk(params, vk, &circuit)?;
 
@@ -83,22 +86,27 @@ pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
 pub async fn gen_block_witness(
     block_num: &u64,
     rpc_url: &str,
-) -> Result<(witness::Block<Fr>, Vec<geth_types::Transaction>, u64), Box<dyn std::error::Error>> {
+) -> Result<
+    (
+        witness::Block<Fr>,
+        Vec<geth_types::Transaction>,
+        u64,
+        Vec<Vec<u8>>,
+    ),
+    Box<dyn std::error::Error>,
+> {
     let url = Http::from_str(rpc_url)?;
     let geth_client = GethClient::new(url);
     let builder = BuilderClient::new(geth_client).await?;
-    let (eth_block, geth_traces) = builder.get_block(*block_num).await?;
+    let (builder, eth_block) = builder.gen_inputs(*block_num).await?;
+    let keccak_inputs = builder.keccak_inputs()?;
     let txs = eth_block
         .transactions
         .iter()
         .map(geth_types::Transaction::from)
         .collect();
     let gas_used = eth_block.gas_used.as_u64();
-    let access_set = builder.get_state_accesses(&eth_block, &geth_traces)?;
-    let (proofs, codes) = builder.get_state(*block_num, access_set).await?;
-    let (state_db, code_db) = builder.build_state_code_db(proofs, codes);
-    let builder = builder.gen_inputs_from_state(state_db, code_db, &eth_block, &geth_traces)?;
     let block = witness::block_convert(&builder.block, &builder.code_db);
 
-    Ok((block, txs, gas_used))
+    Ok((block, txs, gas_used, keccak_inputs))
 }
