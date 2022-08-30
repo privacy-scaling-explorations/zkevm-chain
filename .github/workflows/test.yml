@@ -15,7 +15,7 @@ jobs:
           path: ${{ runner.temp }}/docker-cache
           key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.run_id }}
           restore-keys: |
-            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}
+            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-
 
       - name: Build docker images
         run: >
