@@ -1,5 +1,3 @@
-FROM --platform=$BUILDPLATFORM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:a38ef4d64a38e9137b06f32e7121d22a5c9de6034195c0c133e53acec4499152 AS params
-
 FROM --platform=$BUILDPLATFORM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c AS builder
 RUN apk add --no-cache rustup git musl-dev gcc binutils clang
 ENV CARGO_HOME=/usr/local/cargo
@@ -26,8 +24,8 @@ COPY . .
 RUN cargo build --locked --bin prover_rpcd --release --target-dir /target --target $(cat /tmp/target) && \
       mv /target/*-unknown-linux-musl/release/prover_rpcd / && rm -rf /target
 
-
+FROM --platform=$BUILDPLATFORM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:a38ef4d64a38e9137b06f32e7121d22a5c9de6034195c0c133e53acec4499152 AS params
 FROM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
-COPY --from=builder /prover_rpcd /
-COPY --from=params /testnet /testnet
 ENTRYPOINT ["/prover_rpcd"]
+COPY --from=params /testnet /testnet
+COPY --from=builder /prover_rpcd /
