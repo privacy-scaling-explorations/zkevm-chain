@@ -171,6 +171,9 @@ services:
       - ENABLE_FAUCET=1
       # enable automatic parameter selection based on block gas
       - PARAMS_PATH=${PARAMS_PATH:-/testnet/}
+      # useful env vars if running the proverd inside the dev image
+      - PROVERD_LOOKUP=dev:8001
+      - BIND=[::]:8001
     ports:
       - 8000:8000
     working_dir: /app
