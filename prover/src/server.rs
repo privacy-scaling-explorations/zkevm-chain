@@ -202,6 +202,35 @@ async fn handle_method(
             Ok(serde_json::to_value(ret).unwrap())
         }
 
+        // Note: this only flushes `this` instance and not any other nodes.
+        "flush" => {
+            #[derive(serde::Deserialize)]
+            struct FlushRequestOptions {
+                cache: bool,
+                pending: bool,
+                completed: bool,
+            }
+
+            let options = params.get(0).ok_or("expected struct FlushRequestOptions")?;
+            let options: FlushRequestOptions =
+                serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+            let mut rw_state = shared_state.rw.lock().await;
+
+            if options.cache {
+                rw_state.pk_cache.clear();
+                rw_state.params_cache.clear();
+            }
+            if options.pending {
+                rw_state.tasks.retain(|e| e.result.is_some());
+            }
+            if options.completed {
+                rw_state.tasks.retain(|e| e.result.is_none());
+            }
+
+            Ok(serde_json::Value::Bool(true))
+        }
+
+        // TODO: remove these obsolete methods later.
         // the following methods can be used to programmatically
         // prune the `tasks` from the list.
         "flushAll" => {
