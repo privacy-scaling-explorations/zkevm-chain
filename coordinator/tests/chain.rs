@@ -217,7 +217,7 @@ async fn native_withdraw() {
         .await
         .expect("nonce");
         let mut txs = vec![];
-        for _ in 0..9 {
+        for _ in 0..4 {
             let from = shared_state.ro.l2_wallet.address();
             let to = receiver;
             let value = U256::from(1u64);
@@ -299,6 +299,7 @@ async fn native_withdraw() {
     }
 }
 
+#[ignore]
 #[tokio::test]
 async fn hop_deposit() {
     init_logger();
@@ -365,6 +366,7 @@ async fn hop_deposit() {
     }
 }
 
+#[ignore]
 #[tokio::test]
 async fn hop_cross_chain_message() {
     init_logger();
@@ -502,7 +504,7 @@ async fn native_deposit_revert() {
         .expect("nonce");
 
         let mut txs = Vec::new();
-        for i in 0..300 {
+        for i in 0..30 {
             let should_revert = i % 2 == 0;
             let from = shared_state.ro.l1_wallet.address();
             let to = match should_revert {
