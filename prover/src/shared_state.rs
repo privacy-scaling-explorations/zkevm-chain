@@ -1,11 +1,14 @@
+use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::pairing::bn256::Fr;
-use halo2_proofs::pairing::bn256::G1Affine;
+use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
 use halo2_proofs::plonk::create_proof;
 use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::transcript::Blake2bWrite;
 use halo2_proofs::transcript::Challenge255;
+use halo2_proofs::transcript::TranscriptWriterBuffer;
+use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
 
 use std::collections::HashMap;
 use std::env::var;
@@ -24,6 +27,8 @@ use tokio::sync::Mutex;
 use crate::compute_proof::*;
 use crate::json_rpc::jsonrpc_request_client;
 use crate::structs::*;
+use crate::ProverCommitmentScheme;
+use crate::ProverParams;
 
 #[derive(Clone)]
 pub struct RoState {
@@ -36,7 +41,7 @@ pub struct RoState {
 
 pub struct RwState {
     pub tasks: Vec<ProofRequest>,
-    pub params_cache: HashMap<String, Arc<Params<G1Affine>>>,
+    pub params_cache: HashMap<String, Arc<ProverParams>>,
     pub pk_cache: HashMap<String, Arc<ProvingKey<G1Affine>>>,
     /// The current active task this instance wants to obtain or is working on.
     pub pending: Option<ProofRequestOptions>,
@@ -222,11 +227,9 @@ impl SharedState {
                         let instance = match var("PROVERD_ENABLE_CIRCUIT_INSTANCE").unwrap_or_default().as_str() {
                             "" | "0" | "false" => vec![],
                             _ => {
-                                use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
-                                use halo2_proofs::arithmetic::BaseExt;
                                 // TODO: This should come from the circuit `circuit.instance()`.
                                 let mut instance: Vec<Vec<Fr>>= (1..POW_RAND_SIZE + 1)
-                                    .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n as usize - 64])
+                                    .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n() as usize - 64])
                                     .collect();
                                 // SignVerifyChip -> ECDSAChip -> MainGate instance column
                                 instance.push(vec![]);
@@ -244,17 +247,17 @@ impl SharedState {
                             gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
                         let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
 
-                        let res = create_proof(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
+                        let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, _, _>(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
                         // run the `MockProver` and return (hopefully) useful errors
                         if let Err(proof_err) = res {
                             let circuit =
                                 gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
-                            let prover = MockProver::run(param.k, &circuit, instance).expect("MockProver::run");
+                            let prover = MockProver::run(param.k(), &circuit, instance).expect("MockProver::run");
                             let res = prover.verify();
                             panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
                         }
 
-                        (transcript.finalize(), param.k, Instant::now().duration_since(time_started).as_millis())
+                        (transcript.finalize(), param.k(), Instant::now().duration_since(time_started).as_millis())
                     },
                     {
                         return Err(format!("No circuit parameters found for block with gas used={}", gas_used));
@@ -364,7 +367,7 @@ impl SharedState {
         Ok(true)
     }
 
-    async fn load_param(&self, params_path: &str) -> Arc<Params<G1Affine>> {
+    async fn load_param(&self, params_path: &str) -> Arc<ProverParams> {
         let mut rw = self.rw.lock().await;
 
         if !rw.params_cache.contains_key(params_path) {
@@ -373,8 +376,8 @@ impl SharedState {
 
             // load polynomial commitment parameters
             let params_fs = File::open(params_path).expect("couldn't open params");
-            let params: Arc<Params<G1Affine>> = Arc::new(
-                Params::read::<_>(&mut std::io::BufReader::new(params_fs))
+            let params: Arc<ProverParams> = Arc::new(
+                ProverParams::read(&mut std::io::BufReader::new(params_fs))
                     .expect("Failed to read params"),
             );
 

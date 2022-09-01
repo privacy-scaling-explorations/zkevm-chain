@@ -1,3 +1,4 @@
+use crate::ProverParams;
 use bus_mapping::circuit_input_builder::Block;
 use bus_mapping::circuit_input_builder::BuilderClient;
 use bus_mapping::rpc::GethClient;
@@ -7,11 +8,8 @@ use eth_types::Word;
 use eth_types::U256;
 use ethers_providers::Http;
 use halo2_proofs::arithmetic::CurveAffine;
-use halo2_proofs::{
-    pairing::bn256::{Fr, G1Affine},
-    plonk::*,
-    poly::commitment::Params,
-};
+use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
+use halo2_proofs::plonk::{keygen_pk, keygen_vk, ProvingKey};
 use rand::rngs::OsRng;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
@@ -50,7 +48,7 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
 // https://github.com/zcash/halo2/issues/449
 /// Compute a static proving key for SuperCircuit
 pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
-    params: &Params<G1Affine>,
+    params: &ProverParams,
     block_gas_limit: usize,
     max_bytecode: usize,
     state_circuit_pad_to: usize,

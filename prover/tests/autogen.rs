@@ -13,7 +13,20 @@ use ethers_signers::Signer;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::SimpleFloorPlanner;
-use halo2_proofs::{pairing::bn256::Fr, plonk::*};
+use halo2_proofs::circuit::Value;
+use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::plonk::Advice;
+use halo2_proofs::plonk::Any;
+use halo2_proofs::plonk::Assigned;
+use halo2_proofs::plonk::Assignment;
+use halo2_proofs::plonk::Circuit;
+use halo2_proofs::plonk::Column;
+use halo2_proofs::plonk::ConstraintSystem;
+use halo2_proofs::plonk::Error;
+use halo2_proofs::plonk::Fixed;
+use halo2_proofs::plonk::FloorPlanner;
+use halo2_proofs::plonk::Instance;
+use halo2_proofs::plonk::Selector;
 use mock::TestContext;
 use rand::rngs::OsRng;
 use std::collections::BTreeMap;
@@ -72,8 +85,9 @@ impl<F: Field> Assignment<F> for Assembly {
         Ok(())
     }
 
-    fn query_instance(&self, _: Column<Instance>, _: usize) -> Result<Option<F>, Error> {
-        Ok(None)
+    fn query_instance(&self, _: Column<Instance>, row: usize) -> Result<Value<F>, Error> {
+        assert!(row <= self.highest_row);
+        Ok(Value::unknown())
     }
 
     fn assign_advice<V, VR, A, AR>(
@@ -84,7 +98,7 @@ impl<F: Field> Assignment<F> for Assembly {
         _: V,
     ) -> Result<(), Error>
     where
-        V: FnOnce() -> Result<VR, Error>,
+        V: FnOnce() -> Value<VR>,
         VR: Into<Assigned<F>>,
         A: FnOnce() -> AR,
         AR: Into<String>,
@@ -102,7 +116,7 @@ impl<F: Field> Assignment<F> for Assembly {
         _: V,
     ) -> Result<(), Error>
     where
-        V: FnOnce() -> Result<VR, Error>,
+        V: FnOnce() -> Value<VR>,
         VR: Into<Assigned<F>>,
         A: FnOnce() -> AR,
         AR: Into<String>,
@@ -129,7 +143,7 @@ impl<F: Field> Assignment<F> for Assembly {
         &mut self,
         _: Column<Fixed>,
         from_row: usize,
-        _: Option<Assigned<F>>,
+        _to: Value<Assigned<F>>,
     ) -> Result<(), Error> {
         self.track_row(from_row);
 
