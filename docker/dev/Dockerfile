@@ -12,11 +12,15 @@ RUN \
       mv solc/solc /solc && \
       rm -rf $(pwd)
 
+FROM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:f5936391e1d67515f6625c9e49525adc4cd6ebd9caecedc5ce0fad5d7c4b1d65 AS params
+
 # developer image
 # Should be alpine like the production images but fails due to
 # linkage bug(segfaults of test binaries w/ linked golang code) in rust.
 # Use debian until this is resolved.
 FROM debian:bookworm-slim
+COPY --from=params /testnet /testnet
+COPY --from=solc /solc /usr/bin/solc
 ENV CARGO_TARGET_DIR=/target
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=$CARGO_HOME/bin:$PATH
@@ -49,4 +53,3 @@ RUN set -eux; \
     rm rustup-init;
 # set default home to global cache directory
 ENV CARGO_HOME=/target/cargo
-COPY --from=solc /solc /usr/bin/solc
