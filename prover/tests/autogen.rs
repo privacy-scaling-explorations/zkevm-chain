@@ -390,13 +390,6 @@ fn proverd_autogen() {
     estimate!(100_000, callback);
     estimate!(200_000, callback);
     estimate!(300_000, callback);
-    estimate!(400_000, callback);
-    estimate!(500_000, callback);
-    estimate!(600_000, callback);
-    estimate!(700_000, callback);
-    estimate!(800_000, callback);
-    estimate!(900_000, callback);
-    estimate!(1_000_000, callback);
 
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;

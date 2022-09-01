@@ -25,7 +25,7 @@ services:
       --unlock $MINER_ADDRESS
       --password /dev/null
       --allow-insecure-unlock
-      --miner.gaslimit 1000000
+      --miner.gaslimit 300000
       --http
       --http.addr "[::]"
       --http.port 8545
