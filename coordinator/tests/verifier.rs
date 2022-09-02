@@ -1,3 +1,5 @@
+mod common;
+
 use coordinator::shared_state::SharedState;
 use coordinator::utils::*;
 use ethers_core::abi::AbiParser;
@@ -8,7 +10,6 @@ use ethers_core::types::Bytes;
 use ethers_core::types::Transaction;
 use ethers_core::types::H256;
 use ethers_core::types::U256;
-use ethers_core::types::U64;
 use lzma::LzmaReader;
 use std::fs::File;
 
@@ -53,8 +54,6 @@ async fn witness_verifier() {
                "function testPublicInput(uint256 zeta, uint256 MAX_TXS, uint256 MAX_CALLDATA, uint256 chainId, uint256 parentStateRoot, bytes calldata witness) external returns (uint256[])",
         ])
         .expect("parse abi");
-    let bytecode: String =
-        std::fs::read_to_string("../build/contracts/ZkEvmTest.bin-runtime").unwrap();
     let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
@@ -86,55 +85,14 @@ async fn witness_verifier() {
             .expect("calldata");
 
         println!("{:?}", path);
-        let req = serde_json::json!(
-            [
-            {
-                "to": "0x00000000000000000000000000000000000f0000",
-                "data": Bytes::from(calldata),
-            },
-            "latest",
-            {
-                "tracer": "callTracer",
-                "stateOverrides": {
-                    "0x00000000000000000000000000000000000f0000": {
-                        "code": format!("0x{}", bytecode),
-                    },
-                },
-            },
-            ]
-        );
 
-        #[derive(Debug, serde::Deserialize)]
-        struct Trace {
-            #[serde(rename = "gasUsed")]
-            gas_used: U64,
-            output: Option<Bytes>,
-            error: Option<String>,
-        }
-        let trace: serde_json::Value = shared_state
-            .request_l1("debug_traceCall", &req)
+        let trace = common::l1_trace(&Bytes::from(calldata), &shared_state)
             .await
-            .expect("eth_call");
-        let trace: Trace = serde_json::from_value(trace).unwrap();
-        if let Some(err) = trace.error {
-            use ethers_core::abi::decode;
-            use ethers_core::abi::ParamType;
-
-            if trace.output.is_some() {
-                let revert_reason = decode(
-                    &[ParamType::String],
-                    &trace.output.clone().unwrap().as_ref()[4..],
-                );
-                panic!("{:?}", revert_reason);
-            }
-
-            panic!("{}", err);
-        }
-
+            .unwrap();
         let mut result = abi
             .function("testPublicInput")
             .unwrap()
-            .decode_output(trace.output.unwrap().as_ref())
+            .decode_output(trace.return_value.as_ref())
             .expect("decode output");
         let table: Vec<Token> = result.pop().unwrap().into_array().unwrap();
 
@@ -159,6 +117,6 @@ async fn witness_verifier() {
             //}
         }
 
-        println!("{:?}: gas={}", path, trace.gas_used);
+        println!("{:?}: gas={}", path, trace.gas);
     }
 }

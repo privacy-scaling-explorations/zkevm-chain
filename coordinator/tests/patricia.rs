@@ -1,3 +1,5 @@
+mod common;
+
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::Tokenizable;
 use ethers_core::types::Bytes;
@@ -8,7 +10,6 @@ use std::io::BufReader;
 
 use coordinator::shared_state::SharedState;
 use coordinator::structs::ProofRequest;
-use coordinator::utils::jsonrpc_request;
 use coordinator::utils::marshal_proof;
 
 #[derive(Debug, serde::Deserialize)]
@@ -59,29 +60,22 @@ async fn patricia_validator() {
                 ])
                 .expect("calldata");
 
-            let req = serde_json::json!([
-                {
-                    "to": "0x00000000000000000000000000000000000f0000",
-                    "data": Bytes::from(calldata),
-                },
-                "latest"
-            ]);
-
-            let result: Result<Bytes, String> =
-                jsonrpc_request(&shared_state.ro.l1_node, "eth_call", &req).await;
+            let result = common::l1_trace(&Bytes::from(calldata), &shared_state).await;
             let error_expected = storage_proof.value.is_zero();
-            if result.is_err() != error_expected {
-                log::error!("{:?} {:?} {:?}", result.clone().err(), storage_proof, path);
-            }
-
-            assert_eq!(result.is_err(), error_expected);
+            assert_eq!(
+                result.is_err(),
+                error_expected,
+                "{:?} {:?} {:?}",
+                result,
+                storage_proof,
+                path
+            );
             if !error_expected {
-                let res = result.unwrap();
-                log::debug!("{}", res);
+                let trace = result.unwrap();
                 let mut res = abi
                     .function("testPatricia")
                     .unwrap()
-                    .decode_output(res.as_ref())
+                    .decode_output(trace.return_value.as_ref())
                     .expect("decode output");
                 let storage_value = H256::from_token(res.pop().unwrap()).expect("bytes");
                 let state_root = H256::from_token(res.pop().unwrap()).expect("bytes");
@@ -93,12 +87,8 @@ async fn patricia_validator() {
                     "storage_value"
                 );
 
-                let gas_estimate: U256 =
-                    jsonrpc_request(&shared_state.ro.l1_node, "eth_estimateGas", &req)
-                        .await
-                        .expect("estimateGas");
                 // remove 'tx' cost
-                cumulative_gas += gas_estimate.as_u64() - 21_000;
+                cumulative_gas += trace.gas - 21_000;
                 samples += 1;
             }
         }
