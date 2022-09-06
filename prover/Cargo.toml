@@ -19,6 +19,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
+zkevm-common = { path = "../common" }
 
 [dev-dependencies]
 mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "2783eba338274a52036bf3db7fbc29575e24aa9f" }

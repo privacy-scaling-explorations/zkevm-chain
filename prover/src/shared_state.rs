@@ -1,3 +1,8 @@
+use crate::compute_proof::*;
+use crate::structs::*;
+use crate::ProverCommitmentScheme;
+use crate::ProverParams;
+use eth_types::Bytes;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
@@ -8,8 +13,9 @@ use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::transcript::Blake2bWrite;
 use halo2_proofs::transcript::Challenge255;
 use halo2_proofs::transcript::TranscriptWriterBuffer;
-use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
-
+use hyper::Uri;
+use rand::rngs::OsRng;
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::env::var;
 use std::fmt::Write;
@@ -17,18 +23,9 @@ use std::fs::File;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
-
-use eth_types::Bytes;
-use hyper::Uri;
-use rand::rngs::OsRng;
-use rand::{thread_rng, Rng};
 use tokio::sync::Mutex;
-
-use crate::compute_proof::*;
-use crate::json_rpc::jsonrpc_request_client;
-use crate::structs::*;
-use crate::ProverCommitmentScheme;
-use crate::ProverParams;
+use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
+use zkevm_common::json_rpc::jsonrpc_request_client;
 
 #[derive(Clone)]
 pub struct RoState {
