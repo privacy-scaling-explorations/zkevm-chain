@@ -1,13 +1,5 @@
-use hyper::body::Buf;
-use hyper::client::HttpConnector;
-use hyper::{Body, Request, Uri};
-
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-
 use crate::structs::*;
 use crate::timeout;
-
 use ethers_core::types::transaction::eip2930::AccessListWithGasUsed;
 use ethers_core::types::Transaction;
 use ethers_core::types::{
@@ -17,51 +9,9 @@ use ethers_core::types::{
 use ethers_core::utils::keccak256;
 use ethers_core::utils::rlp::RlpStream;
 use ethers_signers::{LocalWallet, Signer};
-
-pub async fn jsonrpc_request<T: Serialize + Send + Sync, R: DeserializeOwned>(
-    uri: &Uri,
-    method: &str,
-    params: T,
-) -> Result<R, String> {
-    let client = hyper::Client::new();
-    jsonrpc_request_client(&client, uri, method, params).await
-}
-
-pub async fn jsonrpc_request_client<T: Serialize + Send + Sync, R: DeserializeOwned>(
-    client: &hyper::Client<HttpConnector>,
-    uri: &Uri,
-    method: &str,
-    params: T,
-) -> Result<R, String> {
-    let node_req = Request::post(uri);
-    let req_obj = JsonRpcRequest {
-        jsonrpc: "2.0".to_string(),
-        id: 0,
-        method: method.to_string(),
-        params,
-    };
-
-    let node_req = node_req
-        .header(hyper::header::CONTENT_TYPE, "application/json")
-        .body(Body::from(serde_json::to_vec(&req_obj).unwrap()))
-        .unwrap();
-
-    log::debug!("jsonrpc_request_client: {} {}", uri, method);
-
-    let resp = client.request(node_req).await.unwrap();
-    let body = hyper::body::aggregate(resp).await.unwrap();
-    let json: JsonRpcResponse<R> = serde_json::from_reader(body.reader()).unwrap();
-
-    if json.error.is_some() {
-        return Err(json.error.unwrap().message);
-    }
-
-    if json.result.is_none() {
-        return Err("no result in response".to_string());
-    }
-
-    Ok(json.result.unwrap())
-}
+use hyper::client::HttpConnector;
+use hyper::Uri;
+use zkevm_common::json_rpc::jsonrpc_request_client;
 
 /// may override any pending transactions
 pub async fn send_transaction_to_l1(
@@ -73,6 +23,7 @@ pub async fn send_transaction_to_l1(
     calldata: Vec<u8>,
 ) {
     let nonce: U256 = jsonrpc_request_client(
+        5000,
         client,
         node_uri,
         "eth_getTransactionCount",
@@ -98,7 +49,7 @@ pub async fn sign_transaction_l1(
 ) -> Bytes {
     let wallet_addr: Address = wallet.address();
 
-    let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
+    let gas_price: U256 = jsonrpc_request_client(5000, client, node_uri, "eth_gasPrice", ())
         .await
         .expect("gasPrice");
 
@@ -112,11 +63,11 @@ pub async fn sign_transaction_l1(
         .data(calldata);
 
     let access_list: AccessListWithGasUsed =
-        jsonrpc_request_client(client, node_uri, "eth_createAccessList", [&tx])
+        jsonrpc_request_client(5000, client, node_uri, "eth_createAccessList", [&tx])
             .await
             .expect("eth_createAccessList");
     let tx = tx.access_list(access_list.access_list);
-    let estimate: U256 = jsonrpc_request_client(client, node_uri, "eth_estimateGas", [&tx])
+    let estimate: U256 = jsonrpc_request_client(5000, client, node_uri, "eth_estimateGas", [&tx])
         .await
         .expect("eth_estimateGas");
     let tx = tx.gas(estimate).into();
@@ -142,6 +93,7 @@ pub async fn send_transaction_to_l2(
 ) -> Result<H256, String> {
     let wallet_addr: Address = wallet.address();
     let nonce: U256 = jsonrpc_request_client(
+        5000,
         client,
         node_uri,
         "eth_getTransactionCount",
@@ -150,7 +102,7 @@ pub async fn send_transaction_to_l2(
     .await
     .expect("nonce");
 
-    let gas_price: U256 = jsonrpc_request_client(client, node_uri, "eth_gasPrice", ())
+    let gas_price: U256 = jsonrpc_request_client(5000, client, node_uri, "eth_gasPrice", ())
         .await
         .expect("gasPrice");
 
@@ -162,7 +114,7 @@ pub async fn send_transaction_to_l2(
         .gas_price(gas_price * 2u64)
         .data(calldata);
 
-    let estimate: U256 = jsonrpc_request_client(client, node_uri, "eth_estimateGas", [&tx])
+    let estimate: U256 = jsonrpc_request_client(5000, client, node_uri, "eth_estimateGas", [&tx])
         .await
         .expect("estimateGas");
     let tx = tx.gas(estimate).into();
@@ -171,7 +123,7 @@ pub async fn send_transaction_to_l2(
     let raw_tx = tx.rlp_signed(wallet.chain_id(), &sig);
 
     // TODO: will be obsolete once execution api is used
-    jsonrpc_request_client(client, node_uri, "eth_sendRawTransaction", [raw_tx]).await
+    jsonrpc_request_client(5000, client, node_uri, "eth_sendRawTransaction", [raw_tx]).await
 }
 
 /// Can loop forever, thus should be wrapped inside timeout handler
@@ -184,15 +136,21 @@ pub async fn wait_for_tx(
 
     // ignore
     let resp: Result<H256, String> =
-        jsonrpc_request_client(client, node_uri, "eth_sendRawTransaction", [raw_tx]).await;
+        jsonrpc_request_client(5000, client, node_uri, "eth_sendRawTransaction", [raw_tx]).await;
 
     log::debug!("{:?}", resp);
 
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-        let receipt: Result<TransactionReceipt, String> =
-            jsonrpc_request_client(client, node_uri, "eth_getTransactionReceipt", [&tx_hash]).await;
+        let receipt: Result<TransactionReceipt, String> = jsonrpc_request_client(
+            5000,
+            client,
+            node_uri,
+            "eth_getTransactionReceipt",
+            [&tx_hash],
+        )
+        .await;
 
         log::debug!("{:?}", receipt);
 
@@ -220,12 +178,10 @@ pub fn format_block<T>(block: &Block<T>) -> String {
 }
 
 pub async fn get_chain_head(client: &hyper::Client<HttpConnector>, uri: &Uri) -> BlockHeader {
-    let header: BlockHeader = timeout!(
-        5000,
-        jsonrpc_request_client(client, uri, "eth_getHeaderByNumber", ["latest"])
+    let header: BlockHeader =
+        jsonrpc_request_client(5000, client, uri, "eth_getHeaderByNumber", ["latest"])
             .await
-            .unwrap()
-    );
+            .unwrap();
 
     header
 }
@@ -239,12 +195,10 @@ pub async fn get_blocks_between(
     let mut ret: Vec<Block<H256>> = Vec::new();
     let mut hash = *to;
     loop {
-        let block: Block<H256> = timeout!(
-            5000,
-            jsonrpc_request_client(client, uri, "eth_getBlockByHash", (hash, false))
+        let block: Block<H256> =
+            jsonrpc_request_client(5000, client, uri, "eth_getBlockByHash", (hash, false))
                 .await
-                .expect("eth_getBlockByHash")
-        );
+                .expect("eth_getBlockByHash");
         hash = block.parent_hash;
 
         if block.hash.unwrap() != *from {

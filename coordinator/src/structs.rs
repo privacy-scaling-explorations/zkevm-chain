@@ -1,33 +1,5 @@
 use ethers_core::types::{Address, Bytes, H256, U256, U64};
 use ethers_core::utils::keccak256;
-use serde::Serialize;
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct JsonRpcError {
-    pub code: i32,
-    pub message: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct JsonRpcResponseError {
-    pub jsonrpc: String,
-    pub id: serde_json::Value,
-    pub error: JsonRpcError,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct JsonRpcRequest<T: Serialize> {
-    pub jsonrpc: String,
-    pub id: u64,
-    pub method: String,
-    pub params: T,
-}
-
-#[derive(serde::Deserialize)]
-pub struct JsonRpcResponse<T> {
-    pub result: Option<T>,
-    pub error: Option<JsonRpcError>,
-}
 
 #[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ForkchoiceStateV1 {
