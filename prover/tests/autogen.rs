@@ -38,7 +38,6 @@ use strum::IntoEnumIterator;
 use zkevm_circuits::evm_circuit::witness;
 use zkevm_circuits::evm_circuit::{table::FixedTableTag, witness::block_convert};
 use zkevm_circuits::super_circuit::SuperCircuit;
-use zkevm_circuits::table;
 use zkevm_circuits::tx_circuit::Curve;
 use zkevm_circuits::tx_circuit::Group;
 use zkevm_circuits::tx_circuit::Secp256k1Affine;
@@ -300,12 +299,10 @@ macro_rules! estimate {
             // check gas used
             {
                 let mut cumulative_gas = Word::zero();
-                for a in input_block.rws.0.get(&table::RwTableTag::TxReceipt).iter() {
-                    for b in a.iter().find(|e| {
-                        e.field_tag() == Some(table::TxReceiptFieldTag::CumulativeGasUsed as u64)
-                    }) {
-                        cumulative_gas = cumulative_gas + b.receipt_value();
-                    }
+                for tx in input_block.txs.iter() {
+                    let gas_limit = tx.gas;
+                    let gas_left = tx.steps.iter().last().unwrap().gas_left;
+                    cumulative_gas = cumulative_gas + (gas_limit - gas_left);
                 }
                 let diff = input_block.context.gas_limit - cumulative_gas.as_u64();
                 assert!(diff < 43);
