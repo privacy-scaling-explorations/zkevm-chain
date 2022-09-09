@@ -54,6 +54,7 @@ pub async fn sign_transaction_l1(
         .expect("gasPrice");
 
     let tx: Eip1559TransactionRequest = Eip1559TransactionRequest::new()
+        .chain_id(wallet.chain_id())
         .from(wallet_addr)
         .to(to)
         .nonce(nonce)
@@ -79,7 +80,7 @@ pub async fn sign_transaction_l1(
         .await
         .expect("sign_transaction");
 
-    tx.rlp_signed(wallet.chain_id(), &sig)
+    tx.rlp_signed(&sig)
 }
 
 /// may override any pending transactions
@@ -107,6 +108,7 @@ pub async fn send_transaction_to_l2(
         .expect("gasPrice");
 
     let tx = TransactionRequest::new()
+        .chain_id(wallet.chain_id())
         .from(wallet_addr)
         .to(to)
         .nonce(nonce)
@@ -120,7 +122,7 @@ pub async fn send_transaction_to_l2(
     let tx = tx.gas(estimate).into();
 
     let sig = wallet.sign_transaction(&tx).await.unwrap();
-    let raw_tx = tx.rlp_signed(wallet.chain_id(), &sig);
+    let raw_tx = tx.rlp_signed(&sig);
 
     // TODO: will be obsolete once execution api is used
     jsonrpc_request_client(5000, client, node_uri, "eth_sendRawTransaction", [raw_tx]).await

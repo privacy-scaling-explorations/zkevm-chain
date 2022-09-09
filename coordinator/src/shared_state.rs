@@ -695,6 +695,7 @@ impl SharedState {
         let wallet_addr: Address = wallet.address();
         let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await?;
         let tx = TransactionRequest::new()
+            .chain_id(wallet.chain_id())
             .from(wallet_addr)
             .to(to)
             .nonce(nonce)
@@ -709,7 +710,7 @@ impl SharedState {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(tx.rlp_signed(wallet.chain_id(), &sig))
+        Ok(tx.rlp_signed(&sig))
     }
 
     pub async fn request_l1<T: Serialize + Send + Sync, R: DeserializeOwned>(

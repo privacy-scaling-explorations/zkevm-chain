@@ -6,11 +6,11 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_19" }
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "6abc33eeb81ffd64ff73f2a84c04203f33c161eb" }
-eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "6abc33eeb81ffd64ff73f2a84c04203f33c161eb" }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "6abc33eeb81ffd64ff73f2a84c04203f33c161eb" }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d67e83d2d36e911bee4ecb0e3addf46dbfaf58bf" }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d67e83d2d36e911bee4ecb0e3addf46dbfaf58bf" }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d67e83d2d36e911bee4ecb0e3addf46dbfaf58bf" }
 env_logger = "0.9.0"
-ethers-providers = "0.6"
+ethers-providers = "0.17.0"
 hyper = { version = "0.14.16", features = ["server"] }
 rand_xorshift = "0.3"
 log = "0.4.14"
@@ -26,9 +26,8 @@ halo2_wrong_ecc = { git = "https://github.com/han0110/halo2wrong", branch = "fea
 halo2_wrong_transcript = { git = "https://github.com/han0110/halo2wrong", branch = "feature/range-chip-with-tagged-table", package = "transcript" }
 
 [dev-dependencies]
-mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "6abc33eeb81ffd64ff73f2a84c04203f33c161eb" }
-ethers-signers = "0.6"
-ethers-core = "0.6"
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "d67e83d2d36e911bee4ecb0e3addf46dbfaf58bf" }
+ethers-signers = "0.17.0"
 
 [features]
 default = []

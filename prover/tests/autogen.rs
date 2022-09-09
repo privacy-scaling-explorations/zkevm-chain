@@ -5,9 +5,7 @@ use env_logger::Env;
 use eth_types::bytecode;
 use eth_types::geth_types;
 use eth_types::geth_types::GethData;
-use eth_types::Address;
 use eth_types::{address, Word};
-use ethers_core::types::TransactionRequest;
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
 use halo2_proofs::arithmetic::CurveAffine;
@@ -197,29 +195,6 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
 
 macro_rules! estimate {
     ($BLOCK_GAS_LIMIT:expr, $scope:expr) => {{
-        fn sign_txs(
-            txs: &mut [eth_types::Transaction],
-            chain_id: u64,
-            wallets: &HashMap<Address, LocalWallet>,
-        ) {
-            for tx in txs.iter_mut() {
-                let wallet = wallets.get(&tx.from).unwrap();
-                let sighash = TransactionRequest::new()
-                    .from(tx.from)
-                    .to(tx.to.unwrap())
-                    .nonce(tx.nonce)
-                    .value(tx.value)
-                    .data(tx.input.clone())
-                    .gas(tx.gas)
-                    .gas_price(tx.gas_price.unwrap())
-                    .sighash(chain_id);
-                let sig = wallet.sign_hash(sighash, true);
-                tx.v = eth_types::U64::from(sig.v);
-                tx.r = sig.r;
-                tx.s = sig.s;
-            }
-        }
-
         const PUSH_GAS: usize = 3;
         const TX_DATA_ZERO_GAS: usize = 4;
         const BLOCK_GAS_LIMIT: usize = $BLOCK_GAS_LIMIT;
@@ -281,7 +256,7 @@ macro_rules! estimate {
             .unwrap()
             .into();
 
-            sign_txs(&mut block.eth_block.transactions, chain_id, &wallets);
+            block.sign(&wallets);
             txs = block
                 .eth_block
                 .transactions

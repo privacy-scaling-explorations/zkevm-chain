@@ -4,6 +4,7 @@ use bus_mapping::circuit_input_builder::BuilderClient;
 use bus_mapping::rpc::GethClient;
 use bus_mapping::state_db::CodeDB;
 use eth_types::geth_types;
+use eth_types::Address;
 use eth_types::Word;
 use eth_types::U256;
 use ethers_providers::Http;
@@ -52,6 +53,7 @@ pub fn gen_static_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA>, Box<dyn std::error::Error>> {
     let history_hashes = vec![Word::zero(); 256];
     let mut eth_block: eth_types::Block<eth_types::Transaction> = eth_types::Block::default();
+    eth_block.author = Some(Address::zero());
     eth_block.number = Some(history_hashes.len().into());
     eth_block.base_fee_per_gas = Some(0.into());
     eth_block.hash = Some(eth_block.parent_hash);
