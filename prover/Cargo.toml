@@ -20,6 +20,10 @@ serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
 zkevm-common = { path = "../common" }
+plonk-verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "3496e32d6d1e02e6363c4360a3fb504fb8bd6038" }
+itertools = "0.10.3"
+halo2_wrong_ecc = { git = "https://github.com/han0110/halo2wrong", branch = "feature/range-chip-with-tagged-table", package = "ecc" }
+halo2_wrong_transcript = { git = "https://github.com/han0110/halo2wrong", branch = "feature/range-chip-with-tagged-table", package = "transcript" }
 
 [dev-dependencies]
 mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "6abc33eeb81ffd64ff73f2a84c04203f33c161eb" }

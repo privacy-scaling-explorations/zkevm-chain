@@ -654,7 +654,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24#56639b615295e08e0ef145d8a0c3876f606a7c5c"
 dependencies = [
  "group 0.12.0",
- "integer",
+ "integer 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "ecc"
+version = "0.1.0"
+source = "git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table#4b5750a7ad130450e93a9b1e15dd0dfd451a483b"
+dependencies = [
+ "group 0.12.0",
+ "integer 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -667,7 +681,7 @@ name = "ecdsa"
 version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24#56639b615295e08e0ef145d8a0c3876f606a7c5c"
 dependencies = [
- "ecc",
+ "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
  "group 0.12.0",
  "num-bigint",
  "num-integer",
@@ -798,7 +812,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f76ef192b63e8a44b3d08832acebbb984c3fba154b5c26f70037c860202a0d4b"
 dependencies = [
  "anyhow",
- "ethereum-types",
+ "ethereum-types 0.12.1",
  "hex",
  "serde",
  "serde_json",
@@ -821,16 +835,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethbloom"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11da94e443c60508eb62cf256243a64da87304c2802ac2528847f79d750007ef"
+dependencies = [
+ "crunchy",
+ "fixed-hash",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05136f7057fe789f06e6d41d07b34e6f70d8c86e5693b60f97aaa6553553bdaf"
 dependencies = [
- "ethbloom",
+ "ethbloom 0.11.1",
  "fixed-hash",
  "impl-rlp",
  "impl-serde",
- "primitive-types",
+ "primitive-types 0.10.1",
+ "uint",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2827b94c556145446fcce834ca86b7abf0c39a805883fe20e72c5bfdb5a0dc6"
+dependencies = [
+ "ethbloom 0.12.1",
+ "fixed-hash",
+ "primitive-types 0.11.1",
  "uint",
 ]
 
@@ -1224,10 +1261,27 @@ dependencies = [
  "blake2b_simd",
  "ff 0.12.0",
  "group 0.12.0",
- "halo2curves",
+ "halo2curves 0.2.1",
  "rand_core",
  "rayon",
  "tracing",
+]
+
+[[package]]
+name = "halo2curves"
+version = "0.2.0"
+source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=v0.2.0#bbd4cee10dbf9c51e0456ea67ec2b894b49f688c"
+dependencies = [
+ "ff 0.12.0",
+ "group 0.12.0",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "pasta_curves",
+ "rand",
+ "rand_core",
+ "static_assertions",
+ "subtle",
 ]
 
 [[package]]
@@ -1251,6 +1305,18 @@ dependencies = [
 name = "halo2wrong"
 version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24#56639b615295e08e0ef145d8a0c3876f606a7c5c"
+dependencies = [
+ "group 0.12.0",
+ "halo2_proofs 0.2.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "halo2wrong"
+version = "0.1.0"
+source = "git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table#4b5750a7ad130450e93a9b1e15dd0dfd451a483b"
 dependencies = [
  "group 0.12.0",
  "halo2_proofs 0.2.0",
@@ -1411,7 +1477,16 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "161ebdfec3c8e3b52bf61c4f3550a1eea4f9579d10dc1b936f3171ebdcd6c443"
 dependencies = [
- "parity-scale-codec",
+ "parity-scale-codec 2.3.1",
+]
+
+[[package]]
+name = "impl-codec"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba6a270039626615617f3f36d15fc827041df3b78c439da2cadfa47455a77f2f"
+dependencies = [
+ "parity-scale-codec 3.1.5",
 ]
 
 [[package]]
@@ -1471,7 +1546,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24#56639b615295e08e0ef145d8a0c3876f606a7c5c"
 dependencies = [
  "group 0.12.0",
- "maingate",
+ "maingate 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "integer"
+version = "0.1.0"
+source = "git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table#4b5750a7ad130450e93a9b1e15dd0dfd451a483b"
+dependencies = [
+ "group 0.12.0",
+ "maingate 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -1626,7 +1715,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24#56639b615295e08e0ef145d8a0c3876f606a7c5c"
 dependencies = [
  "group 0.12.0",
- "halo2wrong",
+ "halo2wrong 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "maingate"
+version = "0.1.0"
+source = "git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table#4b5750a7ad130450e93a9b1e15dd0dfd451a483b"
+dependencies = [
+ "group 0.12.0",
+ "halo2wrong 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -1679,7 +1782,7 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=6abc33eeb81ffd64ff73f2a84c04203f33c161eb#6abc33eeb81ffd64ff73f2a84c04203f33c161eb"
 dependencies = [
  "eth-types",
- "ethbloom",
+ "ethbloom 0.11.1",
  "ethers-core",
  "ethers-signers",
  "external-tracer",
@@ -1810,7 +1913,21 @@ dependencies = [
  "bitvec 0.20.4",
  "byte-slice-cast",
  "impl-trait-for-tuples",
- "parity-scale-codec-derive",
+ "parity-scale-codec-derive 2.3.1",
+ "serde",
+]
+
+[[package]]
+name = "parity-scale-codec"
+version = "3.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9182e4a71cae089267ab03e67c99368db7cd877baf50f931e5d6d4b71e195ac0"
+dependencies = [
+ "arrayvec",
+ "bitvec 1.0.1",
+ "byte-slice-cast",
+ "impl-trait-for-tuples",
+ "parity-scale-codec-derive 3.1.3",
  "serde",
 ]
 
@@ -1819,6 +1936,18 @@ name = "parity-scale-codec-derive"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1557010476e0595c9b568d16dcfb81b93cdeb157612726f5170d31aa707bed27"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "parity-scale-codec-derive"
+version = "3.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9299338969a3d2f491d65f140b00ddec470858402f888af98e8642fb5e8965cd"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -1978,6 +2107,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
+name = "plonk-verifier"
+version = "0.1.0"
+source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=3496e32d6d1e02e6363c4360a3fb504fb8bd6038#3496e32d6d1e02e6363c4360a3fb504fb8bd6038"
+dependencies = [
+ "ecc 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
+ "ethereum-types 0.13.1",
+ "halo2_proofs 0.2.0",
+ "halo2curves 0.2.1",
+ "itertools",
+ "lazy_static",
+ "num-bigint",
+ "num-traits",
+ "poseidon",
+ "rand",
+ "rand_chacha",
+ "sha3 0.10.2",
+ "transcript",
+]
+
+[[package]]
+name = "poseidon"
+version = "0.2.0"
+source = "git+https://github.com/privacy-scaling-explorations/poseidon?branch=padding#6a305ac124810a1eaf83ae7fafd520b19bfa304e"
+dependencies = [
+ "group 0.12.0",
+ "halo2curves 0.2.0",
+ "subtle",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1990,9 +2149,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05e4722c697a58a99d5d06a08c30821d7c082a4632198de1eaa5a6c22ef42373"
 dependencies = [
  "fixed-hash",
- "impl-codec",
+ "impl-codec 0.5.1",
  "impl-rlp",
  "impl-serde",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e28720988bff275df1f51b171e1b2a18c30d194c4d2b61defdacecd625a5d94a"
+dependencies = [
+ "fixed-hash",
+ "impl-codec 0.6.0",
  "uint",
 ]
 
@@ -2045,6 +2215,7 @@ name = "prover"
 version = "0.1.0"
 dependencies = [
  "bus-mapping",
+ "ecc 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
  "env_logger",
  "eth-types",
  "ethers-core",
@@ -2052,14 +2223,17 @@ dependencies = [
  "ethers-signers",
  "halo2_proofs 0.2.0",
  "hyper",
+ "itertools",
  "log",
  "mock",
+ "plonk-verifier",
  "rand",
  "rand_xorshift",
  "serde",
  "serde_json",
  "strum",
  "tokio",
+ "transcript",
  "zkevm-circuits",
  "zkevm-common",
 ]
@@ -2864,6 +3038,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "transcript"
+version = "0.1.0"
+source = "git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table#4b5750a7ad130450e93a9b1e15dd0dfd451a483b"
+dependencies = [
+ "ecc 0.1.0 (git+https://github.com/han0110/halo2wrong?branch=feature/range-chip-with-tagged-table)",
+ "group 0.12.0",
+ "poseidon",
+ "subtle",
+]
+
+[[package]]
 name = "try-lock"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3244,20 +3429,20 @@ source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git
 dependencies = [
  "array-init",
  "bus-mapping",
- "ecc",
+ "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
  "ecdsa 0.1.0",
  "env_logger",
  "eth-types",
  "ethers-core",
  "gadgets",
  "halo2_proofs 0.2.0",
- "integer",
+ "integer 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
  "itertools",
  "keccak256",
  "lazy_static",
  "libsecp256k1",
  "log",
- "maingate",
+ "maingate 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_08_24)",
  "num",
  "num-bigint",
  "rand",
