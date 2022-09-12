@@ -265,6 +265,7 @@ impl SharedState {
                     state_proof: Bytes::default(),
                     duration: duration as u64,
                     k: k_used as u8,
+                    gas: gas_used,
                     randomness: block.randomness.to_bytes().into(),
                 };
 
