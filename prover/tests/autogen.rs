@@ -2,7 +2,6 @@
 
 use bus_mapping::mock::BlockData;
 use env_logger::Env;
-use eth_types::bytecode;
 use eth_types::geth_types;
 use eth_types::geth_types::GethData;
 use eth_types::{address, Word};
@@ -178,6 +177,7 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
         fixed_table_tags: FixedTableTag::iter().collect(),
         tx_circuit,
         keccak_inputs,
+        // TODO: why does it succeed if bytecode for tx is > MAX_BYTECODE?
         bytecode_size: MAX_BYTECODE,
     };
 
@@ -194,7 +194,7 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
 }
 
 macro_rules! estimate {
-    ($BLOCK_GAS_LIMIT:expr, $scope:expr) => {{
+    ($BLOCK_GAS_LIMIT:expr, $MAX_UNUSED_GAS:expr, $BYTECODE:expr, $scope:expr) => {{
         const PUSH_GAS: usize = 3;
         const TX_DATA_ZERO_GAS: usize = 4;
         const BLOCK_GAS_LIMIT: usize = $BLOCK_GAS_LIMIT;
@@ -212,19 +212,6 @@ macro_rules! estimate {
 
         // prepare block
         {
-            let bytecode = bytecode! {
-                GAS // gas=2
-                JUMPDEST // gas=1
-                GAS  // gas=2
-                SMOD // gas=5
-                PUSH1(43)  // gas=3
-                GAS  // gas=2
-                GT   // gas=3
-                PUSH1(1) // gas=3
-                JUMPI // gas=10
-                STOP  // gas=0
-            };
-
             let wallet_a = LocalWallet::new(&mut OsRng).with_chain_id(chain_id);
             let addr_a = wallet_a.address();
             let addr_b = address!("0x000000000000000000000000000000000000BBBB");
@@ -237,7 +224,7 @@ macro_rules! estimate {
                     accs[0]
                         .address(addr_b)
                         .balance(Word::from(1u64 << 20))
-                        .code(bytecode);
+                        .code($BYTECODE.clone());
                     accs[1].address(addr_a).balance(Word::from(1u64 << 20));
                 },
                 |mut txs, accs| {
@@ -280,7 +267,7 @@ macro_rules! estimate {
                     cumulative_gas = cumulative_gas + (gas_limit - gas_left);
                 }
                 let diff = input_block.context.gas_limit - cumulative_gas.as_u64();
-                assert!(diff < 43);
+                assert!(diff <= $MAX_UNUSED_GAS);
             }
         }
         // calculate circuit stats
@@ -294,7 +281,6 @@ macro_rules! estimate {
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(assembly.highest_row);
             let remaining_rows = (1 << k) - assembly.highest_row;
-            // TODO: verify remaining_rows is sufficient for state circuit
 
             $scope(
                 BLOCK_GAS_LIMIT,
@@ -309,12 +295,8 @@ macro_rules! estimate {
     }};
 }
 
-/// Generates `circuit_autogen.rs` and prints a markdown table about
-/// SuperCircuit parameters.
-#[test]
-fn proverd_autogen() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
-
+fn print_table_header(str: &str) {
+    println!("##### {}", str);
     println!(
         "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
         "BLOCK_GAS_LIMIT",
@@ -329,6 +311,31 @@ fn proverd_autogen() {
         "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
         "-", "-", "-", "-", "-", "-", "-"
     );
+}
+
+macro_rules! bytecode_repeat {
+    ($code:ident, $repeat:expr, $($args:tt)*) => {{
+        for _ in 0..$repeat {
+            eth_types::bytecode_internal!($code, $($args)*);
+        }
+    }};
+
+    ($({$repeat:expr, $($args:tt)*},)*) => {{
+        let mut code = eth_types::bytecode::Bytecode::default();
+
+        $(
+            bytecode_repeat!(code, $repeat, $($args)*);
+        )*
+
+        code
+    }};
+}
+
+/// Generates `circuit_autogen.rs` and prints a markdown table about
+/// SuperCircuit parameters.
+#[test]
+fn proverd_autogen() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     // use a map to track the largest circuit parameters for `k`
     let mut params = BTreeMap::<usize, (usize, usize, usize, usize, usize)>::new();
@@ -343,11 +350,20 @@ fn proverd_autogen() {
             "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
             block_gas_limit, max_txs, max_calldata, max_bytecode, highest_row, remaining_rows, k
         );
-        // TODO: worst-case calculation given `block_gas_limit`
-        let n = 1 << k as usize;
+
+        let k = k as usize;
+        if let Some(val) = params.get(&k) {
+            // don't update if the previous entity has a lower gas limit
+            if val.0 < block_gas_limit {
+                return;
+            }
+        }
+
+        assert!(remaining_rows >= 256);
+        let n = 1 << k;
         let state_circuit_pad_to = n - 256;
         params.insert(
-            k as usize,
+            k,
             (
                 block_gas_limit,
                 max_txs,
@@ -358,10 +374,88 @@ fn proverd_autogen() {
         );
     };
 
-    estimate!(50_000, callback);
-    estimate!(100_000, callback);
-    estimate!(200_000, callback);
-    estimate!(300_000, callback);
+    // baseline
+    {
+        print_table_header("baseline");
+        let bytecode = bytecode_repeat!(
+            {
+                1,
+                STOP
+            },
+        );
+        estimate!(50_000, 50_000, bytecode, callback);
+        estimate!(100_000, 100_000, bytecode, callback);
+        estimate!(200_000, 200_000, bytecode, callback);
+        estimate!(300_000, 300_000, bytecode, callback);
+    }
+    {
+        print_table_header("worst-case evm circuit");
+        let bytecode = bytecode_repeat!(
+            // prelude
+            {
+                1,
+                GAS
+            },
+            // chain SMOD(gas, previous value)
+            {
+                12_281,
+                GAS
+                SMOD
+            },
+            // loop with remaining gas
+            {
+                1,
+                GAS // gas=2
+                JUMPDEST // gas=1
+                GAS  // gas=2
+                SMOD // gas=5
+                PUSH1(43)  // gas=3
+                GAS  // gas=2
+                GT   // gas=3
+                PUSH2(24_564) // gas=3
+                JUMPI // gas=10
+                STOP  // gas=0
+            },
+        );
+        let max_unused_gas = 43;
+        estimate!(50_000, max_unused_gas, bytecode, callback);
+        estimate!(100_000, max_unused_gas, bytecode, callback);
+        estimate!(200_000, max_unused_gas, bytecode, callback);
+        estimate!(300_000, max_unused_gas, bytecode, callback);
+    }
+    {
+        print_table_header("worst-case state circuit");
+        let bytecode = bytecode_repeat!(
+            // prelude
+            {
+                1,
+                CALLDATASIZE
+            },
+            // chain mload
+            {
+                24_562,
+                MLOAD
+            },
+            {
+                1,
+                JUMPDEST // gas=1
+                GAS  // gas=2
+                MLOAD // gas=3
+                POP // gas=2
+                PUSH1(43) // gas=3
+                GAS  // gas=2
+                GT   // gas=3
+                PUSH2(24_563) // gas=3
+                JUMPI // gas=10
+                STOP  // gas=0
+            },
+        );
+        let max_unused_gas = 43;
+        estimate!(50_000, max_unused_gas, bytecode, callback);
+        estimate!(100_000, max_unused_gas, bytecode, callback);
+        estimate!(200_000, max_unused_gas, bytecode, callback);
+        estimate!(300_000, max_unused_gas, bytecode, callback);
+    }
 
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;
