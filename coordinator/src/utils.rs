@@ -262,7 +262,7 @@ pub fn encode_verifier_witness(
         let mut rlp = RlpStream::new_list(15);
         rlp.append(&block.parent_hash);
         rlp.append(&block.uncles_hash);
-        rlp.append(&block.author);
+        rlp.append(&block.author.expect("block.author"));
         rlp.append(&block.state_root);
         rlp.append(&block.transactions_root);
         rlp.append(&block.receipts_root);
