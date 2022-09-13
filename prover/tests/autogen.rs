@@ -16,6 +16,7 @@ use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Any;
 use halo2_proofs::plonk::Assigned;
 use halo2_proofs::plonk::Assignment;
+use halo2_proofs::plonk::Challenge;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::Column;
 use halo2_proofs::plonk::ConstraintSystem;
@@ -157,6 +158,10 @@ impl<F: Field> Assignment<F> for Assembly {
     fn pop_namespace(&mut self, _: Option<String>) {
         // Do nothing; we don't care about namespaces in this context.
     }
+
+    fn get_challenge(&self, _: Challenge) -> Value<F> {
+        Value::unknown()
+    }
 }
 
 fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTECODE: usize>(
@@ -272,22 +277,23 @@ macro_rules! estimate {
         }
         // calculate circuit stats
         {
-            let assembly = run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(
+            let highest_row = run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(
                 input_block,
                 txs,
                 keccak_inputs,
             )
-            .unwrap();
+            .unwrap()
+            .highest_row;
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
-            let k = log2_ceil(assembly.highest_row);
-            let remaining_rows = (1 << k) - assembly.highest_row;
+            let k = log2_ceil(highest_row);
+            let remaining_rows = (1 << k) - highest_row;
 
             $scope(
                 BLOCK_GAS_LIMIT,
                 MAX_TXS,
                 MAX_CALLDATA,
                 MAX_BYTECODE,
-                assembly.highest_row,
+                highest_row,
                 remaining_rows,
                 k,
             );
@@ -328,6 +334,14 @@ macro_rules! bytecode_repeat {
         )*
 
         code
+    }};
+}
+
+macro_rules! estimate_all {
+    ($max_unused_gas:expr, $bytecode:expr, $callback:expr) => {{
+        estimate!(63_000, $max_unused_gas, $bytecode, $callback);
+        estimate!(150_000, $max_unused_gas, $bytecode, $callback);
+        estimate!(300_000, $max_unused_gas, $bytecode, $callback);
     }};
 }
 
@@ -383,10 +397,8 @@ fn proverd_autogen() {
                 STOP
             },
         );
-        estimate!(50_000, 50_000, bytecode, callback);
-        estimate!(100_000, 100_000, bytecode, callback);
-        estimate!(200_000, 200_000, bytecode, callback);
-        estimate!(300_000, 300_000, bytecode, callback);
+        let max_unused_gas = 100_000_000;
+        estimate_all!(max_unused_gas, bytecode, callback);
     }
     {
         print_table_header("worst-case evm circuit");
@@ -418,10 +430,7 @@ fn proverd_autogen() {
             },
         );
         let max_unused_gas = 43;
-        estimate!(50_000, max_unused_gas, bytecode, callback);
-        estimate!(100_000, max_unused_gas, bytecode, callback);
-        estimate!(200_000, max_unused_gas, bytecode, callback);
-        estimate!(300_000, max_unused_gas, bytecode, callback);
+        estimate_all!(max_unused_gas, bytecode, callback);
     }
     {
         print_table_header("worst-case state circuit");
@@ -451,10 +460,7 @@ fn proverd_autogen() {
             },
         );
         let max_unused_gas = 43;
-        estimate!(50_000, max_unused_gas, bytecode, callback);
-        estimate!(100_000, max_unused_gas, bytecode, callback);
-        estimate!(200_000, max_unused_gas, bytecode, callback);
-        estimate!(300_000, max_unused_gas, bytecode, callback);
+        estimate_all!(max_unused_gas, bytecode, callback);
     }
 
     // generate `circuit_autogen.rs`

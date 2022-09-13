@@ -6,7 +6,8 @@ use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
     plonk::{self, Circuit, ConstraintSystem},
 };
-use halo2_wrong_ecc::{
+use itertools::Itertools;
+use plonk_verifier::loader::halo2::halo2_wrong_ecc::{
     integer::rns::Rns,
     maingate::{
         MainGate, MainGateConfig, MainGateInstructions, RangeChip, RangeConfig, RangeInstructions,
@@ -14,8 +15,7 @@ use halo2_wrong_ecc::{
     },
     EccConfig,
 };
-use halo2_wrong_transcript::NativeRepresentation;
-use itertools::Itertools;
+use plonk_verifier::loader::halo2::halo2_wrong_transcript::NativeRepresentation;
 use plonk_verifier::{
     loader,
     pcs::{
@@ -45,7 +45,7 @@ const RATE: usize = 4;
 const R_F: usize = 8;
 const R_P: usize = 57;
 
-type BaseFieldEccChip = halo2_wrong_ecc::BaseFieldEccChip<G1Affine, LIMBS, BITS>;
+type BaseFieldEccChip = loader::halo2::halo2_wrong_ecc::BaseFieldEccChip<G1Affine, LIMBS, BITS>;
 type Halo2Loader<'a> = loader::halo2::Halo2Loader<'a, G1Affine, Fr, BaseFieldEccChip>;
 pub type PoseidonTranscript<L, S, B> = system::halo2::transcript::halo2::PoseidonTranscript<
     G1Affine,

@@ -45,7 +45,6 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
 }
 
 /// Returns a static SuperCircuit to be used for deriving vk, pk.
-/// TODO: fixed evm_circuit_pad_to
 pub fn gen_static_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     block_gas_limit: usize,
     max_bytecode: usize,
@@ -69,7 +68,10 @@ pub fn gen_static_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     let chain_id = U256::from(99);
     let block = Block::new(chain_id, history_hashes, &eth_block)?;
     let mut block = witness::block_convert(&block, &code_db);
+
+    // use the same padding for both evm + state
     block.state_circuit_pad_to = state_circuit_pad_to;
+    block.evm_circuit_pad_to = state_circuit_pad_to;
 
     let circuit = gen_circuit::<MAX_TXS, MAX_CALLDATA>(max_bytecode, block, txs, keccak_inputs)?;
 

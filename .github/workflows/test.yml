@@ -23,7 +23,7 @@ jobs:
           docker buildx bake --load
           --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
           --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
-          bootnode prover-rpcd dev
+          bootnode dev
 
       - name: Run coordinator tests
         run: |

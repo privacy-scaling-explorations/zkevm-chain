@@ -108,7 +108,7 @@ fn gen_evm_verifier(
     )
     .unwrap();
 
-    loader.code()
+    loader.runtime_code()
 }
 
 fn gen_proof<
@@ -177,7 +177,7 @@ fn gen_aggregation_evm_verifier(
     )
     .unwrap();
 
-    loader.code()
+    loader.runtime_code()
 }
 
 #[test]
