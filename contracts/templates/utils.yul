@@ -18,3 +18,11 @@ function require (cond, msg) {
     revertWith(msg)
   }
 }
+
+// reverts with `msg` if `a != b`.
+function cmp (a, b, msg) {
+  switch eq(a, b)
+  case 0 {
+    revertWith(msg)
+  }
+}

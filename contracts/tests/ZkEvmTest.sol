@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity <0.9.0;
 
-import '../PatriciaValidator.sol';
+import '../generated/PatriciaValidator.sol';
 import '../generated/InstanceVerifier.sol';
 
 contract ZkEvmTest is PatriciaValidator, InstanceVerifier {
