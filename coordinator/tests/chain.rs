@@ -79,7 +79,7 @@ macro_rules! await_state {
 
 fn init_logger() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-        .is_test(var("VERBOSE").is_err())
+        .is_test(var("TEST_VERBOSE").is_err())
         .try_init();
 }
 
