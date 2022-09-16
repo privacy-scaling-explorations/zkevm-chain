@@ -6,6 +6,10 @@ pub struct Proofs {
     pub duration: u64,
     /// k of parameter file
     pub k: u8,
+    /// Gas used. Determines the upper ceiling for circuit parameters.
+    pub gas: u64,
+    /// CircuitInputBuilder: block.randomness
+    pub randomness: eth_types::Bytes,
 }
 
 impl std::fmt::Debug for Proofs {

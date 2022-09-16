@@ -152,7 +152,6 @@ services:
       - leader-testnet-geth
       - server-testnet-geth
       - l1-testnet-geth
-      - prover-rpcd
     build:
       dockerfile: docker/dev/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
@@ -166,7 +165,7 @@ services:
       - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
       - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
-      - COORDINATOR_PROVER_RPCD_URL=http://prover-rpcd:8545
+      - COORDINATOR_PROVER_RPCD_URL=http://dev:8001
       - DUMMY_PROVER=${DUMMY_PROVER:-1}
       - ENABLE_FAUCET=1
       # enable automatic parameter selection based on block gas

@@ -4,11 +4,13 @@ use bus_mapping::circuit_input_builder::BuilderClient;
 use bus_mapping::rpc::GethClient;
 use bus_mapping::state_db::CodeDB;
 use eth_types::geth_types;
+use eth_types::Address;
 use eth_types::Word;
 use eth_types::U256;
 use ethers_providers::Http;
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
+use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::plonk::{keygen_pk, keygen_vk, ProvingKey};
 use rand::rngs::OsRng;
 use std::str::FromStr;
@@ -42,19 +44,15 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     Ok(circuit)
 }
 
-// TODO: can this be pre-generated to a file?
-// related
-// https://github.com/zcash/halo2/issues/443
-// https://github.com/zcash/halo2/issues/449
-/// Compute a static proving key for SuperCircuit
-pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
-    params: &ProverParams,
+/// Returns a static SuperCircuit to be used for deriving vk, pk.
+pub fn gen_static_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     block_gas_limit: usize,
     max_bytecode: usize,
     state_circuit_pad_to: usize,
-) -> Result<ProvingKey<G1Affine>, Box<dyn std::error::Error>> {
+) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA>, Box<dyn std::error::Error>> {
     let history_hashes = vec![Word::zero(); 256];
     let mut eth_block: eth_types::Block<eth_types::Transaction> = eth_types::Block::default();
+    eth_block.author = Some(Address::zero());
     eth_block.number = Some(history_hashes.len().into());
     eth_block.base_fee_per_gas = Some(0.into());
     eth_block.hash = Some(eth_block.parent_hash);
@@ -70,9 +68,49 @@ pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
     let chain_id = U256::from(99);
     let block = Block::new(chain_id, history_hashes, &eth_block)?;
     let mut block = witness::block_convert(&block, &code_db);
+
+    // use the same padding for both evm + state
     block.state_circuit_pad_to = state_circuit_pad_to;
+    block.evm_circuit_pad_to = state_circuit_pad_to;
 
     let circuit = gen_circuit::<MAX_TXS, MAX_CALLDATA>(max_bytecode, block, txs, keccak_inputs)?;
+
+    Ok(circuit)
+}
+
+/// Compute a static verifier key for SuperCircuit
+pub fn gen_static_vk<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
+    params: &ProverParams,
+    block_gas_limit: usize,
+    max_bytecode: usize,
+    state_circuit_pad_to: usize,
+) -> Result<VerifyingKey<G1Affine>, Box<dyn std::error::Error>> {
+    let circuit = gen_static_circuit::<MAX_TXS, MAX_CALLDATA>(
+        block_gas_limit,
+        max_bytecode,
+        state_circuit_pad_to,
+    )?;
+    let vk = keygen_vk(params, &circuit)?;
+
+    Ok(vk)
+}
+
+// TODO: can this be pre-generated to a file?
+// related
+// https://github.com/zcash/halo2/issues/443
+// https://github.com/zcash/halo2/issues/449
+/// Compute a static proving key for SuperCircuit
+pub fn gen_static_key<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
+    params: &ProverParams,
+    block_gas_limit: usize,
+    max_bytecode: usize,
+    state_circuit_pad_to: usize,
+) -> Result<ProvingKey<G1Affine>, Box<dyn std::error::Error>> {
+    let circuit = gen_static_circuit::<MAX_TXS, MAX_CALLDATA>(
+        block_gas_limit,
+        max_bytecode,
+        state_circuit_pad_to,
+    )?;
     let vk = keygen_vk(params, &circuit)?;
     let pk = keygen_pk(params, vk, &circuit)?;
 

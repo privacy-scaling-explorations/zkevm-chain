@@ -1,12 +1,5 @@
-use std::cmp;
-use std::collections::HashMap;
-use std::collections::VecDeque;
-use std::env::var;
-use std::sync::Arc;
-use std::time::SystemTime;
-
-use tokio::sync::Mutex;
-
+use crate::structs::*;
+use crate::utils::*;
 use ethers_core::abi::Abi;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::RawLog;
@@ -19,15 +12,19 @@ use ethers_core::types::{
 use ethers_core::utils::keccak256;
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
-
 use hyper::client::HttpConnector;
 use hyper::Uri;
-
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
-use crate::structs::*;
-use crate::utils::*;
+use std::cmp;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::env::var;
+use std::sync::Arc;
+use std::time::SystemTime;
+use tokio::sync::Mutex;
+use zkevm_common::json_rpc::jsonrpc_request;
+use zkevm_common::json_rpc::jsonrpc_request_client;
 
 pub struct RoState {
     pub l2_node: Uri,
@@ -64,6 +61,9 @@ pub struct RwState {
     pub l2_delivered_messages: Vec<H256>,
     pub l2_message_queue: Vec<MessageBeacon>,
     pub l1_delivered_messages: Vec<H256>,
+
+    // runtime configuration options
+    pub config_dummy_proof: bool,
 
     /// keeps track of the timestamp used for preparing the last block
     _prev_timestamp: u64,
@@ -145,6 +145,8 @@ impl SharedState {
                 l2_delivered_messages: Vec::new(),
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
+
+                config_dummy_proof: crate::option_enabled!("DUMMY_PROVER", true).is_some(),
 
                 _prev_timestamp: 0,
             })),
@@ -693,6 +695,7 @@ impl SharedState {
         let wallet_addr: Address = wallet.address();
         let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await?;
         let tx = TransactionRequest::new()
+            .chain_id(wallet.chain_id())
             .from(wallet_addr)
             .to(to)
             .nonce(nonce)
@@ -707,7 +710,7 @@ impl SharedState {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(tx.rlp_signed(wallet.chain_id(), &sig))
+        Ok(tx.rlp_signed(&sig))
     }
 
     pub async fn request_l1<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -715,10 +718,7 @@ impl SharedState {
         method: &str,
         args: T,
     ) -> Result<R, String> {
-        crate::timeout!(
-            5000,
-            jsonrpc_request_client(&self.ro.http_client, &self.ro.l1_node, method, args).await
-        )
+        jsonrpc_request_client(5000, &self.ro.http_client, &self.ro.l1_node, method, args).await
     }
 
     pub async fn request_l2<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -726,10 +726,7 @@ impl SharedState {
         method: &str,
         args: T,
     ) -> Result<R, String> {
-        crate::timeout!(
-            5000,
-            jsonrpc_request_client(&self.ro.http_client, &self.ro.l2_node, method, args).await
-        )
+        jsonrpc_request_client(5000, &self.ro.http_client, &self.ro.l2_node, method, args).await
     }
 
     /// Returns a timestamp that takes care of being greater than the previous one.
@@ -1033,7 +1030,7 @@ impl SharedState {
     }
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
-        if crate::option_enabled!("DUMMY_PROVER", true).is_some() {
+        if self.rw.lock().await.config_dummy_proof {
             log::warn!("DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),
@@ -1048,16 +1045,14 @@ impl SharedState {
             retry: false,
             param: self.ro.prover_default_param.clone(),
         };
-        let resp = crate::timeout!(
+        let resp = jsonrpc_request_client(
             5000,
-            jsonrpc_request_client(
-                &self.ro.http_client,
-                &self.ro.prover_node,
-                "proof",
-                [proof_options],
-            )
-            .await
-        );
+            &self.ro.http_client,
+            &self.ro.prover_node,
+            "proof",
+            [proof_options],
+        )
+        .await;
 
         match resp {
             Err(err) => {

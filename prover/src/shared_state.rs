@@ -1,3 +1,9 @@
+use crate::aggregation_circuit::PoseidonTranscript;
+use crate::compute_proof::*;
+use crate::structs::*;
+use crate::ProverCommitmentScheme;
+use crate::ProverParams;
+use eth_types::Bytes;
 use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
@@ -5,11 +11,11 @@ use halo2_proofs::plonk::create_proof;
 use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
-use halo2_proofs::transcript::Blake2bWrite;
-use halo2_proofs::transcript::Challenge255;
 use halo2_proofs::transcript::TranscriptWriterBuffer;
-use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
-
+use hyper::Uri;
+use plonk_verifier::loader::native::NativeLoader;
+use rand::rngs::OsRng;
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::env::var;
 use std::fmt::Write;
@@ -17,18 +23,9 @@ use std::fs::File;
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
-
-use eth_types::Bytes;
-use hyper::Uri;
-use rand::rngs::OsRng;
-use rand::{thread_rng, Rng};
 use tokio::sync::Mutex;
-
-use crate::compute_proof::*;
-use crate::json_rpc::jsonrpc_request_client;
-use crate::structs::*;
-use crate::ProverCommitmentScheme;
-use crate::ProverParams;
+use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
+use zkevm_common::json_rpc::jsonrpc_request_client;
 
 #[derive(Clone)]
 pub struct RoState {
@@ -245,7 +242,7 @@ impl SharedState {
 
                         let circuit =
                             gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
-                        let mut transcript = Blake2bWrite::<_, _, Challenge255<_>>::init(vec![]);
+                        let mut transcript = PoseidonTranscript::<NativeLoader, _, _>::init(vec![]);
 
                         let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, _, _>(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
                         // run the `MockProver` and return (hopefully) useful errors
@@ -268,6 +265,8 @@ impl SharedState {
                     state_proof: Bytes::default(),
                     duration: duration as u64,
                     k: k_used as u8,
+                    gas: gas_used,
+                    randomness: block.randomness.to_bytes().into(),
                 };
 
                 Ok(res)

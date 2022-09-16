@@ -1,25 +1,24 @@
-use std::env::var;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::time::Duration;
-
 use coordinator::faucet::Faucet;
 use coordinator::shared_state::SharedState;
-use coordinator::structs::*;
 use coordinator::utils::*;
-
 use env_logger::Env;
-
 use ethers_core::types::{Address, U64};
-
-use tokio::task::spawn;
-use tokio::time::sleep;
-
+use hyper::body::Buf;
 use hyper::body::HttpBody;
 use hyper::client::HttpConnector;
 use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::HeaderMap;
 use hyper::{Body, Method, Request, Response, Server, StatusCode, Uri};
+use std::env::var;
+use std::net::{SocketAddr, ToSocketAddrs};
+use std::time::Duration;
+use tokio::task::spawn;
+use tokio::time::sleep;
+use zkevm_common::json_rpc::JsonRpcError;
+use zkevm_common::json_rpc::JsonRpcRequest;
+use zkevm_common::json_rpc::JsonRpcResponse;
+use zkevm_common::json_rpc::JsonRpcResponseError;
 
 const EVENT_LOOP_COOLDOWN: Duration = Duration::from_millis(3000);
 /// allowed jsonrpc methods
@@ -122,7 +121,7 @@ async fn handle_request(
             Ok(resp)
         }
 
-        // json-rpc
+        // geth upstream json-rpc
         (&Method::POST, "/") => {
             let body_bytes = hyper::body::to_bytes(req.into_body()).await.unwrap();
             let obj: ProxyRequest =
@@ -202,6 +201,58 @@ async fn handle_request(
             Ok(resp)
         }
 
+        // coordinator rpc
+        // TODO: protect this interface from public consumption
+        (&Method::POST, "/rpc") => {
+            let body_bytes = hyper::body::aggregate(req.into_body())
+                .await
+                .unwrap()
+                .reader();
+            let json_req: Result<JsonRpcRequest<Vec<serde_json::Value>>, serde_json::Error> =
+                serde_json::from_reader(body_bytes);
+
+            if let Err(err) = json_req {
+                let payload = serde_json::to_vec(&JsonRpcResponseError {
+                    jsonrpc: "2.0".to_string(),
+                    id: 0.into(),
+                    error: JsonRpcError {
+                        // parser error
+                        code: -32700,
+                        message: err.to_string(),
+                    },
+                })
+                .unwrap();
+                let mut resp = Response::new(Body::from(payload));
+                set_headers(resp.headers_mut(), false);
+                return Ok(resp);
+            }
+
+            let json_req = json_req.unwrap();
+            let result: Result<serde_json::Value, String> =
+                handle_method(json_req.method.as_str(), &json_req.params, &shared_state).await;
+            let payload = match result {
+                Err(err) => {
+                    serde_json::to_vec(&JsonRpcResponseError {
+                        jsonrpc: "2.0".to_string(),
+                        id: json_req.id,
+                        error: JsonRpcError {
+                            // internal server error
+                            code: -32000,
+                            message: err,
+                        },
+                    })
+                }
+                Ok(val) => serde_json::to_vec(&JsonRpcResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: json_req.id,
+                    result: Some(val),
+                }),
+            };
+            let mut resp = Response::new(Body::from(payload.unwrap()));
+            set_headers(resp.headers_mut(), false);
+            Ok(resp)
+        }
+
         // everything else
         _ => {
             let mut not_found = Response::default();
@@ -264,6 +315,32 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.submit_blocks().await;
     ctx.finalize_blocks().await;
     ctx.relay_to_l1().await;
+}
+
+async fn handle_method(
+    method: &str,
+    params: &[serde_json::Value],
+    shared_state: &SharedState,
+) -> Result<serde_json::Value, String> {
+    match method {
+        "config" => {
+            #[derive(serde::Deserialize)]
+            struct CoordinatorConfig {
+                dummy_proof: bool,
+            }
+
+            let options = params.get(0).ok_or("expected struct CoordinatorConfig")?;
+            let options: CoordinatorConfig =
+                serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+            let mut rw_state = shared_state.rw.lock().await;
+
+            rw_state.config_dummy_proof = options.dummy_proof;
+
+            Ok(serde_json::Value::Bool(true))
+        }
+
+        _ => Err("this method is not available".to_string()),
+    }
 }
 
 #[tokio::main]

@@ -7,7 +7,7 @@ import './ZkEvmBridgeEvents.sol';
 import './ZkEvmMessageDispatcher.sol';
 import './ZkEvmMessageDelivererBase.sol';
 import './interfaces/IZkEvmMessageDelivererWithProof.sol';
-import './PatriciaValidator.sol';
+import './generated/PatriciaValidator.sol';
 
 contract ZkEvmL1Bridge is
   ZkEvmUtils,

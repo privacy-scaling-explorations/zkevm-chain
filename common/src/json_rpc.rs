@@ -87,3 +87,12 @@ pub async fn jsonrpc_request_client<T: Serialize + Send + Sync, R: DeserializeOw
 
     Ok(json.result.unwrap())
 }
+
+pub async fn jsonrpc_request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+    uri: &Uri,
+    method: &str,
+    params: T,
+) -> Result<R, String> {
+    let client = hyper::Client::new();
+    jsonrpc_request_client(30_000, &client, uri, method, params).await
+}

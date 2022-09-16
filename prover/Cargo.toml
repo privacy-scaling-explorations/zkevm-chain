@@ -5,12 +5,12 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_08_19" }
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "2783eba338274a52036bf3db7fbc29575e24aa9f" }
-eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "2783eba338274a52036bf3db7fbc29575e24aa9f" }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "2783eba338274a52036bf3db7fbc29575e24aa9f" }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "f3320827b90afde4e48589527294d1fd2ca77a72" }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "f3320827b90afde4e48589527294d1fd2ca77a72" }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "f3320827b90afde4e48589527294d1fd2ca77a72" }
 env_logger = "0.9.0"
-ethers-providers = "0.6"
+ethers-providers = "0.17.0"
 hyper = { version = "0.14.16", features = ["server"] }
 rand_xorshift = "0.3"
 log = "0.4.14"
@@ -19,12 +19,14 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
+zkevm-common = { path = "../common" }
+plonk-verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "06a09363c2b99950e439567eac0ddd1f61f86cb7" }
+itertools = "0.10.3"
 
-[dev-dependencies]
-mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "2783eba338274a52036bf3db7fbc29575e24aa9f" }
-ethers-signers = "0.6"
-ethers-core = "0.6"
+# autogen
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "f3320827b90afde4e48589527294d1fd2ca77a72", optional = true }
+ethers-signers = { version = "0.17.0", optional = true }
 
 [features]
 default = []
-autogen = []
+autogen = ["dep:mock", "dep:ethers-signers"]

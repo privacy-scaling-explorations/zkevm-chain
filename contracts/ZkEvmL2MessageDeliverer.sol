@@ -3,7 +3,7 @@ pragma solidity <0.9.0;
 
 import './ZkEvmMessageDelivererBase.sol';
 import './interfaces/IZkEvmMessageDelivererWithProof.sol';
-import './PatriciaValidator.sol';
+import './generated/PatriciaValidator.sol';
 import './ZkEvmStorage.sol';
 
 contract ZkEvmL2MessageDeliverer is

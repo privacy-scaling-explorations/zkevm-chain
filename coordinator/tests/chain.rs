@@ -14,6 +14,8 @@ use ethers_signers::Signer;
 use std::env::var;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
+use zkevm_common::json_rpc::jsonrpc_request;
+use zkevm_common::json_rpc::jsonrpc_request_client;
 
 macro_rules! sync {
     ($shared_state:expr) => {
@@ -564,6 +566,7 @@ async fn native_deposit_revert() {
         let mut tx_hashes = Vec::new();
         for raw_tx in &txs {
             let resp: Result<H256, String> = jsonrpc_request_client(
+                5000,
                 &shared_state.ro.http_client,
                 &shared_state.ro.l1_node,
                 "eth_sendRawTransaction",
