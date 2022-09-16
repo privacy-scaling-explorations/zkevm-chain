@@ -123,7 +123,7 @@ services:
       - COORDINATOR_LISTEN=[::]:8545
       - COORDINATOR_RPC_SERVER_NODES=server-testnet-geth:8545
       - COORDINATOR_L2_RPC_URL=http://leader-testnet-geth:8545
-      - COORDINATOR_COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
+      - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
       - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
       - COORDINATOR_PROVER_RPCD_URL=http://prover-rpcd:8545
@@ -165,7 +165,6 @@ services:
       - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
       - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
-      - COORDINATOR_PROVER_RPCD_URL=http://dev:8001
       - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-1}
       - COORDINATOR_ENABLE_FAUCET=1
       # enable automatic parameter selection based on block gas
@@ -173,6 +172,7 @@ services:
       - PROVERD_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
       # useful env vars if running the proverd inside the dev image
       - PROVERD_LOOKUP=dev:8001
+      - COORDINATOR_PROVER_RPCD_URL=http://dev:8001
       - PROVERD_BIND=[::]:8001
     ports:
       - 8000:8000
