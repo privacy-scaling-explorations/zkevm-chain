@@ -270,8 +270,8 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
     let mut nodes = Vec::new();
     let mut fallback_node_uri = None;
     let mut fallback_node_num = U64::zero();
-    let mut addrs = var("RPC_SERVER_NODES")
-        .expect("RPC_SERVER_NODES env var")
+    let mut addrs = var("COORDINATOR_RPC_SERVER_NODES")
+        .expect("COORDINATOR_RPC_SERVER_NODES env var")
         .to_socket_addrs()
         .unwrap()
         .collect::<Vec<SocketAddr>>();
@@ -350,12 +350,13 @@ async fn main() {
     let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
-    let faucet: Option<Faucet> = coordinator::option_enabled!("ENABLE_FAUCET", Faucet::default());
+    let faucet: Option<Faucet> =
+        coordinator::option_enabled!("COORDINATOR_ENABLE_FAUCET", Faucet::default());
     log::info!("faucet enabled: {}", faucet.is_some());
 
     {
-        let addr = var("LISTEN")
-            .expect("LISTEN env var")
+        let addr = var("COORDINATOR_LISTEN")
+            .expect("COORDINATOR_LISTEN env var")
             .parse::<SocketAddr>()
             .expect("valid socket address");
         let client = hyper::Client::new();

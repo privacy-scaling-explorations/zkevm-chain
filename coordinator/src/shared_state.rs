@@ -146,7 +146,8 @@ impl SharedState {
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
 
-                config_dummy_proof: crate::option_enabled!("DUMMY_PROVER", true).is_some(),
+                config_dummy_proof: crate::option_enabled!("COORDINATOR_DUMMY_PROVER", true)
+                    .is_some(),
 
                 _prev_timestamp: 0,
             })),
@@ -154,45 +155,45 @@ impl SharedState {
     }
 
     pub async fn from_env() -> SharedState {
-        let l2_url = var("L2_RPC_URL")
-            .expect("L2_RPC_URL env var")
+        let l2_url = var("COORDINATOR_L2_RPC_URL")
+            .expect("COORDINATOR_L2_RPC_URL env var")
             .parse::<Uri>()
-            .expect("Uri from L2_RPC_URL");
-        let l1_url = var("L1_RPC_URL")
-            .expect("L1_RPC_URL env var")
+            .expect("Uri from COORDINATOR_L2_RPC_URL");
+        let l1_url = var("COORDINATOR_L1_RPC_URL")
+            .expect("COORDINATOR_L1_RPC_URL env var")
             .parse::<Uri>()
-            .expect("Uri from L1_RPC_URL");
-        let l1_bridge = var("L1_BRIDGE")
-            .expect("L1_BRIDGE env var")
+            .expect("Uri from COORDINATOR_L1_RPC_URL");
+        let l1_bridge = var("COORDINATOR_L1_BRIDGE")
+            .expect("COORDINATOR_L1_BRIDGE env var")
             .parse::<Address>()
-            .expect("Address from L1_BRIDGE");
+            .expect("Address from COORDINATOR_L1_BRIDGE");
 
         let chain_id: U64 = jsonrpc_request(&l1_url, "eth_chainId", ())
             .await
             .expect("chain id");
-        let l1_wallet = var("L1_PRIV")
-            .expect("L1_PRIV env var")
+        let l1_wallet = var("COORDINATOR_L1_PRIV")
+            .expect("COORDINATOR_L1_PRIV env var")
             .parse::<LocalWallet>()
-            .expect("LocalWallet from L1_PRIV")
+            .expect("LocalWallet from COORDINATOR_L1_PRIV")
             .with_chain_id(chain_id.as_u64());
 
         let chain_id: U64 = jsonrpc_request(&l2_url, "eth_chainId", ())
             .await
             .expect("chain id");
         // TODO: support different keys
-        let l2_wallet = var("L1_PRIV")
-            .expect("L1_PRIV env var")
+        let l2_wallet = var("COORDINATOR_L1_PRIV")
+            .expect("COORDINATOR_L1_PRIV env var")
             .parse::<LocalWallet>()
-            .expect("LocalWallet from L1_PRIV")
+            .expect("LocalWallet from COORDINATOR_L1_PRIV")
             .with_chain_id(chain_id.as_u64());
 
-        let prover_node = var("PROVER_RPCD_URL")
-            .expect("PROVER_RPCD_URL env var")
+        let prover_node = var("COORDINATOR_PROVER_RPCD_URL")
+            .expect("COORDINATOR_PROVER_RPCD_URL env var")
             .parse::<Uri>()
-            .expect("Uri from PROVER_RPCD_URL");
+            .expect("Uri from COORDINATOR_PROVER_RPCD_URL");
 
-        let prover_default_param = var("PARAMS_PATH")
-            .expect("PARAMS_PATH env var")
+        let prover_default_param = var("COORDINATOR_PARAMS_PATH")
+            .expect("COORDINATOR_PARAMS_PATH env var")
             .parse::<String>()
             .unwrap();
 
@@ -1031,7 +1032,7 @@ impl SharedState {
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
         if self.rw.lock().await.config_dummy_proof {
-            log::warn!("DUMMY_PROVER");
+            log::warn!("COORDINATOR_DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),
                 state_proof: Bytes::from([0xffu8]),

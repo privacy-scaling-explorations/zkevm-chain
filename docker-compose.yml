@@ -120,16 +120,16 @@ services:
       - prover-rpcd
     restart: unless-stopped
     environment:
-      - LISTEN=[::]:8545
-      - RPC_SERVER_NODES=server-testnet-geth:8545
-      - L2_RPC_URL=http://leader-testnet-geth:8545
-      - L1_RPC_URL=http://l1-testnet-geth:8545
-      - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
-      - L1_PRIV=$MINER_PRIV_KEY
-      - PROVER_RPCD_URL=http://prover-rpcd:8545
-      - DUMMY_PROVER=${DUMMY_PROVER:-1}
-      - ENABLE_FAUCET=1
-      - PARAMS_PATH=${PARAMS_PATH:-/testnet/}
+      - COORDINATOR_LISTEN=[::]:8545
+      - COORDINATOR_RPC_SERVER_NODES=server-testnet-geth:8545
+      - COORDINATOR_L2_RPC_URL=http://leader-testnet-geth:8545
+      - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
+      - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
+      - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
+      - COORDINATOR_PROVER_RPCD_URL=http://prover-rpcd:8545
+      - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-1}
+      - COORDINATOR_ENABLE_FAUCET=1
+      - COORDINATOR_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
 
   prover-rpcd:
     init: true
@@ -138,7 +138,7 @@ services:
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
     restart: unless-stopped
     environment:
-      - BIND=[::]:8545
+      - PROVERD_BIND=[::]:8545
       - PROVERD_LOOKUP=prover-rpcd:8545
       # set to `1` if the prover should pass inputs to `create_proof`
       - PROVERD_ENABLE_CIRCUIT_INSTANCE=0
@@ -159,20 +159,21 @@ services:
       - .:/app
       - dev-build-cache:/target:overlay
     environment:
-      - LISTEN=[::]:8000
-      - RPC_SERVER_NODES=server-testnet-geth:8545
-      - L2_RPC_URL=http://leader-testnet-geth:8545
-      - L1_RPC_URL=http://l1-testnet-geth:8545
-      - L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
-      - L1_PRIV=$MINER_PRIV_KEY
-      - DUMMY_PROVER=${DUMMY_PROVER:-1}
-      - ENABLE_FAUCET=1
+      - COORDINATOR_LISTEN=[::]:8000
+      - COORDINATOR_RPC_SERVER_NODES=server-testnet-geth:8545
+      - COORDINATOR_L2_RPC_URL=http://leader-testnet-geth:8545
+      - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
+      - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
+      - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
+      - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-1}
+      - COORDINATOR_ENABLE_FAUCET=1
       # enable automatic parameter selection based on block gas
-      - PARAMS_PATH=${PARAMS_PATH:-/testnet/}
+      - COORDINATOR_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
+      - PROVERD_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
       # useful env vars if running the proverd inside the dev image
       - PROVERD_LOOKUP=dev:8001
-      - BIND=[::]:8001
-      - PROVER_RPCD_URL=http://dev:8001
+      - COORDINATOR_PROVER_RPCD_URL=http://dev:8001
+      - PROVERD_BIND=[::]:8001
     ports:
       - 8000:8000
     working_dir: /app

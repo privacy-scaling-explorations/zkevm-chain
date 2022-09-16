@@ -6,7 +6,7 @@ use prover::shared_state::SharedState;
 
 /// This command starts a http/json-rpc server and serves proof oriented
 /// methods. Required environment variables:
-/// - BIND
+/// - PROVERD_BIND
 ///   - the interface address + port combination to accept connections on
 ///     `[::]:1234`
 /// - `PROVERD_LOOKUP`
@@ -18,7 +18,10 @@ async fn main() {
     let shared_state = SharedState::default();
     {
         // start the http server
-        let h1 = serve(&shared_state, &var("BIND").expect("BIND env var"));
+        let h1 = serve(
+            &shared_state,
+            &var("PROVERD_BIND").expect("PROVERD_BIND env var"),
+        );
 
         // starts the duty cycle loop
         let ctx = shared_state.clone();
