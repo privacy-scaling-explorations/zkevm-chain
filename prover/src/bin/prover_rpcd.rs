@@ -18,7 +18,10 @@ async fn main() {
     let shared_state = SharedState::default();
     {
         // start the http server
-        let h1 = serve(&shared_state, &var("PROVERD_BIND").expect("PROVERD_BIND env var"));
+        let h1 = serve(
+            &shared_state,
+            &var("PROVERD_BIND").expect("PROVERD_BIND env var"),
+        );
 
         // starts the duty cycle loop
         let ctx = shared_state.clone();

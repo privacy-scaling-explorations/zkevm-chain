@@ -146,7 +146,8 @@ impl SharedState {
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
 
-                config_dummy_proof: crate::option_enabled!("DUMMY_PROVER", true).is_some(),
+                config_dummy_proof: crate::option_enabled!("COORDINATOR_DUMMY_PROVER", true)
+                    .is_some(),
 
                 _prev_timestamp: 0,
             })),
@@ -1031,7 +1032,7 @@ impl SharedState {
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
         if self.rw.lock().await.config_dummy_proof {
-            log::warn!("DUMMY_PROVER");
+            log::warn!("COORDINATOR_DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),
                 state_proof: Bytes::from([0xffu8]),

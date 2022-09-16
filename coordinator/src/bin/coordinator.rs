@@ -350,7 +350,8 @@ async fn main() {
     let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
-    let faucet: Option<Faucet> = coordinator::option_enabled!("ENABLE_FAUCET", Faucet::default());
+    let faucet: Option<Faucet> =
+        coordinator::option_enabled!("COORDINATOR_ENABLE_FAUCET", Faucet::default());
     log::info!("faucet enabled: {}", faucet.is_some());
 
     {
