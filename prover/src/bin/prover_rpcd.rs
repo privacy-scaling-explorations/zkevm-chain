@@ -1,8 +1,16 @@
 use env_logger::Env;
-use std::env::var;
+use clap::{Parser};
 
 use prover::server::serve;
 use prover::shared_state::SharedState;
+
+#[derive(Parser, Debug)]
+pub(crate) struct ProverdConfig {
+    #[clap(env = "PROVERD_BIND")]
+    bind: Option<String>,
+    #[clap(env = "PROVERD_LOOKUP")]
+    lookup: Option<String>,
+}
 
 /// This command starts a http/json-rpc server and serves proof oriented
 /// methods. Required environment variables:
@@ -13,14 +21,18 @@ use prover::shared_state::SharedState;
 ///   - environment variable in the form of HOSTNAME:PORT
 #[tokio::main]
 async fn main() {
+    let config = ProverdConfig::parse();
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let shared_state = SharedState::default();
+    let shared_state = SharedState::new(
+        SharedState::random_worker_id(),
+        Some(config.lookup.expect("PROVERD_LOOKUP env var"))
+    );
     {
         // start the http server
         let h1 = serve(
             &shared_state,
-            &var("PROVERD_BIND").expect("PROVERD_BIND env var"),
+            &config.bind.expect("PROVERD_BIND env var"),
         );
 
         // starts the duty cycle loop
