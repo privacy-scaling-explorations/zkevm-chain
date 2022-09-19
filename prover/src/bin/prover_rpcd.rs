@@ -1,5 +1,5 @@
+use clap::Parser;
 use env_logger::Env;
-use clap::{Parser};
 
 use prover::server::serve;
 use prover::shared_state::SharedState;
@@ -26,14 +26,11 @@ async fn main() {
 
     let shared_state = SharedState::new(
         SharedState::random_worker_id(),
-        Some(config.lookup.expect("PROVERD_LOOKUP env var"))
+        Some(config.lookup.expect("PROVERD_LOOKUP env var")),
     );
     {
         // start the http server
-        let h1 = serve(
-            &shared_state,
-            &config.bind.expect("PROVERD_BIND env var"),
-        );
+        let h1 = serve(&shared_state, &config.bind.expect("PROVERD_BIND env var"));
 
         // starts the duty cycle loop
         let ctx = shared_state.clone();
