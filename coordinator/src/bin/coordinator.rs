@@ -313,7 +313,7 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.sync().await;
     ctx.mine().await;
     ctx.submit_blocks().await;
-    ctx.finalize_blocks().await;
+    ctx.finalize_blocks().await.expect("finalize_blocks");
     ctx.relay_to_l1().await;
 }
 

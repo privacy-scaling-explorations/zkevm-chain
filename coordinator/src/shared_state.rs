@@ -580,7 +580,7 @@ impl SharedState {
         }
     }
 
-    pub async fn finalize_blocks(&self) {
+    pub async fn finalize_blocks(&self) -> Result<(), String> {
         // block finalization
         let safe_hash = self.rw.lock().await.chain_state.safe_block_hash;
         let final_hash = self.rw.lock().await.chain_state.finalized_block_hash;
@@ -595,12 +595,14 @@ impl SharedState {
 
             log::info!("blocks for finalization: {:?}", blocks.len());
             for block in blocks.iter().rev() {
-                self.finalize_block(block).await;
+                self.finalize_block(block).await?;
             }
         }
+
+        Ok(())
     }
 
-    pub async fn finalize_block(&self, block: &Block<H256>) {
+    pub async fn finalize_block(&self, block: &Block<H256>) -> Result<(), String> {
         const LOG_TAG: &str = "L1:finalize_block:";
         log::debug!("{} {}", LOG_TAG, format_block(block));
 
@@ -609,7 +611,8 @@ impl SharedState {
 
         if let Err(err) = proofs {
             log::error!("{}:{} {:?}", LOG_TAG, block_num, err);
-            return;
+
+            return Err(err);
         }
 
         match proofs.unwrap() {
@@ -643,6 +646,8 @@ impl SharedState {
                     .await;
             }
         }
+
+        Ok(())
     }
 
     pub async fn transaction_to_l1(&self, to: Address, value: U256, calldata: Vec<u8>) {
