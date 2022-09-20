@@ -511,13 +511,8 @@ impl SharedState {
         // default
         Ok(true)
     }
-}
 
-impl Default for SharedState {
-    /// The default setup a random `node_id` and expects a
-    /// - `PROVERD_LOOKUP`
-    ///   - environment variable in the form of HOSTNAME:PORT
-    fn default() -> Self {
+    pub fn random_worker_id() -> String {
         // derive a (sufficiently large) random worker id
         const N: usize = 16;
         let mut arr = [0u8; N];
@@ -527,8 +522,6 @@ impl Default for SharedState {
             write!(node_id, "{:02x}", byte).unwrap();
         }
 
-        let addr: String = var("PROVERD_LOOKUP").expect("PROVERD_LOOKUP env var");
-
-        Self::new(node_id, Some(addr))
+        node_id
     }
 }
