@@ -56,7 +56,10 @@ macro_rules! finalize_chain {
 
             sync!($shared_state);
             $shared_state.submit_blocks().await;
-            $shared_state.finalize_blocks().await;
+            $shared_state
+                .finalize_blocks()
+                .await
+                .expect("finalize_blocks");
             sync!($shared_state);
             while $shared_state.rw.lock().await.l2_message_queue.len() != 0 {
                 $shared_state.relay_to_l1().await;
@@ -189,6 +192,8 @@ async fn native_deposit() {
         .expect("eth_getBalance");
         assert_eq!(expected_balance, balance, "ETH balance");
     }
+
+    finalize_chain!(shared_state);
 }
 
 #[tokio::test]
@@ -366,6 +371,8 @@ async fn hop_deposit() {
             "ETH balance after hop deposit"
         );
     }
+
+    finalize_chain!(shared_state);
 }
 
 #[ignore]
@@ -609,6 +616,8 @@ async fn native_deposit_revert() {
         .expect("eth_getBalance");
         assert_eq!(expected_balance, balance, "ETH balance");
     }
+
+    finalize_chain!(shared_state);
 }
 
 #[tokio::test]
@@ -620,4 +629,6 @@ async fn zero_eth_transfer() {
         .expect("tx_hash");
     shared_state.mine().await;
     wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
+
+    finalize_chain!(shared_state);
 }
