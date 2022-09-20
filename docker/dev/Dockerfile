@@ -36,6 +36,8 @@ RUN set -eux; \
         golang \
         pkg-config \
         liblzma-dev \
+        procps \
+        jq \
         ; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
