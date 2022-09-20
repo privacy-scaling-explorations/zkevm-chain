@@ -259,7 +259,7 @@ checksum = "8f1e260c3a9040a7c19a12468758f4c16f31a81a1fe087482be9570ec864bb6c"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -534,6 +534,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "darling"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
+dependencies = [
+ "darling_core",
+ "darling_macro",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
+dependencies = [
+ "darling_core",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "der"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -694,7 +729,7 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "ethers-core",
  "ethers-signers",
@@ -708,6 +743,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "serde_with",
  "sha3 0.10.2",
  "subtle",
  "uint",
@@ -845,7 +881,7 @@ dependencies = [
 [[package]]
 name = "external-tracer"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "eth-types",
  "geth-utils",
@@ -1036,7 +1072,7 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "digest 0.7.6",
  "eth-types",
@@ -1076,7 +1112,7 @@ dependencies = [
 [[package]]
 name = "geth-utils"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "gobuild",
 ]
@@ -1352,6 +1388,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ident_case"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
 name = "idna"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1488,7 +1530,7 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "eth-types",
  "halo2_proofs 0.1.0",
@@ -1633,7 +1675,7 @@ dependencies = [
 [[package]]
 name = "mock"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -2445,6 +2487,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_with"
+version = "1.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
+dependencies = [
+ "serde",
+ "serde_with_macros",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "1.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e182d6ec6f05393cc0e5ed1bf81ad6db3a8feedf8ee515ecdd369809bcce8082"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2569,6 +2633,12 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "strsim"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
@@ -3164,7 +3234,7 @@ checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=f3320827b90afde4e48589527294d1fd2ca77a72#f3320827b90afde4e48589527294d1fd2ca77a72"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?rev=673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd#673f5fe6e9e76ce3796a3f5b1d15d7c49ced66cd"
 dependencies = [
  "array-init",
  "bus-mapping",
@@ -3173,6 +3243,7 @@ dependencies = [
  "env_logger",
  "eth-types",
  "ethers-core",
+ "ethers-signers",
  "gadgets",
  "halo2_proofs 0.2.0",
  "integer",
@@ -3182,6 +3253,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "maingate",
+ "mock",
  "num",
  "num-bigint",
  "rand",
