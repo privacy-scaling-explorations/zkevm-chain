@@ -17,13 +17,6 @@ pub(crate) struct ProverdConfig {
     lookup: String,
 }
 
-/// This command starts a http/json-rpc server and serves proof oriented
-/// methods. Required environment variables:
-/// - PROVERD_BIND
-///   - the interface address + port combination to accept connections on
-///     `[::]:1234`
-/// - `PROVERD_LOOKUP`
-///   - environment variable in the form of HOSTNAME:PORT
 #[tokio::main]
 async fn main() {
     let config = ProverdConfig::parse();
