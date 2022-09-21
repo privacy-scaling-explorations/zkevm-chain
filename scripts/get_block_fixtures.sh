@@ -39,6 +39,6 @@ for num in $(seq $start $stop); do
   tmp=$tmp$hash','
 done
 tmp=$(printf -- $tmp | head -c -1)
-tmp=$tmp']'
-echo $tmp | jq > block_hashes.json
+tmp="$tmp]"
+echo "$tmp" | jq > block_hashes.json
 

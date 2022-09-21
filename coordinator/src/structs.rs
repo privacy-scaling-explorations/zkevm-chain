@@ -101,4 +101,6 @@ pub struct ProofRequestOptions {
     pub retry: bool,
     /// parameter file to use
     pub param: String,
+    /// Only use MockProver if true.
+    pub mock: bool,
 }

@@ -64,7 +64,7 @@ impl Faucet {
                 let shared_state = shared_state.clone();
                 let res = spawn(async move {
                     shared_state
-                        .transaction_to_l1(receiver, faucet_amount, vec![])
+                        .transaction_to_l1(Some(receiver), faucet_amount, vec![])
                         .await;
                 })
                 .await;

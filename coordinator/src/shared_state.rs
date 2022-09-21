@@ -64,6 +64,7 @@ pub struct RwState {
 
     // runtime configuration options
     pub config_dummy_proof: bool,
+    pub config_mock_prover: bool,
 
     /// keeps track of the timestamp used for preparing the last block
     _prev_timestamp: u64,
@@ -148,6 +149,7 @@ impl SharedState {
                 l1_delivered_messages: Vec::new(),
 
                 config_dummy_proof: dummy_prover,
+                config_mock_prover: false,
 
                 _prev_timestamp: 0,
             })),
@@ -576,7 +578,7 @@ impl SharedState {
                         .encode_input(&[block_data.into_token()])
                         .expect("calldata");
 
-                    self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
+                    self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
                         .await;
                 }
             }
@@ -645,7 +647,7 @@ impl SharedState {
                     ])
                     .expect("calldata");
 
-                self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
+                self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
                     .await;
             }
         }
@@ -653,7 +655,7 @@ impl SharedState {
         Ok(())
     }
 
-    pub async fn transaction_to_l1(&self, to: Address, value: U256, calldata: Vec<u8>) {
+    pub async fn transaction_to_l1(&self, to: Option<Address>, value: U256, calldata: Vec<u8>) {
         send_transaction_to_l1(
             &self.ro.http_client,
             &self.ro.l1_node,
@@ -667,7 +669,7 @@ impl SharedState {
 
     pub async fn transaction_to_l2(
         &self,
-        to: Address,
+        to: Option<Address>,
         value: U256,
         calldata: Vec<u8>,
     ) -> Result<H256, String> {
@@ -950,7 +952,7 @@ impl SharedState {
                     proof.into_token(),
                 ])
                 .expect("calldata");
-            self.transaction_to_l1(self.ro.l1_bridge_addr, U256::zero(), calldata)
+            self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
                 .await;
         }
     }
@@ -1053,6 +1055,7 @@ impl SharedState {
             rpc: self.ro.l2_node.to_string(),
             retry: false,
             param: self.ro.prover_default_param.clone(),
+            mock: self.rw.lock().await.config_mock_prover,
         };
         let resp = jsonrpc_request_client(
             5000,

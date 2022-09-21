@@ -210,17 +210,7 @@ impl SharedState {
                         // Note: we are not validating it for `MIN_K`,
                         // this error will eventually bubble up later.
                         let param = self_copy.load_param(&param_path).await;
-                        // generate and cache the prover key
-                        let pk = self_copy.gen_pk::<MAX_TXS, MAX_CALLDATA>(
-                            &param_path,
-                            BLOCK_GAS_LIMIT,
-                            MAX_BYTECODE,
-                            STATE_CIRCUIT_PAD_TO,
-                        ).await
-                        .map_err(|e| e.to_string())?;
-
-                        let time_started = Instant::now();
-
+                        // gen circuit inputs
                         let instance = match var("PROVERD_ENABLE_CIRCUIT_INSTANCE").unwrap_or_default().as_str() {
                             "" | "0" | "false" => vec![],
                             _ => {
@@ -240,20 +230,38 @@ impl SharedState {
                             false => vec![instance_ref.as_slice()],
                         };
 
-                        let circuit =
-                            gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
+                        let time_started;
                         let mut transcript = PoseidonTranscript::<NativeLoader, _, _>::init(vec![]);
-
-                        let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, _, _>(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
-                        // run the `MockProver` and return (hopefully) useful errors
-                        if let Err(proof_err) = res {
+                        if task_options_copy.mock {
+                            time_started = Instant::now();
                             let circuit =
-                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
+                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
                             let prover = MockProver::run(param.k(), &circuit, instance).expect("MockProver::run");
-                            let res = prover.verify();
-                            panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
-                        }
+                            let _res = prover.verify();
+                        } else {
+                            // generate and cache the prover key
+                            let pk = self_copy.gen_pk::<MAX_TXS, MAX_CALLDATA>(
+                                &param_path,
+                                BLOCK_GAS_LIMIT,
+                                MAX_BYTECODE,
+                                STATE_CIRCUIT_PAD_TO,
+                                ).await
+                                .map_err(|e| e.to_string())?;
 
+                            time_started = Instant::now();
+                            let circuit =
+                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
+                            let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, _, _>(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
+                            // run the `MockProver` and return (hopefully) useful errors
+                            if let Err(proof_err) = res {
+                                let circuit =
+                                    gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
+                                let prover = MockProver::run(param.k(), &circuit, instance).expect("MockProver::run");
+                                let res = prover.verify();
+                                panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+                            }
+                        }
+                        // return
                         (transcript.finalize(), param.k(), Instant::now().duration_since(time_started).as_millis())
                     },
                     {
