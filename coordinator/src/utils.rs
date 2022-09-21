@@ -18,7 +18,7 @@ pub async fn send_transaction_to_l1(
     client: &hyper::Client<HttpConnector>,
     node_uri: &Uri,
     wallet: &LocalWallet,
-    to: Address,
+    to: Option<Address>,
     value: U256,
     calldata: Vec<u8>,
 ) {
@@ -42,7 +42,7 @@ pub async fn sign_transaction_l1(
     client: &hyper::Client<HttpConnector>,
     node_uri: &Uri,
     wallet: &LocalWallet,
-    to: Address,
+    to: Option<Address>,
     value: U256,
     calldata: Vec<u8>,
     nonce: U256,
@@ -53,15 +53,18 @@ pub async fn sign_transaction_l1(
         .await
         .expect("gasPrice");
 
-    let tx: Eip1559TransactionRequest = Eip1559TransactionRequest::new()
+    let mut tx: Eip1559TransactionRequest = Eip1559TransactionRequest::new()
         .chain_id(wallet.chain_id())
         .from(wallet_addr)
-        .to(to)
         .nonce(nonce)
         .value(value)
         .max_priority_fee_per_gas(1u64)
         .max_fee_per_gas(gas_price * 2u64)
         .data(calldata);
+
+    if to.is_some() {
+        tx = tx.to(to.unwrap());
+    }
 
     let access_list: AccessListWithGasUsed =
         jsonrpc_request_client(5000, client, node_uri, "eth_createAccessList", [&tx])
@@ -88,7 +91,7 @@ pub async fn send_transaction_to_l2(
     client: &hyper::Client<HttpConnector>,
     node_uri: &Uri,
     wallet: &LocalWallet,
-    to: Address,
+    to: Option<Address>,
     value: U256,
     calldata: Vec<u8>,
 ) -> Result<H256, String> {
@@ -107,14 +110,17 @@ pub async fn send_transaction_to_l2(
         .await
         .expect("gasPrice");
 
-    let tx = TransactionRequest::new()
+    let mut tx = TransactionRequest::new()
         .chain_id(wallet.chain_id())
         .from(wallet_addr)
-        .to(to)
         .nonce(nonce)
         .value(value)
         .gas_price(gas_price * 2u64)
         .data(calldata);
+
+    if to.is_some() {
+        tx = tx.to(to.unwrap())
+    }
 
     let estimate: U256 = jsonrpc_request_client(5000, client, node_uri, "eth_estimateGas", [&tx])
         .await

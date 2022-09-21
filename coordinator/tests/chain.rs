@@ -29,7 +29,7 @@ macro_rules! sync {
 }
 
 macro_rules! wait_for_tx {
-    ($tx_hash:expr, $url:expr) => {
+    ($tx_hash:expr, $url:expr) => {{
         let mut resp: Option<TransactionReceipt> = None;
 
         while (resp.is_none()) {
@@ -39,10 +39,13 @@ macro_rules! wait_for_tx {
             };
         }
 
-        if resp.unwrap().status.unwrap() != U64::from(1) {
+        let receipt = resp.unwrap();
+        if receipt.status.unwrap() != U64::from(1) {
             panic!("transaction reverted");
         }
-    };
+
+        receipt
+    }};
 }
 
 macro_rules! finalize_chain {
@@ -162,7 +165,7 @@ async fn native_deposit() {
             deposits.push(id);
             expected_balance += value;
             shared_state
-                .transaction_to_l1(shared_state.ro.l1_bridge_addr, value, calldata)
+                .transaction_to_l1(Some(shared_state.ro.l1_bridge_addr), value, calldata)
                 .await;
         }
     }
@@ -354,7 +357,9 @@ async fn hop_deposit() {
         .await
         .expect("eth_getBalance");
 
-        shared_state.transaction_to_l1(hop, amount, calldata).await;
+        shared_state
+            .transaction_to_l1(Some(hop), amount, calldata)
+            .await;
         sync!(shared_state);
 
         let balance_after: U256 = jsonrpc_request(
@@ -442,7 +447,7 @@ async fn hop_cross_chain_message() {
             .expect("calldata");
 
         let tx_hash = shared_state
-            .transaction_to_l2(hop, amount, calldata)
+            .transaction_to_l2(Some(hop), amount, calldata)
             .await
             .expect("tx_hash");
         shared_state.mine().await;
@@ -460,7 +465,7 @@ async fn hop_cross_chain_message() {
             .encode_input(&[chain_id.into_token()])
             .expect("calldata");
         let tx_hash_commit = shared_state
-            .transaction_to_l2(hop, U256::zero(), calldata)
+            .transaction_to_l2(Some(hop), U256::zero(), calldata)
             .await
             .expect("tx_hash_commit");
         shared_state.mine().await;
@@ -559,7 +564,7 @@ async fn native_deposit_revert() {
                     &shared_state.ro.http_client,
                     &shared_state.ro.l1_node,
                     &shared_state.ro.l1_wallet,
-                    shared_state.ro.l1_bridge_addr,
+                    Some(shared_state.ro.l1_bridge_addr),
                     value,
                     calldata,
                     tx_nonce,
@@ -624,11 +629,45 @@ async fn native_deposit_revert() {
 async fn zero_eth_transfer() {
     let shared_state = await_state!();
     let tx_hash = shared_state
-        .transaction_to_l2(shared_state.ro.l2_wallet.address(), U256::zero(), vec![])
+        .transaction_to_l2(
+            Some(shared_state.ro.l2_wallet.address()),
+            U256::zero(),
+            vec![],
+        )
         .await
         .expect("tx_hash");
     shared_state.mine().await;
     wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
 
     finalize_chain!(shared_state);
+}
+
+#[ignore]
+#[tokio::test]
+async fn keccak() {
+    let shared_state = await_state!();
+    let bytecode = vec![
+        0x60, 0x0b, 0x38, 0x03, 0x80, 0x60, 0x0b, 0x3d, 0x39, 0x3d, 0xf3, 0x60, 0x01, 0x60, 0xff,
+        0x20, 0x00,
+    ];
+    let deploy_tx_hash = shared_state
+        .transaction_to_l2(None, U256::zero(), bytecode)
+        .await
+        .expect("tx_hash");
+    shared_state.mine().await;
+    shared_state.rw.lock().await.config_dummy_proof = true;
+    finalize_chain!(shared_state);
+
+    let deploy_receipt = wait_for_tx!(deploy_tx_hash, &shared_state.ro.l2_node);
+    let contract_addr = deploy_receipt.contract_address;
+    let tx_hash = shared_state
+        .transaction_to_l2(contract_addr, U256::zero(), vec![])
+        .await
+        .expect("tx_hash");
+    shared_state.mine().await;
+    wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
+    shared_state.rw.lock().await.config_dummy_proof = false;
+    shared_state.rw.lock().await.config_mock_prover = true;
+    finalize_chain!(shared_state);
+    shared_state.rw.lock().await.config_mock_prover = false;
 }

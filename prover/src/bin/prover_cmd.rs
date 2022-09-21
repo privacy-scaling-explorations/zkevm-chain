@@ -31,6 +31,7 @@ async fn main() {
         rpc: rpc_url,
         retry: false,
         param: params_path,
+        mock: false,
     };
 
     state.get_or_enqueue(&request).await;

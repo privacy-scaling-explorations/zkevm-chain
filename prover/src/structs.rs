@@ -33,6 +33,9 @@ pub struct ProofRequestOptions {
     pub retry: bool,
     /// parameter file to use
     pub param: String,
+    /// Only use MockProver if true.
+    #[serde(default = "default_bool")]
+    pub mock: bool,
 }
 
 impl PartialEq for ProofRequestOptions {
@@ -62,4 +65,8 @@ pub struct NodeStatus {
     pub task: Option<ProofRequestOptions>,
     /// `true` if this instance started working on `task`
     pub obtained: bool,
+}
+
+fn default_bool() -> bool {
+    false
 }

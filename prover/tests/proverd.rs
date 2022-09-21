@@ -30,12 +30,14 @@ async fn proverd_simple_signaling() {
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
+        mock: false,
     };
     let proof_b = ProofRequestOptions {
         block: 2,
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
+        mock: false,
     };
 
     // enqueue tasks
