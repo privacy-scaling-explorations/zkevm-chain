@@ -3,7 +3,7 @@ use coordinator::shared_state::SharedState;
 // test for: https://github.com/privacy-scaling-explorations/zkevm-chain/issues/5
 #[tokio::test]
 async fn access_list_regression() {
-    let shared_state = SharedState::from_env().await;
+    let shared_state = SharedState::from_env_for_tests().await;
     shared_state.init().await;
 
     // CODESIZE

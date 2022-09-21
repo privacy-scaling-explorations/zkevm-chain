@@ -77,13 +77,14 @@ pub struct SharedState {
 
 impl SharedState {
     pub fn new(
-        l2_url: Uri,
-        l1_url: Uri,
-        l1_bridge: Address,
+        l2_url: &Uri,
+        l1_url: &Uri,
+        l1_bridge: &Address,
         l1_wallet: LocalWallet,
         l2_wallet: LocalWallet,
-        prover_node: Uri,
-        prover_default_param: String,
+        prover_node: &Uri,
+        prover_default_param: &String,
+        dummy_prover: bool,
     ) -> SharedState {
         let abi = AbiParser::default()
             .parse(&[
@@ -106,11 +107,11 @@ impl SharedState {
 
         Self {
             ro: Arc::new(RoState {
-                l2_node: l2_url,
-                l1_node: l1_url,
-                prover_node,
+                l2_node: l2_url.clone(),
+                l1_node: l1_url.clone(),
+                prover_node: prover_node.clone(),
 
-                l1_bridge_addr: l1_bridge,
+                l1_bridge_addr: l1_bridge.clone(),
                 l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
                     .parse()
                     .unwrap(),
@@ -128,7 +129,7 @@ impl SharedState {
                 l2_wallet,
                 bridge_abi: abi,
 
-                prover_default_param,
+                prover_default_param: prover_default_param.clone(),
             }),
             rw: Arc::new(Mutex::new(RwState {
                 chain_state: ForkchoiceStateV1 {
@@ -146,15 +147,16 @@ impl SharedState {
                 l2_message_queue: Vec::new(),
                 l1_delivered_messages: Vec::new(),
 
-                config_dummy_proof: crate::option_enabled!("COORDINATOR_DUMMY_PROVER", true)
-                    .is_some(),
+                config_dummy_proof: dummy_prover,
 
                 _prev_timestamp: 0,
             })),
         }
     }
 
-    pub async fn from_env() -> SharedState {
+    /// DEPRECATED, used only by tests
+    /// TODO: where to put this? shared state should not be coupled to environment
+    pub async fn from_env_for_tests() -> SharedState {
         let l2_url = var("COORDINATOR_L2_RPC_URL")
             .expect("COORDINATOR_L2_RPC_URL env var")
             .parse::<Uri>()
@@ -198,13 +200,14 @@ impl SharedState {
             .unwrap();
 
         Self::new(
-            l2_url,
-            l1_url,
-            l1_bridge,
+            &l2_url,
+            &l1_url,
+            &l1_bridge,
             l1_wallet,
             l2_wallet,
-            prover_node,
-            prover_default_param,
+            &prover_node,
+            &prover_default_param,
+            crate::option_enabled!("COORDINATOR_DUMMY_PROVER", true).is_some(),
         )
     }
 

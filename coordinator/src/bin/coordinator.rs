@@ -1,8 +1,11 @@
+use clap::Parser;
 use coordinator::faucet::Faucet;
 use coordinator::shared_state::SharedState;
 use coordinator::utils::*;
 use env_logger::Env;
 use ethers_core::types::{Address, U64};
+use ethers_signers::LocalWallet;
+use ethers_signers::Signer;
 use hyper::body::Buf;
 use hyper::body::HttpBody;
 use hyper::client::HttpConnector;
@@ -15,6 +18,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 use tokio::task::spawn;
 use tokio::time::sleep;
+use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::JsonRpcError;
 use zkevm_common::json_rpc::JsonRpcRequest;
 use zkevm_common::json_rpc::JsonRpcResponse;
@@ -64,6 +68,51 @@ const PROXY_ALLOWED_METHODS: [&str; 40] = [
     "debug_getModifiedAccountsByNumber",
     "debug_getModifiedAccountsByHash",
 ];
+
+#[derive(Parser, Debug)]
+#[clap(version, about)]
+/// zkEVM coordinator
+struct CoordinatorConfig {
+    #[clap(long, env = "COORDINATOR_RPC_SERVER_NODES")]
+    /// COORDINATOR_RPC_SERVER_NODES
+    rpc_server_nodes: String,
+
+    #[clap(long, env = "COORDINATOR_ENABLE_FAUCET")]
+    /// COORDINATOR_ENABLE_FAUCET
+    enable_faucet: bool,
+
+    #[clap(long, env = "COORDINATOR_LISTEN")]
+    /// COORDINATOR_LISTEN
+    listen: SocketAddr,
+
+    #[clap(long, env = "COORDINATOR_DUMMY_PROVER")]
+    /// COORDINATOR_DUMMY_PROVER
+    dummy_prover: bool,
+
+    #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
+    /// COORDINATOR_L1_RPC_URL
+    l1_rpc_url: Uri,
+
+    #[clap(long, env = "COORDINATOR_L1_BRIDGE")]
+    /// COORDINATOR_L1_BRIDGE
+    l1_bridge: Address,
+
+    #[clap(long, env = "COORDINATOR_L1_PRIV")]
+    /// COORDINATOR_L1_PRIV
+    l1_priv: String,
+
+    #[clap(long, env = "COORDINATOR_L2_RPC_URL")]
+    /// COORDINATOR_L2_RPC_URL
+    l2_rpc_url: Uri,
+
+    #[clap(long, env = "COORDINATOR_PROVER_RPCD_URL")]
+    /// COORDINATOR_PROVER_RPCD_URL
+    prover_rpcd_url: Uri,
+
+    #[clap(long, env = "COORDINATOR_PARAMS_PATH")]
+    /// COORDINATOR_PARAMS_PATH
+    params_path: String,
+}
 
 fn set_headers(headers: &mut HeaderMap, extended: bool) {
     headers.insert("content-type", HeaderValue::from_static("application/json"));
@@ -343,22 +392,53 @@ async fn handle_method(
     }
 }
 
+async fn get_wallet(prc_url: &Uri, sign_key: &String) -> LocalWallet {
+    let chain_id: U64 = jsonrpc_request(&prc_url, "eth_chainId", ())
+        .await
+        .expect("chain id L1");
+
+    sign_key
+        .parse::<LocalWallet>()
+        .expect("cannot create LocalWallet from private key")
+        .with_chain_id(chain_id.as_u64())
+}
+
+async fn state_from_config(config: &CoordinatorConfig) -> SharedState {
+    let l1_wallet = get_wallet(&config.l1_rpc_url, &config.l1_priv).await;
+    // TODO: support different keys for L1 and L2
+    let l2_wallet = get_wallet(&config.l2_rpc_url, &config.l1_priv).await;
+
+    SharedState::new(
+        &config.l2_rpc_url,
+        &config.l1_rpc_url,
+        &config.l1_bridge,
+        l1_wallet,
+        l2_wallet,
+        &config.prover_rpcd_url,
+        &config.params_path,
+        config.dummy_prover,
+    )
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let shared_state = SharedState::from_env().await;
+    let config = CoordinatorConfig::parse();
+    let shared_state = state_from_config(&config).await;
+
     shared_state.init().await;
 
-    let faucet: Option<Faucet> =
-        coordinator::option_enabled!("COORDINATOR_ENABLE_FAUCET", Faucet::default());
+    let faucet: Option<Faucet> = if config.enable_faucet {
+        Some(Faucet::default())
+    } else {
+        None
+    };
+
     log::info!("faucet enabled: {}", faucet.is_some());
 
     {
-        let addr = var("COORDINATOR_LISTEN")
-            .expect("COORDINATOR_LISTEN env var")
-            .parse::<SocketAddr>()
-            .expect("valid socket address");
+        let addr = config.listen;
         let client = hyper::Client::new();
         let shared_state = shared_state.clone();
         let faucet = faucet.clone();
