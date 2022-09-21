@@ -38,6 +38,7 @@ RUN set -eux; \
         liblzma-dev \
         procps \
         jq \
+        curl \
         ; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
