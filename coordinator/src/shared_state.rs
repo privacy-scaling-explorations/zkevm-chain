@@ -77,6 +77,7 @@ pub struct SharedState {
 }
 
 impl SharedState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         l2_url: &Uri,
         l1_url: &Uri,

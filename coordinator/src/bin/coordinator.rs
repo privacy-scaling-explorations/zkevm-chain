@@ -392,8 +392,8 @@ async fn handle_method(
     }
 }
 
-async fn get_wallet(prc_url: &Uri, sign_key: &String) -> LocalWallet {
-    let chain_id: U64 = jsonrpc_request(&prc_url, "eth_chainId", ())
+async fn get_wallet(rcp_url: &Uri, sign_key: &str) -> LocalWallet {
+    let chain_id: U64 = jsonrpc_request(rcp_url, "eth_chainId", ())
         .await
         .expect("chain id L1");
 
