@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::structs::*;
 use crate::utils::*;
 use ethers_core::abi::Abi;
@@ -157,8 +158,24 @@ impl SharedState {
         }
     }
 
+    pub async fn from_config(config: &Config) -> Self {
+        let l1_wallet = get_wallet(&config.l1_rpc_url, &config.l1_priv).await;
+        // TODO: support different keys for L1 and L2
+        let l2_wallet = get_wallet(&config.l2_rpc_url, &config.l1_priv).await;
+
+        Self::new(
+            &config.l2_rpc_url,
+            &config.l1_rpc_url,
+            &config.l1_bridge,
+            l1_wallet,
+            l2_wallet,
+            &config.prover_rpcd_url,
+            &config.params_path,
+            config.dummy_prover,
+        )
+    }
+
     /// DEPRECATED, used only by tests
-    /// TODO: where to put this? shared state should not be coupled to environment
     pub async fn from_env_for_tests() -> SharedState {
         let l2_url = var("COORDINATOR_L2_RPC_URL")
             .expect("COORDINATOR_L2_RPC_URL env var")
@@ -1087,4 +1104,15 @@ fn timestamp() -> u64 {
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("time")
         .as_secs()
+}
+
+async fn get_wallet(rcp_url: &Uri, sign_key: &str) -> LocalWallet {
+    let chain_id: U64 = jsonrpc_request(rcp_url, "eth_chainId", ())
+        .await
+        .expect("chain id L1");
+
+    sign_key
+        .parse::<LocalWallet>()
+        .expect("cannot create LocalWallet from private key")
+        .with_chain_id(chain_id.as_u64())
 }
