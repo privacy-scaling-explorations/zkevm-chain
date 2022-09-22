@@ -7,7 +7,7 @@ use prover::shared_state::SharedState;
 #[derive(Parser, Debug)]
 #[clap(version, about)]
 /// This command starts a http/json-rpc server and serves proof oriented methods.
-struct ProverdConfig {
+pub(crate) struct ProverdConfig {
     #[clap(long, env = "PROVERD_BIND")]
     /// The interface address + port combination to accept connections on,
     /// e.g. `[::]:1234`.
