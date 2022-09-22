@@ -141,7 +141,7 @@ services:
       - PROVERD_BIND=[::]:8545
       - PROVERD_LOOKUP=prover-rpcd:8545
     deploy:
-      replicas: 2
+      replicas: 1
 
   dev:
     profiles:
