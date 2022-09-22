@@ -1,2 +1,5 @@
 *.env
 build/
+target/
+.idea/
+.vscode/
