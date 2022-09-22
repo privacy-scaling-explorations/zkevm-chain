@@ -17,7 +17,6 @@ use plonk_verifier::loader::native::NativeLoader;
 use rand::rngs::OsRng;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
-use std::env::var;
 use std::fmt::Write;
 use std::fs::File;
 use std::net::ToSocketAddrs;
@@ -211,18 +210,15 @@ impl SharedState {
                         // this error will eventually bubble up later.
                         let param = self_copy.load_param(&param_path).await;
                         // gen circuit inputs
-                        let instance = match var("PROVERD_ENABLE_CIRCUIT_INSTANCE").unwrap_or_default().as_str() {
-                            "" | "0" | "false" => vec![],
-                            _ => {
-                                // TODO: This should come from the circuit `circuit.instance()`.
-                                let mut instance: Vec<Vec<Fr>>= (1..POW_RAND_SIZE + 1)
-                                    .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n() as usize - 64])
-                                    .collect();
-                                // SignVerifyChip -> ECDSAChip -> MainGate instance column
-                                instance.push(vec![]);
+                        let instance = {
+                            // TODO: This should come from the circuit `circuit.instance()`.
+                            let mut instance: Vec<Vec<Fr>>= (1..POW_RAND_SIZE + 1)
+                                .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n() as usize - 64])
+                                .collect();
+                            // SignVerifyChip -> ECDSAChip -> MainGate instance column
+                            instance.push(vec![]);
 
-                                instance
-                            }
+                            instance
                         };
                         let instance_ref: Vec<&[Fr]> = instance.iter().map(|e| e.as_slice()).collect();
                         let instances_ref = match instance_ref.is_empty() {

@@ -140,8 +140,6 @@ services:
     environment:
       - PROVERD_BIND=[::]:8545
       - PROVERD_LOOKUP=prover-rpcd:8545
-      # set to `1` if the prover should pass inputs to `create_proof`
-      - PROVERD_ENABLE_CIRCUIT_INSTANCE=0
     deploy:
       replicas: 2
 
