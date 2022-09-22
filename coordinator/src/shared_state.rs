@@ -84,7 +84,7 @@ impl SharedState {
         l1_wallet: LocalWallet,
         l2_wallet: LocalWallet,
         prover_node: &Uri,
-        prover_default_param: &String,
+        prover_default_param: &str,
         dummy_prover: bool,
     ) -> SharedState {
         let abi = AbiParser::default()
@@ -112,7 +112,7 @@ impl SharedState {
                 l1_node: l1_url.clone(),
                 prover_node: prover_node.clone(),
 
-                l1_bridge_addr: l1_bridge.clone(),
+                l1_bridge_addr: *l1_bridge,
                 l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
                     .parse()
                     .unwrap(),
@@ -130,7 +130,7 @@ impl SharedState {
                 l2_wallet,
                 bridge_abi: abi,
 
-                prover_default_param: prover_default_param.clone(),
+                prover_default_param: prover_default_param.to_owned(),
             }),
             rw: Arc::new(Mutex::new(RwState {
                 chain_state: ForkchoiceStateV1 {
