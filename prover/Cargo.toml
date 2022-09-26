@@ -19,7 +19,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
-zkevm-common = { path = "../common" }
+zkevm_common = { path = "../common" }
 plonk-verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "06a09363c2b99950e439567eac0ddd1f61f86cb7" }
 itertools = "0.10.3"
 

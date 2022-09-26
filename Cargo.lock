@@ -468,7 +468,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "zkevm-common",
+ "zkevm_common",
 ]
 
 [[package]]
@@ -2149,7 +2149,7 @@ dependencies = [
  "strum",
  "tokio",
  "zkevm-circuits",
- "zkevm-common",
+ "zkevm_common",
 ]
 
 [[package]]
@@ -3316,7 +3316,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zkevm-common"
+name = "zkevm_common"
 version = "0.1.0"
 dependencies = [
  "hyper",
