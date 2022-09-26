@@ -47,3 +47,9 @@ pub struct Config {
     /// Parameters file to use for the prover requests.
     pub params_path: String,
 }
+
+impl Config {
+    pub fn from_env() -> Self {
+        Self::parse_from(std::env::args().skip(usize::MAX))
+    }
+}
