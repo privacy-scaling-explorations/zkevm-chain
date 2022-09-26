@@ -165,7 +165,7 @@ async fn native_deposit() {
             deposits.push(id);
             expected_balance += value;
             shared_state
-                .transaction_to_l1(Some(shared_state.ro.l1_bridge_addr), value, calldata)
+                .transaction_to_l1(Some(shared_state.config.l1_bridge), value, calldata)
                 .await;
         }
     }
@@ -564,7 +564,7 @@ async fn native_deposit_revert() {
                     &shared_state.ro.http_client,
                     &shared_state.config.l1_rpc_url,
                     &shared_state.ro.l1_wallet,
-                    Some(shared_state.ro.l1_bridge_addr),
+                    Some(shared_state.config.l1_bridge),
                     value,
                     calldata,
                     tx_nonce,
