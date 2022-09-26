@@ -12,7 +12,6 @@ use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::HeaderMap;
 use hyper::{Body, Method, Request, Response, Server, StatusCode, Uri};
-use std::env::var;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 use tokio::task::spawn;
@@ -267,13 +266,12 @@ async fn handle_request(
 /// Discovers healthy nodes via DNS service discovery.
 /// If nodes are discovered but are not up-to-date, then this function attempts to choose a
 /// fallback node.
-async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
+async fn check_nodes(ctx: SharedState, server_nodes: String, client: hyper::Client<HttpConnector>) {
     let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
     let mut nodes = Vec::new();
     let mut fallback_node_uri = None;
     let mut fallback_node_num = U64::zero();
-    let mut addrs = var("COORDINATOR_RPC_SERVER_NODES")
-        .expect("COORDINATOR_RPC_SERVER_NODES env var")
+    let mut addrs = server_nodes
         .to_socket_addrs()
         .unwrap()
         .collect::<Vec<SocketAddr>>();
@@ -429,7 +427,12 @@ async fn main() {
             let client = hyper::Client::new();
             loop {
                 log::debug!("spawning check_nodes task");
-                let res = spawn(check_nodes(ctx.clone(), client.to_owned())).await;
+                let res = spawn(check_nodes(
+                    ctx.clone(),
+                    config.rpc_server_nodes.clone(),
+                    client.to_owned(),
+                ))
+                .await;
 
                 if let Err(err) = res {
                     log::error!("task: {}", err);
