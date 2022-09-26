@@ -20,7 +20,7 @@ pub struct Config {
     pub listen: SocketAddr,
 
     #[clap(long, env = "COORDINATOR_DUMMY_PROVER")]
-    /// Enables dummy prover, so request will not be sent to the actuall prover.
+    /// Enables dummy prover, so request will not be sent to the actual prover.
     pub dummy_prover: bool,
 
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
