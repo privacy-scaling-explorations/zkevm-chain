@@ -350,7 +350,7 @@ async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let config = Config::parse();
-    let shared_state = SharedState::from_config(&config).await;
+    let shared_state = SharedState::new(&config).await;
 
     shared_state.init().await;
 

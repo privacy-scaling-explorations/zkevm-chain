@@ -78,8 +78,25 @@ pub struct SharedState {
 }
 
 impl SharedState {
+    pub async fn new(config: &Config) -> Self {
+        let l1_wallet = get_wallet(&config.l1_rpc_url, &config.l1_priv).await;
+        // TODO: support different keys for L1 and L2
+        let l2_wallet = get_wallet(&config.l2_rpc_url, &config.l1_priv).await;
+
+        Self::build(
+            &config.l2_rpc_url,
+            &config.l1_rpc_url,
+            &config.l1_bridge,
+            l1_wallet,
+            l2_wallet,
+            &config.prover_rpcd_url,
+            &config.params_path,
+            config.dummy_prover,
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn build(
         l2_url: &Uri,
         l1_url: &Uri,
         l1_bridge: &Address,
@@ -158,23 +175,6 @@ impl SharedState {
         }
     }
 
-    pub async fn from_config(config: &Config) -> Self {
-        let l1_wallet = get_wallet(&config.l1_rpc_url, &config.l1_priv).await;
-        // TODO: support different keys for L1 and L2
-        let l2_wallet = get_wallet(&config.l2_rpc_url, &config.l1_priv).await;
-
-        Self::new(
-            &config.l2_rpc_url,
-            &config.l1_rpc_url,
-            &config.l1_bridge,
-            l1_wallet,
-            l2_wallet,
-            &config.prover_rpcd_url,
-            &config.params_path,
-            config.dummy_prover,
-        )
-    }
-
     /// DEPRECATED, used only by tests
     pub async fn from_env_for_tests() -> SharedState {
         let l2_url = var("COORDINATOR_L2_RPC_URL")
@@ -219,7 +219,7 @@ impl SharedState {
             .parse::<String>()
             .unwrap();
 
-        Self::new(
+        Self::build(
             &l2_url,
             &l1_url,
             &l1_bridge,
