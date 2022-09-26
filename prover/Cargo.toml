@@ -20,7 +20,7 @@ serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
 zkevm_common = { path = "../common" }
-plonk-verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "06a09363c2b99950e439567eac0ddd1f61f86cb7" }
+plonk_verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "72bf7c4942c5a8ab66542aa55f72c02b1a9b79d5" }
 itertools = "0.10.3"
 
 # autogen
