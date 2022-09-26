@@ -1028,7 +1028,7 @@ impl SharedState {
 }
 
 fn get_abi() -> Abi {
-    let abi = AbiParser::default()
+    AbiParser::default()
         .parse(&[
             "event BlockSubmitted()",
             "event BlockFinalized(bytes32 blockHash)",
@@ -1040,8 +1040,7 @@ fn get_abi() -> Abi {
             "function stateRoot() returns (bytes32)",
             "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
         ])
-        .expect("parse abi");
-    abi
+        .expect("parse abi")
 }
 
 fn timestamp() -> u64 {
