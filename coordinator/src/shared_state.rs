@@ -489,6 +489,7 @@ impl SharedState {
                 &head_hash,
             )
             .await;
+            let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
 
             log::info!("blocks to be submitted: {:?}", blocks.len());
             for block in blocks.iter().rev() {
@@ -507,12 +508,8 @@ impl SharedState {
                         .encode_input(&[block_data.into_token()])
                         .expect("calldata");
 
-                    self.transaction_to_l1(
-                        Some(self.config.lock().await.l1_bridge),
-                        U256::zero(),
-                        calldata,
-                    )
-                    .await;
+                    self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+                        .await;
                 }
             }
         }
@@ -580,12 +577,9 @@ impl SharedState {
                     ])
                     .expect("calldata");
 
-                self.transaction_to_l1(
-                    Some(self.config.lock().await.l1_bridge),
-                    U256::zero(),
-                    calldata,
-                )
-                .await;
+                let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
+                self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+                    .await;
             }
         }
 
@@ -835,6 +829,7 @@ impl SharedState {
         drop(rw);
 
         const LOG_TAG: &str = "L1:deliverMessageWithProof:";
+        let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
         for msg in todo {
             {
                 // check deadline
@@ -903,12 +898,8 @@ impl SharedState {
                     proof.into_token(),
                 ])
                 .expect("calldata");
-            self.transaction_to_l1(
-                Some(self.config.lock().await.l1_bridge),
-                U256::zero(),
-                calldata,
-            )
-            .await;
+            self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+                .await;
         }
     }
 
