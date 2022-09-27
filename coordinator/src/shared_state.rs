@@ -89,7 +89,6 @@ pub struct RwState {
     pub l1_delivered_messages: Vec<H256>,
 
     // runtime configuration options
-    pub config_dummy_proof: bool,
     pub config_mock_prover: bool,
 
     /// keeps track of the timestamp used for preparing the last block
@@ -97,7 +96,7 @@ pub struct RwState {
 }
 
 impl RwState {
-    pub async fn new(config: &Config) -> Self {
+    pub fn new() -> Self {
         RwState {
             chain_state: ForkchoiceStateV1 {
                 head_block_hash: H256::zero(),
@@ -114,7 +113,6 @@ impl RwState {
             l2_message_queue: Vec::new(),
             l1_delivered_messages: Vec::new(),
 
-            config_dummy_proof: config.dummy_prover,
             config_mock_prover: false,
 
             _prev_timestamp: 0,
@@ -124,7 +122,7 @@ impl RwState {
 
 #[derive(Clone)]
 pub struct SharedState {
-    pub config: Arc<Config>,
+    pub config: Arc<Mutex<Config>>,
     pub ro: Arc<RoState>,
     pub rw: Arc<Mutex<RwState>>,
 }
@@ -132,9 +130,9 @@ pub struct SharedState {
 impl SharedState {
     pub async fn new(config: &Config) -> Self {
         Self {
-            config: Arc::new(config.clone()),
+            config: Arc::new(Mutex::new(config.clone())),
             ro: Arc::new(RoState::new(config).await),
-            rw: Arc::new(Mutex::new(RwState::new(config).await)),
+            rw: Arc::new(Mutex::new(RwState::new())),
         }
     }
 
@@ -171,7 +169,7 @@ impl SharedState {
             .expect("eth_blockNumber");
         let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
         let mut filter = Filter::new()
-            .address(ValueOrArray::Value(self.config.l1_bridge))
+            .address(ValueOrArray::Value(self.config.lock().await.l1_bridge))
             .topic0(ValueOrArray::Array(vec![
                 self.ro.block_beacon_topic,
                 self.ro.block_finalized_topic,
@@ -265,7 +263,7 @@ impl SharedState {
 
     pub async fn mine(&self) {
         // TODO: verify that head_hash is correct
-        let head_hash = get_chain_head(&self.ro.http_client, &self.config.l2_rpc_url)
+        let head_hash = get_chain_head(&self.ro.http_client, &self.config.lock().await.l2_rpc_url)
             .await
             .hash;
         self.rw.lock().await.chain_state.head_block_hash = head_hash;
@@ -377,7 +375,11 @@ impl SharedState {
                     let proof_obj: ProofRequest = self
                         .request_l1(
                             "eth_getProof",
-                            (self.config.l1_bridge, [storage_slot], l1_block_header.hash),
+                            (
+                                self.config.lock().await.l1_bridge,
+                                [storage_slot],
+                                l1_block_header.hash,
+                            ),
                         )
                         .await
                         .expect("eth_getProof");
@@ -487,7 +489,7 @@ impl SharedState {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.config.l2_rpc_url,
+                &self.config.lock().await.l2_rpc_url,
                 &safe_hash,
                 &head_hash,
             )
@@ -510,8 +512,12 @@ impl SharedState {
                         .encode_input(&[block_data.into_token()])
                         .expect("calldata");
 
-                    self.transaction_to_l1(Some(self.config.l1_bridge), U256::zero(), calldata)
-                        .await;
+                    self.transaction_to_l1(
+                        Some(self.config.lock().await.l1_bridge),
+                        U256::zero(),
+                        calldata,
+                    )
+                    .await;
                 }
             }
         }
@@ -524,7 +530,7 @@ impl SharedState {
         if final_hash != safe_hash {
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.config.l2_rpc_url,
+                &self.config.lock().await.l2_rpc_url,
                 &final_hash,
                 &safe_hash,
             )
@@ -579,8 +585,12 @@ impl SharedState {
                     ])
                     .expect("calldata");
 
-                self.transaction_to_l1(Some(self.config.l1_bridge), U256::zero(), calldata)
-                    .await;
+                self.transaction_to_l1(
+                    Some(self.config.lock().await.l1_bridge),
+                    U256::zero(),
+                    calldata,
+                )
+                .await;
             }
         }
 
@@ -590,7 +600,7 @@ impl SharedState {
     pub async fn transaction_to_l1(&self, to: Option<Address>, value: U256, calldata: Vec<u8>) {
         send_transaction_to_l1(
             &self.ro.http_client,
-            &self.config.l1_rpc_url,
+            &self.config.lock().await.l1_rpc_url,
             &self.ro.l1_wallet,
             to,
             value,
@@ -607,7 +617,7 @@ impl SharedState {
     ) -> Result<H256, String> {
         send_transaction_to_l2(
             &self.ro.http_client,
-            &self.config.l2_rpc_url,
+            &self.config.lock().await.l2_rpc_url,
             &self.ro.l2_wallet,
             to,
             value,
@@ -664,7 +674,7 @@ impl SharedState {
         jsonrpc_request_client(
             5000,
             &self.ro.http_client,
-            &self.config.l1_rpc_url,
+            &self.config.lock().await.l1_rpc_url,
             method,
             args,
         )
@@ -679,7 +689,7 @@ impl SharedState {
         jsonrpc_request_client(
             5000,
             &self.ro.http_client,
-            &self.config.l2_rpc_url,
+            &self.config.lock().await.l2_rpc_url,
             method,
             args,
         )
@@ -898,8 +908,12 @@ impl SharedState {
                     proof.into_token(),
                 ])
                 .expect("calldata");
-            self.transaction_to_l1(Some(self.config.l1_bridge), U256::zero(), calldata)
-                .await;
+            self.transaction_to_l1(
+                Some(self.config.lock().await.l1_bridge),
+                U256::zero(),
+                calldata,
+            )
+            .await;
         }
     }
 
@@ -946,7 +960,7 @@ impl SharedState {
                 serde_json::json!(
                 [
                 {
-                    "to": self.config.l1_bridge,
+                    "to": self.config.lock().await.l1_bridge,
                     "data": calldata,
                 },
                 "latest"
@@ -987,7 +1001,7 @@ impl SharedState {
     }
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
-        if self.rw.lock().await.config_dummy_proof {
+        if self.config.lock().await.dummy_prover {
             log::warn!("COORDINATOR_DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),
@@ -998,15 +1012,15 @@ impl SharedState {
 
         let proof_options = ProofRequestOptions {
             block: block_num.as_u64(),
-            rpc: self.config.l2_rpc_url.to_string(),
+            rpc: self.config.lock().await.l2_rpc_url.to_string(),
             retry: false,
-            param: self.config.params_path.clone(),
+            param: self.config.lock().await.params_path.clone(),
             mock: self.rw.lock().await.config_mock_prover,
         };
         let resp = jsonrpc_request_client(
             5000,
             &self.ro.http_client,
-            &self.config.prover_rpcd_url,
+            &self.config.lock().await.prover_rpcd_url,
             "proof",
             [proof_options],
         )

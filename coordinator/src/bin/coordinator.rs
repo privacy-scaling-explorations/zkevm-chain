@@ -332,9 +332,8 @@ async fn handle_method(
             let options = params.get(0).ok_or("expected struct CoordinatorConfig")?;
             let options: CoordinatorConfig =
                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-            let mut rw_state = shared_state.rw.lock().await;
 
-            rw_state.config_dummy_proof = options.dummy_proof;
+            shared_state.config.lock().await.dummy_prover = options.dummy_proof;
 
             Ok(serde_json::Value::Bool(true))
         }
