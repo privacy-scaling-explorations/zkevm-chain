@@ -8,7 +8,7 @@ use std::net::SocketAddr;
 /// zkEVM coordinator, coordinates between the prover and the block production and relays between the bridge contracts in L1 and L2.
 pub struct Config {
     #[clap(long, env = "COORDINATOR_RPC_SERVER_NODES")]
-    /// Addresses in the form of host:port[,host:port,...] to connect to the RPC servers.
+    /// Address in the form of host:port of the L2 rpc node(s). Can resolve to multiple addresses.
     pub rpc_server_nodes: String,
 
     #[clap(long, env = "COORDINATOR_ENABLE_FAUCET")]
