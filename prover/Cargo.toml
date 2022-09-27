@@ -6,9 +6,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_09_10" }
-bus-mapping = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "acf2c0b967ee3c073ce9195ef165d966666cecfa" }
-eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "acf2c0b967ee3c073ce9195ef165d966666cecfa" }
-zkevm-circuits = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "acf2c0b967ee3c073ce9195ef165d966666cecfa" }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "77c5b62ee6c29ec4a2ae811a18fc81a6a64a0c2e" }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "77c5b62ee6c29ec4a2ae811a18fc81a6a64a0c2e" }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "77c5b62ee6c29ec4a2ae811a18fc81a6a64a0c2e" }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"
 hyper = { version = "0.14.16", features = ["server"] }
@@ -19,12 +19,12 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 strum = "0.24"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
-zkevm-common = { path = "../common" }
-plonk-verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "06a09363c2b99950e439567eac0ddd1f61f86cb7" }
+zkevm_common = { path = "../common" }
+plonk_verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "72bf7c4942c5a8ab66542aa55f72c02b1a9b79d5" }
 itertools = "0.10.3"
 
 # autogen
-mock = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "acf2c0b967ee3c073ce9195ef165d966666cecfa", optional = true }
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "77c5b62ee6c29ec4a2ae811a18fc81a6a64a0c2e", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
 clap = { version = "3.2.22", features = ["derive", "env"] }
 

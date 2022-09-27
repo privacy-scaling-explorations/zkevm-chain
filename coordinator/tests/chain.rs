@@ -11,7 +11,6 @@ use ethers_core::types::U256;
 use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
-use std::env::var;
 use tokio::sync::Mutex;
 use tokio::sync::OnceCell;
 use zkevm_common::json_rpc::jsonrpc_request;
@@ -87,7 +86,7 @@ macro_rules! await_state {
 
 fn init_logger() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-        .is_test(var("TEST_VERBOSE").is_err())
+        .is_test(true)
         .try_init();
 }
 
