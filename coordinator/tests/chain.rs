@@ -671,7 +671,7 @@ async fn keccak() {
     shared_state.mine().await;
     wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
     shared_state.config.lock().await.dummy_prover = false;
-    shared_state.rw.lock().await.config_mock_prover = true;
+    shared_state.config.lock().await.mock_prover = true;
     finalize_chain!(shared_state);
-    shared_state.rw.lock().await.config_mock_prover = false;
+    shared_state.config.lock().await.mock_prover = false;
 }

@@ -88,15 +88,12 @@ pub struct RwState {
     pub l2_message_queue: Vec<MessageBeacon>,
     pub l1_delivered_messages: Vec<H256>,
 
-    // runtime configuration options
-    pub config_mock_prover: bool,
-
     /// keeps track of the timestamp used for preparing the last block
     _prev_timestamp: u64,
 }
 
-impl RwState {
-    pub fn new() -> Self {
+impl Default for RwState {
+    fn default() -> Self {
         RwState {
             chain_state: ForkchoiceStateV1 {
                 head_block_hash: H256::zero(),
@@ -112,8 +109,6 @@ impl RwState {
             l2_delivered_messages: Vec::new(),
             l2_message_queue: Vec::new(),
             l1_delivered_messages: Vec::new(),
-
-            config_mock_prover: false,
 
             _prev_timestamp: 0,
         }
@@ -132,7 +127,7 @@ impl SharedState {
         Self {
             config: Arc::new(Mutex::new(config.clone())),
             ro: Arc::new(RoState::new(config).await),
-            rw: Arc::new(Mutex::new(RwState::new())),
+            rw: Arc::new(Mutex::new(RwState::default())),
         }
     }
 
@@ -1015,7 +1010,7 @@ impl SharedState {
             rpc: self.config.lock().await.l2_rpc_url.to_string(),
             retry: false,
             param: self.config.lock().await.params_path.clone(),
-            mock: self.rw.lock().await.config_mock_prover,
+            mock: self.config.lock().await.mock_prover,
         };
         let resp = jsonrpc_request_client(
             5000,

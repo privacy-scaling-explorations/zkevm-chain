@@ -23,6 +23,10 @@ pub struct Config {
     /// Enables dummy prover, so request will not be sent to the actual prover.
     pub dummy_prover: bool,
 
+    #[clap(long, env = "COORDINATOR_MOCK_PROVER")]
+    /// Enables mock prover, so request will not be sent to the actual prover.
+    pub mock_prover: bool,
+
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
     /// L1 RPC node URL format.
     pub l1_rpc_url: Uri,
