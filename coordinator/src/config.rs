@@ -23,7 +23,7 @@ pub struct Config {
     /// Enables dummy prover, so request will not be sent to the actual prover.
     pub dummy_prover: bool,
 
-    #[clap(long, env = "COORDINATOR_MOCK_PROVER")]
+    #[clap(long, env = "COORDINATOR_MOCK_PROVER", default_value_t = false)]
     /// Enables mock prover, so request will not be sent to the actual prover.
     pub mock_prover: bool,
 
