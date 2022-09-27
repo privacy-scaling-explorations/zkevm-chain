@@ -126,6 +126,7 @@ async fn native_deposit() {
     )
     .await
     .expect("eth_getBalance");
+    let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
 
     {
         // create deposits
@@ -164,11 +165,7 @@ async fn native_deposit() {
             deposits.push(id);
             expected_balance += value;
             shared_state
-                .transaction_to_l1(
-                    Some(shared_state.config.lock().await.l1_bridge),
-                    value,
-                    calldata,
-                )
+                .transaction_to_l1(l1_bridge_addr, value, calldata)
                 .await;
         }
     }
@@ -519,6 +516,7 @@ async fn native_deposit_revert() {
         )
         .await
         .expect("nonce");
+        let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
 
         let mut txs = Vec::new();
         for i in 0..30 {
@@ -567,7 +565,7 @@ async fn native_deposit_revert() {
                     &shared_state.ro.http_client,
                     &shared_state.config.lock().await.l1_rpc_url,
                     &shared_state.ro.l1_wallet,
-                    Some(shared_state.config.lock().await.l1_bridge),
+                    l1_bridge_addr,
                     value,
                     calldata,
                     tx_nonce,

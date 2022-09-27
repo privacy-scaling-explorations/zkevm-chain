@@ -328,6 +328,7 @@ impl SharedState {
                 let ts = U256::from(block_timestamp);
                 let mut drop_idxs = Vec::new();
                 let mut i = 0;
+                let l1_bridge_addr = self.config.lock().await.l1_bridge;
                 loop {
                     let rw = self.rw.lock().await;
                     let msg = rw.l1_message_queue.get(i);
@@ -370,11 +371,7 @@ impl SharedState {
                     let proof_obj: ProofRequest = self
                         .request_l1(
                             "eth_getProof",
-                            (
-                                self.config.lock().await.l1_bridge,
-                                [storage_slot],
-                                l1_block_header.hash,
-                            ),
+                            (l1_bridge_addr, [storage_slot], l1_block_header.hash),
                         )
                         .await
                         .expect("eth_getProof");
@@ -940,13 +937,14 @@ impl SharedState {
                 .encode_input(&[])
                 .expect("calldata"),
         );
+        let l1_bridge_addr = self.config.lock().await.l1_bridge;
         let resp: Result<H256, String> = self
             .request_l1(
                 "eth_call",
                 serde_json::json!(
                 [
                 {
-                    "to": self.config.lock().await.l1_bridge,
+                    "to": l1_bridge_addr,
                     "data": calldata,
                 },
                 "latest"
