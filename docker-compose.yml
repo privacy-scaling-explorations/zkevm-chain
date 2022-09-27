@@ -175,10 +175,9 @@ services:
     ports:
       - 8000:8000
     working_dir: /app
-    entrypoint: /bin/bash
-    command: -c exit
+    entrypoint: /bin/login
     tty: true
-    stdin_open: true
+    init: true
 
   web:
     depends_on:
