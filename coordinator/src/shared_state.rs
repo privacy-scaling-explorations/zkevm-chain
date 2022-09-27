@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::structs::*;
 use crate::utils::*;
 use ethers_core::abi::Abi;
@@ -19,7 +20,6 @@ use serde::Serialize;
 use std::cmp;
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::env::var;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
@@ -27,11 +27,6 @@ use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 
 pub struct RoState {
-    pub l2_node: Uri,
-    pub l1_node: Uri,
-    pub prover_node: Uri,
-
-    pub l1_bridge_addr: Address,
     pub l2_message_deliverer_addr: Address,
     pub l2_message_dispatcher_addr: Address,
 
@@ -45,9 +40,40 @@ pub struct RoState {
     pub l2_wallet: LocalWallet,
 
     pub bridge_abi: Abi,
+}
 
-    /// The path of the default parameter file to use
-    pub prover_default_param: String,
+impl RoState {
+    pub async fn new(config: &Config) -> Self {
+        let l1_wallet = get_wallet(&config.l1_rpc_url, &config.l1_priv).await;
+        // TODO: support different keys for L1 and L2
+        let l2_wallet = get_wallet(&config.l2_rpc_url, &config.l1_priv).await;
+
+        let abi = get_abi();
+
+        let beacon_topic = abi.event("BlockSubmitted").unwrap().signature();
+        let block_finalized_topic = abi.event("BlockFinalized").unwrap().signature();
+        let message_dispatched_topic = abi.event("MessageDispatched").unwrap().signature();
+        let message_delivered_topic = abi.event("MessageDelivered").unwrap().signature();
+
+        RoState {
+            l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
+                .parse()
+                .unwrap(),
+            l2_message_dispatcher_addr: "0x0000000000000000000000000000000000020000"
+                .parse()
+                .unwrap(),
+
+            block_beacon_topic: beacon_topic,
+            block_finalized_topic,
+            message_dispatched_topic,
+            message_delivered_topic,
+
+            http_client: hyper::Client::new(),
+            l1_wallet,
+            l2_wallet,
+            bridge_abi: abi,
+        }
+    }
 }
 
 pub struct RwState {
@@ -62,152 +88,54 @@ pub struct RwState {
     pub l2_message_queue: Vec<MessageBeacon>,
     pub l1_delivered_messages: Vec<H256>,
 
-    // runtime configuration options
-    pub config_dummy_proof: bool,
-    pub config_mock_prover: bool,
-
     /// keeps track of the timestamp used for preparing the last block
     _prev_timestamp: u64,
 }
 
+impl Default for RwState {
+    fn default() -> Self {
+        RwState {
+            chain_state: ForkchoiceStateV1 {
+                head_block_hash: H256::zero(),
+                safe_block_hash: H256::zero(),
+                finalized_block_hash: H256::zero(),
+            },
+            nodes: Vec::new(),
+            prover_requests: HashMap::new(),
+            pending_proofs: 0,
+            l1_last_sync_block: U64::zero(),
+            l2_last_sync_block: U64::zero(),
+            l1_message_queue: VecDeque::new(),
+            l2_delivered_messages: Vec::new(),
+            l2_message_queue: Vec::new(),
+            l1_delivered_messages: Vec::new(),
+
+            _prev_timestamp: 0,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct SharedState {
+    pub config: Arc<Mutex<Config>>,
     pub ro: Arc<RoState>,
     pub rw: Arc<Mutex<RwState>>,
 }
 
 impl SharedState {
-    pub fn new(
-        l2_url: Uri,
-        l1_url: Uri,
-        l1_bridge: Address,
-        l1_wallet: LocalWallet,
-        l2_wallet: LocalWallet,
-        prover_node: Uri,
-        prover_default_param: String,
-    ) -> SharedState {
-        let abi = AbiParser::default()
-            .parse(&[
-                "event BlockSubmitted()",
-                "event BlockFinalized(bytes32 blockHash)",
-                "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
-                "event MessageDelivered(bytes32 id)",
-                "function submitBlock(bytes)",
-                "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
-                "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
-                "function stateRoot() returns (bytes32)",
-                "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
-            ])
-            .expect("parse abi");
-
-        let beacon_topic = abi.event("BlockSubmitted").unwrap().signature();
-        let block_finalized_topic = abi.event("BlockFinalized").unwrap().signature();
-        let message_dispatched_topic = abi.event("MessageDispatched").unwrap().signature();
-        let message_delivered_topic = abi.event("MessageDelivered").unwrap().signature();
-
+    pub async fn new(config: &Config) -> Self {
         Self {
-            ro: Arc::new(RoState {
-                l2_node: l2_url,
-                l1_node: l1_url,
-                prover_node,
-
-                l1_bridge_addr: l1_bridge,
-                l2_message_deliverer_addr: "0x0000000000000000000000000000000000010000"
-                    .parse()
-                    .unwrap(),
-                l2_message_dispatcher_addr: "0x0000000000000000000000000000000000020000"
-                    .parse()
-                    .unwrap(),
-
-                block_beacon_topic: beacon_topic,
-                block_finalized_topic,
-                message_dispatched_topic,
-                message_delivered_topic,
-
-                http_client: hyper::Client::new(),
-                l1_wallet,
-                l2_wallet,
-                bridge_abi: abi,
-
-                prover_default_param,
-            }),
-            rw: Arc::new(Mutex::new(RwState {
-                chain_state: ForkchoiceStateV1 {
-                    head_block_hash: H256::zero(),
-                    safe_block_hash: H256::zero(),
-                    finalized_block_hash: H256::zero(),
-                },
-                nodes: Vec::new(),
-                prover_requests: HashMap::new(),
-                pending_proofs: 0,
-                l1_last_sync_block: U64::zero(),
-                l2_last_sync_block: U64::zero(),
-                l1_message_queue: VecDeque::new(),
-                l2_delivered_messages: Vec::new(),
-                l2_message_queue: Vec::new(),
-                l1_delivered_messages: Vec::new(),
-
-                config_dummy_proof: crate::option_enabled!("COORDINATOR_DUMMY_PROVER", true)
-                    .is_some(),
-                config_mock_prover: false,
-
-                _prev_timestamp: 0,
-            })),
+            config: Arc::new(Mutex::new(config.clone())),
+            ro: Arc::new(RoState::new(config).await),
+            rw: Arc::new(Mutex::new(RwState::default())),
         }
     }
 
-    pub async fn from_env() -> SharedState {
-        let l2_url = var("COORDINATOR_L2_RPC_URL")
-            .expect("COORDINATOR_L2_RPC_URL env var")
-            .parse::<Uri>()
-            .expect("Uri from COORDINATOR_L2_RPC_URL");
-        let l1_url = var("COORDINATOR_L1_RPC_URL")
-            .expect("COORDINATOR_L1_RPC_URL env var")
-            .parse::<Uri>()
-            .expect("Uri from COORDINATOR_L1_RPC_URL");
-        let l1_bridge = var("COORDINATOR_L1_BRIDGE")
-            .expect("COORDINATOR_L1_BRIDGE env var")
-            .parse::<Address>()
-            .expect("Address from COORDINATOR_L1_BRIDGE");
+    /// Initiates configuration from environment variables only.
+    pub async fn from_env() -> Self {
+        let config = Config::from_env();
 
-        let chain_id: U64 = jsonrpc_request(&l1_url, "eth_chainId", ())
-            .await
-            .expect("chain id");
-        let l1_wallet = var("COORDINATOR_L1_PRIV")
-            .expect("COORDINATOR_L1_PRIV env var")
-            .parse::<LocalWallet>()
-            .expect("LocalWallet from COORDINATOR_L1_PRIV")
-            .with_chain_id(chain_id.as_u64());
-
-        let chain_id: U64 = jsonrpc_request(&l2_url, "eth_chainId", ())
-            .await
-            .expect("chain id");
-        // TODO: support different keys
-        let l2_wallet = var("COORDINATOR_L1_PRIV")
-            .expect("COORDINATOR_L1_PRIV env var")
-            .parse::<LocalWallet>()
-            .expect("LocalWallet from COORDINATOR_L1_PRIV")
-            .with_chain_id(chain_id.as_u64());
-
-        let prover_node = var("COORDINATOR_PROVER_RPCD_URL")
-            .expect("COORDINATOR_PROVER_RPCD_URL env var")
-            .parse::<Uri>()
-            .expect("Uri from COORDINATOR_PROVER_RPCD_URL");
-
-        let prover_default_param = var("COORDINATOR_PARAMS_PATH")
-            .expect("COORDINATOR_PARAMS_PATH env var")
-            .parse::<String>()
-            .unwrap();
-
-        Self::new(
-            l2_url,
-            l1_url,
-            l1_bridge,
-            l1_wallet,
-            l2_wallet,
-            prover_node,
-            prover_default_param,
-        )
+        Self::new(&config).await
     }
 
     pub async fn init(&self) {
@@ -236,7 +164,7 @@ impl SharedState {
             .expect("eth_blockNumber");
         let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
         let mut filter = Filter::new()
-            .address(ValueOrArray::Value(self.ro.l1_bridge_addr))
+            .address(ValueOrArray::Value(self.config.lock().await.l1_bridge))
             .topic0(ValueOrArray::Array(vec![
                 self.ro.block_beacon_topic,
                 self.ro.block_finalized_topic,
@@ -330,7 +258,7 @@ impl SharedState {
 
     pub async fn mine(&self) {
         // TODO: verify that head_hash is correct
-        let head_hash = get_chain_head(&self.ro.http_client, &self.ro.l2_node)
+        let head_hash = get_chain_head(&self.ro.http_client, &self.config.lock().await.l2_rpc_url)
             .await
             .hash;
         self.rw.lock().await.chain_state.head_block_hash = head_hash;
@@ -400,6 +328,7 @@ impl SharedState {
                 let ts = U256::from(block_timestamp);
                 let mut drop_idxs = Vec::new();
                 let mut i = 0;
+                let l1_bridge_addr = self.config.lock().await.l1_bridge;
                 loop {
                     let rw = self.rw.lock().await;
                     let msg = rw.l1_message_queue.get(i);
@@ -442,7 +371,7 @@ impl SharedState {
                     let proof_obj: ProofRequest = self
                         .request_l1(
                             "eth_getProof",
-                            (self.ro.l1_bridge_addr, [storage_slot], l1_block_header.hash),
+                            (l1_bridge_addr, [storage_slot], l1_block_header.hash),
                         )
                         .await
                         .expect("eth_getProof");
@@ -552,11 +481,12 @@ impl SharedState {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.ro.l2_node,
+                &self.config.lock().await.l2_rpc_url,
                 &safe_hash,
                 &head_hash,
             )
             .await;
+            let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
 
             log::info!("blocks to be submitted: {:?}", blocks.len());
             for block in blocks.iter().rev() {
@@ -575,7 +505,7 @@ impl SharedState {
                         .encode_input(&[block_data.into_token()])
                         .expect("calldata");
 
-                    self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
+                    self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                         .await;
                 }
             }
@@ -589,7 +519,7 @@ impl SharedState {
         if final_hash != safe_hash {
             let blocks = get_blocks_between(
                 &self.ro.http_client,
-                &self.ro.l2_node,
+                &self.config.lock().await.l2_rpc_url,
                 &final_hash,
                 &safe_hash,
             )
@@ -644,7 +574,8 @@ impl SharedState {
                     ])
                     .expect("calldata");
 
-                self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
+                let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
+                self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                     .await;
             }
         }
@@ -655,7 +586,7 @@ impl SharedState {
     pub async fn transaction_to_l1(&self, to: Option<Address>, value: U256, calldata: Vec<u8>) {
         send_transaction_to_l1(
             &self.ro.http_client,
-            &self.ro.l1_node,
+            &self.config.lock().await.l1_rpc_url,
             &self.ro.l1_wallet,
             to,
             value,
@@ -672,7 +603,7 @@ impl SharedState {
     ) -> Result<H256, String> {
         send_transaction_to_l2(
             &self.ro.http_client,
-            &self.ro.l2_node,
+            &self.config.lock().await.l2_rpc_url,
             &self.ro.l2_wallet,
             to,
             value,
@@ -726,7 +657,14 @@ impl SharedState {
         method: &str,
         args: T,
     ) -> Result<R, String> {
-        jsonrpc_request_client(5000, &self.ro.http_client, &self.ro.l1_node, method, args).await
+        jsonrpc_request_client(
+            5000,
+            &self.ro.http_client,
+            &self.config.lock().await.l1_rpc_url,
+            method,
+            args,
+        )
+        .await
     }
 
     pub async fn request_l2<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -734,7 +672,14 @@ impl SharedState {
         method: &str,
         args: T,
     ) -> Result<R, String> {
-        jsonrpc_request_client(5000, &self.ro.http_client, &self.ro.l2_node, method, args).await
+        jsonrpc_request_client(
+            5000,
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            method,
+            args,
+        )
+        .await
     }
 
     /// Returns a timestamp that takes care of being greater than the previous one.
@@ -881,6 +826,7 @@ impl SharedState {
         drop(rw);
 
         const LOG_TAG: &str = "L1:deliverMessageWithProof:";
+        let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
         for msg in todo {
             {
                 // check deadline
@@ -949,7 +895,7 @@ impl SharedState {
                     proof.into_token(),
                 ])
                 .expect("calldata");
-            self.transaction_to_l1(Some(self.ro.l1_bridge_addr), U256::zero(), calldata)
+            self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                 .await;
         }
     }
@@ -991,13 +937,14 @@ impl SharedState {
                 .encode_input(&[])
                 .expect("calldata"),
         );
+        let l1_bridge_addr = self.config.lock().await.l1_bridge;
         let resp: Result<H256, String> = self
             .request_l1(
                 "eth_call",
                 serde_json::json!(
                 [
                 {
-                    "to": self.ro.l1_bridge_addr,
+                    "to": l1_bridge_addr,
                     "data": calldata,
                 },
                 "latest"
@@ -1038,7 +985,7 @@ impl SharedState {
     }
 
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
-        if self.rw.lock().await.config_dummy_proof {
+        if self.config.lock().await.dummy_prover {
             log::warn!("COORDINATOR_DUMMY_PROVER");
             let proof = Proofs {
                 evm_proof: Bytes::from([0xffu8]),
@@ -1049,15 +996,15 @@ impl SharedState {
 
         let proof_options = ProofRequestOptions {
             block: block_num.as_u64(),
-            rpc: self.ro.l2_node.to_string(),
+            rpc: self.config.lock().await.l2_rpc_url.to_string(),
             retry: false,
-            param: self.ro.prover_default_param.clone(),
-            mock: self.rw.lock().await.config_mock_prover,
+            param: self.config.lock().await.params_path.clone(),
+            mock: self.config.lock().await.mock_prover,
         };
         let resp = jsonrpc_request_client(
             5000,
             &self.ro.http_client,
-            &self.ro.prover_node,
+            &self.config.lock().await.prover_rpcd_url,
             "proof",
             [proof_options],
         )
@@ -1078,9 +1025,36 @@ impl SharedState {
     }
 }
 
+fn get_abi() -> Abi {
+    AbiParser::default()
+        .parse(&[
+            "event BlockSubmitted()",
+            "event BlockFinalized(bytes32 blockHash)",
+            "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+            "event MessageDelivered(bytes32 id)",
+            "function submitBlock(bytes)",
+            "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
+            "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
+            "function stateRoot() returns (bytes32)",
+            "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
+        ])
+        .expect("parse abi")
+}
+
 fn timestamp() -> u64 {
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("time")
         .as_secs()
+}
+
+async fn get_wallet(rcp_url: &Uri, sign_key: &str) -> LocalWallet {
+    let chain_id: U64 = jsonrpc_request(rcp_url, "eth_chainId", ())
+        .await
+        .expect("chain id L1");
+
+    sign_key
+        .parse::<LocalWallet>()
+        .expect("cannot create LocalWallet from private key")
+        .with_chain_id(chain_id.as_u64())
 }

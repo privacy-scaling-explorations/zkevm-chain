@@ -120,12 +120,13 @@ async fn native_deposit() {
     let mut deposits: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
-        &shared_state.ro.l2_node,
+        &shared_state.config.lock().await.l2_rpc_url,
         "eth_getBalance",
         (receiver, "latest"),
     )
     .await
     .expect("eth_getBalance");
+    let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
 
     {
         // create deposits
@@ -164,7 +165,7 @@ async fn native_deposit() {
             deposits.push(id);
             expected_balance += value;
             shared_state
-                .transaction_to_l1(Some(shared_state.ro.l1_bridge_addr), value, calldata)
+                .transaction_to_l1(l1_bridge_addr, value, calldata)
                 .await;
         }
     }
@@ -186,7 +187,7 @@ async fn native_deposit() {
 
         sleep!(1000);
         let balance: U256 = jsonrpc_request(
-            &shared_state.ro.l2_node,
+            &shared_state.config.lock().await.l2_rpc_url,
             "eth_getBalance",
             (receiver, "latest"),
         )
@@ -207,7 +208,7 @@ async fn native_withdraw() {
     let mut messages: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
-        &shared_state.ro.l1_node,
+        &shared_state.config.lock().await.l1_rpc_url,
         "eth_getBalance",
         (receiver, "latest"),
     )
@@ -219,7 +220,7 @@ async fn native_withdraw() {
 
     {
         let mut tx_nonce: U256 = jsonrpc_request(
-            &shared_state.ro.l2_node,
+            &shared_state.config.lock().await.l2_rpc_url,
             "eth_getTransactionCount",
             (shared_state.ro.l2_wallet.address(), "latest"),
         )
@@ -298,7 +299,7 @@ async fn native_withdraw() {
     {
         // check final balance on L1
         let balance: U256 = jsonrpc_request(
-            &shared_state.ro.l1_node,
+            &shared_state.config.lock().await.l1_rpc_url,
             "eth_getBalance",
             (receiver, "latest"),
         )
@@ -349,7 +350,7 @@ async fn hop_deposit() {
             .expect("calldata");
 
         let balance_before: U256 = jsonrpc_request(
-            &shared_state.ro.l2_node,
+            &shared_state.config.lock().await.l2_rpc_url,
             "eth_getBalance",
             (recipient, "latest"),
         )
@@ -362,7 +363,7 @@ async fn hop_deposit() {
         sync!(shared_state);
 
         let balance_after: U256 = jsonrpc_request(
-            &shared_state.ro.l2_node,
+            &shared_state.config.lock().await.l2_rpc_url,
             "eth_getBalance",
             (recipient, "latest"),
         )
@@ -411,7 +412,7 @@ async fn hop_cross_chain_message() {
 
     // balance on L1 hop bridge for L2 chain
     let chain_balance_before: U256 = jsonrpc_request(
-        &shared_state.ro.l1_node,
+        &shared_state.config.lock().await.l1_rpc_url,
         "eth_call",
         (&get_chain_balance, "latest"),
     )
@@ -450,7 +451,7 @@ async fn hop_cross_chain_message() {
             .await
             .expect("tx_hash");
         shared_state.mine().await;
-        wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
+        wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
     }
 
     {
@@ -468,7 +469,7 @@ async fn hop_cross_chain_message() {
             .await
             .expect("tx_hash_commit");
         shared_state.mine().await;
-        wait_for_tx!(tx_hash_commit, &shared_state.ro.l2_node);
+        wait_for_tx!(tx_hash_commit, &shared_state.config.lock().await.l2_rpc_url);
     }
 
     finalize_chain!(shared_state);
@@ -476,7 +477,7 @@ async fn hop_cross_chain_message() {
     {
         // verify that the L2 > L1 message was executed successfully
         let chain_balance_after: U256 = jsonrpc_request(
-            &shared_state.ro.l1_node,
+            &shared_state.config.lock().await.l1_rpc_url,
             "eth_call",
             (&get_chain_balance, "latest"),
         )
@@ -499,7 +500,7 @@ async fn native_deposit_revert() {
     let mut deposits: Vec<H256> = Vec::new();
     let receiver = Address::zero();
     let mut expected_balance: U256 = jsonrpc_request(
-        &shared_state.ro.l2_node,
+        &shared_state.config.lock().await.l2_rpc_url,
         "eth_getBalance",
         (receiver, "latest"),
     )
@@ -509,12 +510,13 @@ async fn native_deposit_revert() {
     {
         // create deposits
         let mut tx_nonce: U256 = jsonrpc_request(
-            &shared_state.ro.l1_node,
+            &shared_state.config.lock().await.l1_rpc_url,
             "eth_getTransactionCount",
             (shared_state.ro.l1_wallet.address(), "latest"),
         )
         .await
         .expect("nonce");
+        let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
 
         let mut txs = Vec::new();
         for i in 0..30 {
@@ -561,9 +563,9 @@ async fn native_deposit_revert() {
             txs.push(
                 sign_transaction_l1(
                     &shared_state.ro.http_client,
-                    &shared_state.ro.l1_node,
+                    &shared_state.config.lock().await.l1_rpc_url,
                     &shared_state.ro.l1_wallet,
-                    Some(shared_state.ro.l1_bridge_addr),
+                    l1_bridge_addr,
                     value,
                     calldata,
                     tx_nonce,
@@ -579,7 +581,7 @@ async fn native_deposit_revert() {
             let resp: Result<H256, String> = jsonrpc_request_client(
                 5000,
                 &shared_state.ro.http_client,
-                &shared_state.ro.l1_node,
+                &shared_state.config.lock().await.l1_rpc_url,
                 "eth_sendRawTransaction",
                 [raw_tx],
             )
@@ -589,7 +591,7 @@ async fn native_deposit_revert() {
         }
 
         for tx_hash in tx_hashes {
-            wait_for_tx!(tx_hash, &shared_state.ro.l1_node);
+            wait_for_tx!(tx_hash, &shared_state.config.lock().await.l1_rpc_url);
         }
     }
 
@@ -612,7 +614,7 @@ async fn native_deposit_revert() {
 
         sleep!(1000);
         let balance: U256 = jsonrpc_request(
-            &shared_state.ro.l2_node,
+            &shared_state.config.lock().await.l2_rpc_url,
             "eth_getBalance",
             (receiver, "latest"),
         )
@@ -636,7 +638,7 @@ async fn zero_eth_transfer() {
         .await
         .expect("tx_hash");
     shared_state.mine().await;
-    wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
+    wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
 
     finalize_chain!(shared_state);
 }
@@ -654,19 +656,19 @@ async fn keccak() {
         .await
         .expect("tx_hash");
     shared_state.mine().await;
-    shared_state.rw.lock().await.config_dummy_proof = true;
+    shared_state.config.lock().await.dummy_prover = true;
     finalize_chain!(shared_state);
 
-    let deploy_receipt = wait_for_tx!(deploy_tx_hash, &shared_state.ro.l2_node);
+    let deploy_receipt = wait_for_tx!(deploy_tx_hash, &shared_state.config.lock().await.l2_rpc_url);
     let contract_addr = deploy_receipt.contract_address;
     let tx_hash = shared_state
         .transaction_to_l2(contract_addr, U256::zero(), vec![])
         .await
         .expect("tx_hash");
     shared_state.mine().await;
-    wait_for_tx!(tx_hash, &shared_state.ro.l2_node);
-    shared_state.rw.lock().await.config_dummy_proof = false;
-    shared_state.rw.lock().await.config_mock_prover = true;
+    wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
+    shared_state.config.lock().await.dummy_prover = false;
+    shared_state.config.lock().await.mock_prover = true;
     finalize_chain!(shared_state);
-    shared_state.rw.lock().await.config_mock_prover = false;
+    shared_state.config.lock().await.mock_prover = false;
 }

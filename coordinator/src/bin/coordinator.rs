@@ -1,3 +1,5 @@
+use clap::Parser;
+use coordinator::config::Config;
 use coordinator::faucet::Faucet;
 use coordinator::shared_state::SharedState;
 use coordinator::utils::*;
@@ -10,7 +12,6 @@ use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::HeaderMap;
 use hyper::{Body, Method, Request, Response, Server, StatusCode, Uri};
-use std::env::var;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 use tokio::task::spawn;
@@ -265,13 +266,12 @@ async fn handle_request(
 /// Discovers healthy nodes via DNS service discovery.
 /// If nodes are discovered but are not up-to-date, then this function attempts to choose a
 /// fallback node.
-async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
+async fn check_nodes(ctx: SharedState, server_nodes: String, client: hyper::Client<HttpConnector>) {
     let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
     let mut nodes = Vec::new();
     let mut fallback_node_uri = None;
     let mut fallback_node_num = U64::zero();
-    let mut addrs = var("COORDINATOR_RPC_SERVER_NODES")
-        .expect("COORDINATOR_RPC_SERVER_NODES env var")
+    let mut addrs = server_nodes
         .to_socket_addrs()
         .unwrap()
         .collect::<Vec<SocketAddr>>();
@@ -332,9 +332,8 @@ async fn handle_method(
             let options = params.get(0).ok_or("expected struct CoordinatorConfig")?;
             let options: CoordinatorConfig =
                 serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
-            let mut rw_state = shared_state.rw.lock().await;
 
-            rw_state.config_dummy_proof = options.dummy_proof;
+            shared_state.config.lock().await.dummy_prover = options.dummy_proof;
 
             Ok(serde_json::Value::Bool(true))
         }
@@ -347,18 +346,21 @@ async fn handle_method(
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let shared_state = SharedState::from_env().await;
+    let config = Config::parse();
+    let shared_state = SharedState::new(&config).await;
+
     shared_state.init().await;
 
-    let faucet: Option<Faucet> =
-        coordinator::option_enabled!("COORDINATOR_ENABLE_FAUCET", Faucet::default());
+    let faucet: Option<Faucet> = if config.enable_faucet {
+        Some(Faucet::default())
+    } else {
+        None
+    };
+
     log::info!("faucet enabled: {}", faucet.is_some());
 
     {
-        let addr = var("COORDINATOR_LISTEN")
-            .expect("COORDINATOR_LISTEN env var")
-            .parse::<SocketAddr>()
-            .expect("valid socket address");
+        let addr = config.listen;
         let client = hyper::Client::new();
         let shared_state = shared_state.clone();
         let faucet = faucet.clone();
@@ -424,7 +426,12 @@ async fn main() {
             let client = hyper::Client::new();
             loop {
                 log::debug!("spawning check_nodes task");
-                let res = spawn(check_nodes(ctx.clone(), client.to_owned())).await;
+                let res = spawn(check_nodes(
+                    ctx.clone(),
+                    config.rpc_server_nodes.clone(),
+                    client.to_owned(),
+                ))
+                .await;
 
                 if let Err(err) = res {
                     log::error!("task: {}", err);
