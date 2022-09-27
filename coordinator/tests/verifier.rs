@@ -54,7 +54,7 @@ async fn witness_verifier() {
                "function testPublicInput(uint256 zeta, uint256 MAX_TXS, uint256 MAX_CALLDATA, uint256 chainId, uint256 parentStateRoot, bytes calldata witness) external returns (uint256[])",
         ])
         .expect("parse abi");
-    let shared_state = SharedState::from_env_for_tests().await;
+    let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
     for entry in std::fs::read_dir("tests/verifier/").unwrap() {

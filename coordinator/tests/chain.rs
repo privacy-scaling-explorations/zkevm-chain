@@ -95,7 +95,7 @@ static ONCE: OnceCell<Mutex<SharedState>> = OnceCell::const_new();
 
 async fn get_shared_state() -> &'static Mutex<SharedState> {
     ONCE.get_or_init(|| async {
-        let shared_state = SharedState::from_env_for_tests().await;
+        let shared_state = SharedState::from_env().await;
         shared_state.init().await;
 
         Mutex::new(shared_state)

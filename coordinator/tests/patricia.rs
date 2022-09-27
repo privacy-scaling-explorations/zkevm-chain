@@ -32,7 +32,7 @@ async fn patricia_validator() {
         ])
         .expect("parse abi");
 
-    let shared_state = SharedState::from_env_for_tests().await;
+    let shared_state = SharedState::from_env().await;
     shared_state.init().await;
 
     let mut cumulative_gas = 0;

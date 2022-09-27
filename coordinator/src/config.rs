@@ -24,7 +24,7 @@ pub struct Config {
     pub dummy_prover: bool,
 
     #[clap(long, env = "COORDINATOR_MOCK_PROVER", default_value_t = false)]
-    /// Enables mock prover, so request will not be sent to the actual prover.
+    /// Only use the mock prover for proof requests.
     pub mock_prover: bool,
 
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
@@ -48,7 +48,7 @@ pub struct Config {
     pub prover_rpcd_url: Uri,
 
     #[clap(long, env = "COORDINATOR_PARAMS_PATH")]
-    /// Parameters file to use for the prover requests.
+    /// Parameters file or directory to use for the prover requests.
     pub params_path: String,
 }
 

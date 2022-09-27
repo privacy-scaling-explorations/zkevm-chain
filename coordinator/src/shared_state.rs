@@ -131,8 +131,8 @@ impl SharedState {
         }
     }
 
-    /// DEPRECATED, used only by tests
-    pub async fn from_env_for_tests() -> Self {
+    /// Initiates configuration from environment variables only.
+    pub async fn from_env() -> Self {
         let config = Config::from_env();
 
         Self::new(&config).await
