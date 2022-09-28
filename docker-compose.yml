@@ -175,7 +175,8 @@ services:
     ports:
       - 8000:8000
     working_dir: /app
-    entrypoint: /bin/login
+    entrypoint: /sbin/getty
+    command: '-'
     tty: true
     init: true
 
