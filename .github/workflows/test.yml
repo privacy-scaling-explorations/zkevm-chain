@@ -27,7 +27,7 @@ jobs:
 
       - name: Run coordinator tests
         run: |
-          cp .env.example .env && docker compose run --no-TTY --rm dev -c './scripts/compile_contracts.sh && cargo test'
+          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh && cargo test'
 
       - name: Fix docker cache
         if: success() && github.event_name == 'push'
