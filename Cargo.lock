@@ -1227,7 +1227,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/privacy-scaling-explorations/halo2.git?tag=v2022_09_10#a9e99a72a65d7c98e8a4258c2c94269c834d1c10"
+source = "git+https://github.com/han0110/halo2.git?branch=feature/configurable-instance-query#432d72f462ed47ccf5c93b1111afed14c95db52b"
 dependencies = [
  "blake2b_simd",
  "ff",
@@ -2037,7 +2037,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "plonk_verifier"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=72bf7c4942c5a8ab66542aa55f72c02b1a9b79d5#72bf7c4942c5a8ab66542aa55f72c02b1a9b79d5"
+source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=7b962013f30219a9db6a8c26b6df0b863f7e8822#7b962013f30219a9db6a8c26b6df0b863f7e8822"
 dependencies = [
  "ecc",
  "ethereum-types",
