@@ -1023,6 +1023,10 @@ impl SharedState {
             Ok(val) => Ok(Some(val)),
         }
     }
+
+    pub async fn get_config_owned(&self) -> Config {
+        self.config.lock().await.to_owned()
+    }
 }
 
 fn get_abi() -> Abi {

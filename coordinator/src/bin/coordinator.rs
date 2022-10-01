@@ -338,6 +338,11 @@ async fn handle_method(
             Ok(serde_json::Value::Bool(true))
         }
 
+        "get_config" => {
+            // TODO: possible to do it without to_owned?
+            Ok(serde_json::to_value(shared_state.get_config_owned().await).unwrap())
+        }
+
         _ => Err("this method is not available".to_string()),
     }
 }
