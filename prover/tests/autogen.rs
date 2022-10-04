@@ -199,15 +199,16 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
 }
 
 macro_rules! estimate {
-    ($BLOCK_GAS_LIMIT:expr, $MAX_UNUSED_GAS:expr, $BYTECODE:expr, $scope:expr) => {{
-        const PUSH_GAS: usize = 3;
+    ($BLOCK_GAS_LIMIT:expr, $MAX_UNUSED_GAS:expr, $BYTECODE_FN:expr, $scope:expr) => {{
+        const LOWEST_GAS_STEP: usize = 2;
         const TX_DATA_ZERO_GAS: usize = 4;
         const BLOCK_GAS_LIMIT: usize = $BLOCK_GAS_LIMIT;
         const TX_GAS_LIMIT: usize = BLOCK_GAS_LIMIT - 21_000;
         const MAX_TXS: usize = BLOCK_GAS_LIMIT / 21_000;
-        const MAX_BYTECODE: usize = TX_GAS_LIMIT / PUSH_GAS;
+        const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
 
+        let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::zero(); 256];
         let block_number = history_hashes.len();
         let input_block;
@@ -229,7 +230,7 @@ macro_rules! estimate {
                     accs[0]
                         .address(addr_b)
                         .balance(Word::from(1u64 << 20))
-                        .code($BYTECODE.clone());
+                        .code(bytecode.clone());
                     accs[1].address(addr_a).balance(Word::from(1u64 << 20));
                 },
                 |mut txs, accs| {
@@ -349,7 +350,7 @@ macro_rules! estimate_all {
 /// SuperCircuit parameters.
 #[test]
 fn proverd_autogen() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // use a map to track the largest circuit parameters for `k`
     let mut params = BTreeMap::<usize, (usize, usize, usize, usize, usize)>::new();
@@ -391,76 +392,129 @@ fn proverd_autogen() {
     // baseline
     {
         print_table_header("baseline");
-        let bytecode = bytecode_repeat!(
-            {
-                1,
-                STOP
-            },
-        );
+        let gen_bytecode_stop = |_gas_limit| {
+            bytecode_repeat!(
+                {
+                    1,
+                    STOP
+                },
+            )
+        };
         let max_unused_gas = 100_000_000;
-        estimate_all!(max_unused_gas, bytecode, callback);
+        estimate_all!(max_unused_gas, gen_bytecode_stop, callback);
     }
     {
         print_table_header("worst-case evm circuit");
-        let bytecode = bytecode_repeat!(
-            // prelude
-            {
-                1,
-                GAS
-            },
-            // chain SMOD(gas, previous value)
-            {
-                12_281,
-                GAS
-                SMOD
-            },
-            // loop with remaining gas
-            {
-                1,
-                GAS // gas=2
-                JUMPDEST // gas=1
-                GAS  // gas=2
-                SMOD // gas=5
-                PUSH1(43)  // gas=3
-                GAS  // gas=2
-                GT   // gas=3
-                PUSH2(24_564) // gas=3
-                JUMPI // gas=10
-                STOP  // gas=0
-            },
-        );
-        let max_unused_gas = 43;
-        estimate_all!(max_unused_gas, bytecode, callback);
+        let gen_bytecode_smod = |gas_limit| {
+            let max_deploy_opcodes = (gas_limit - 32_000) / 16;
+            let max_contract_size = std::cmp::max(24_576, max_deploy_opcodes);
+            let fixed_bytes = 1 + 12;
+            let iteration_size = 2;
+
+            let prelude_gas = 2;
+            let iteration_gas = 7;
+
+            let max_iterations_bytes = (max_contract_size - fixed_bytes) / iteration_size;
+            let mut iterations = (gas_limit - prelude_gas) / iteration_gas;
+            let mut loop_enabled = 0;
+            if iterations > max_iterations_bytes {
+                iterations = max_iterations_bytes;
+                loop_enabled = 1;
+            }
+            let loop_offset: usize = 1 + (iterations * iteration_size);
+
+            log::info!(
+                "SMOD: max_contract_size={} iterations={} loop_offset={}",
+                max_contract_size,
+                iterations,
+                loop_offset
+            );
+
+            bytecode_repeat!(
+                // prelude
+                {
+                    1,
+                    GAS
+                },
+                // chain SMOD(gas, previous value)
+                {
+                    iterations,
+                    GAS // gas=2
+                    SMOD // gas=5
+                },
+                // loop with remaining gas
+                {
+                    loop_enabled,
+                    JUMPDEST // gas=1
+                    GAS  // gas=2
+                    SMOD // gas=5
+                    PUSH1(44)  // gas=3
+                    GAS  // gas=2
+                    GT   // gas=3
+                    PUSH2(loop_offset) // gas=3
+                    JUMPI // gas=10
+                    STOP  // gas=0
+                },
+            )
+        };
+        let max_unused_gas = 28;
+        estimate_all!(max_unused_gas, gen_bytecode_smod, callback);
     }
     {
         print_table_header("worst-case state circuit");
-        let bytecode = bytecode_repeat!(
-            // prelude
-            {
-                1,
-                CALLDATASIZE
-            },
-            // chain mload
-            {
-                24_562,
-                MLOAD
-            },
-            {
-                1,
-                JUMPDEST // gas=1
-                GAS  // gas=2
-                MLOAD // gas=3
-                POP // gas=2
-                PUSH1(43) // gas=3
-                GAS  // gas=2
-                GT   // gas=3
-                PUSH2(24_563) // gas=3
-                JUMPI // gas=10
-                STOP  // gas=0
-            },
-        );
-        let max_unused_gas = 43;
-        estimate_all!(max_unused_gas, bytecode, callback);
+        let gen_bytecode_mload = |gas_limit| {
+            let max_deploy_opcodes = (gas_limit - 32_000) / 16;
+            let max_contract_size = std::cmp::max(24_576, max_deploy_opcodes);
+            let fixed_bytes = 1 + 11;
+            let iteration_size = 1;
+
+            // opcode + first memory expansion cost
+            let prelude_gas = 2 + 3;
+            let iteration_gas = 3;
+
+            let max_iterations_bytes = (max_contract_size - fixed_bytes) / iteration_size;
+            let mut iterations = (gas_limit - prelude_gas) / iteration_gas;
+            let mut loop_enabled = 0;
+            if iterations > max_iterations_bytes {
+                iterations = max_iterations_bytes;
+                loop_enabled = 1;
+            }
+            let loop_offset: usize = 1 + (iterations * iteration_size);
+
+            log::info!(
+                "MLOAD: max_contract_size={} iterations={} loop_enabled={} loop_offset={}",
+                max_contract_size,
+                iterations,
+                loop_enabled,
+                loop_offset
+            );
+
+            bytecode_repeat!(
+                // prelude
+                {
+                    1,
+                    CALLDATASIZE // gas=2
+                },
+                // chain mload
+                {
+                    iterations,
+                    MLOAD // gas=3
+                },
+                {
+                    loop_enabled,
+                    JUMPDEST // gas=1
+                    MLOAD // gas=3
+                    PUSH1(40) // gas=3
+                    GAS  // gas=2
+                    GT   // gas=3
+                    PUSH2(loop_offset) // gas=3
+                    JUMPI // gas=10
+                    STOP  // gas=0
+                },
+            )
+        };
+        let max_unused_gas = 28;
+        estimate_all!(max_unused_gas, gen_bytecode_mload, callback);
     }
 
     // generate `circuit_autogen.rs`
