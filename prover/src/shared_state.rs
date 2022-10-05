@@ -222,7 +222,7 @@ impl SharedState {
                             let circuit =
                                 gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
                             let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
-                            let res = prover.verify();
+                            let res = prover.verify_par();
                             log::info!("MockProver: {:#?}", res);
                         } else {
                             // generate and cache the prover key
@@ -243,7 +243,7 @@ impl SharedState {
                                 let circuit =
                                     gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
                                 let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
-                                let res = prover.verify();
+                                let res = prover.verify_par();
                                 panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
                             }
                         }

@@ -74,9 +74,12 @@ fn gen_proof<
     circuit: C,
     instances: Vec<Vec<Fr>>,
 ) -> Vec<u8> {
-    MockProver::run(params.k(), &circuit, instances.clone())
+    let res = MockProver::run(params.k(), &circuit, instances.clone())
         .expect("MockProver::run")
-        .assert_satisfied();
+        .verify_par();
+    if let Err(err) = res {
+        panic!("MockProver: {:#?}", err);
+    }
 
     let instances = instances
         .iter()
