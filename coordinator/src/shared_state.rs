@@ -994,17 +994,21 @@ impl SharedState {
             return Ok(Some(proof));
         }
 
+        let config = self.config.lock().await;
+        let prover_rpcd_url = config.prover_rpcd_url.clone();
         let proof_options = ProofRequestOptions {
             block: block_num.as_u64(),
-            rpc: self.config.lock().await.l2_rpc_url.to_string(),
+            rpc: config.l2_rpc_url.to_string(),
             retry: false,
-            param: self.config.lock().await.params_path.clone(),
-            mock: self.config.lock().await.mock_prover,
+            param: config.params_path.clone(),
+            mock: config.mock_prover,
         };
+        drop(config);
+
         let resp = jsonrpc_request_client(
             5000,
             &self.ro.http_client,
-            &self.config.lock().await.prover_rpcd_url,
+            &prover_rpcd_url,
             "proof",
             [proof_options],
         )
