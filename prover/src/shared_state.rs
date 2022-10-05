@@ -4,7 +4,6 @@ use crate::structs::*;
 use crate::ProverCommitmentScheme;
 use crate::ProverParams;
 use eth_types::Bytes;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
 use halo2_proofs::plonk::create_proof;
@@ -23,7 +22,6 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
-use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 
 #[derive(Clone)]
@@ -210,17 +208,8 @@ impl SharedState {
                         // this error will eventually bubble up later.
                         let param = self_copy.load_param(&param_path).await;
                         // gen circuit inputs
-                        let instance = {
-                            // TODO: This should come from the circuit `circuit.instance()`.
-                            let mut instance: Vec<Vec<Fr>>= (1..POW_RAND_SIZE + 1)
-                                .map(|exp| vec![block.randomness.pow(&[exp as u64, 0, 0, 0]); param.n() as usize - 64])
-                                .collect();
-                            // SignVerifyChip -> ECDSAChip -> MainGate instance column
-                            instance.push(vec![]);
-
-                            instance
-                        };
-                        let instance_ref: Vec<&[Fr]> = instance.iter().map(|e| e.as_slice()).collect();
+                        let instances = gen_instances().unwrap();
+                        let instance_ref: Vec<&[Fr]> = instances.iter().map(|e| e.as_slice()).collect();
                         let instances_ref = match instance_ref.is_empty() {
                             true => vec![],
                             false => vec![instance_ref.as_slice()],
@@ -232,7 +221,7 @@ impl SharedState {
                             time_started = Instant::now();
                             let circuit =
                                 gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
-                            let prover = MockProver::run(param.k(), &circuit, instance).expect("MockProver::run");
+                            let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
                             let res = prover.verify();
                             log::info!("MockProver: {:#?}", res);
                         } else {
@@ -253,7 +242,7 @@ impl SharedState {
                             if let Err(proof_err) = res {
                                 let circuit =
                                     gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
-                                let prover = MockProver::run(param.k(), &circuit, instance).expect("MockProver::run");
+                                let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
                                 let res = prover.verify();
                                 panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
                             }

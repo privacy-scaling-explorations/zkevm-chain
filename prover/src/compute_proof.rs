@@ -32,7 +32,7 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
     let chain_id = block.context.chain_id;
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(OsRng).to_affine();
-    let tx_circuit = TxCircuit::new(aux_generator, block.randomness, chain_id.as_u64(), txs);
+    let tx_circuit = TxCircuit::new(aux_generator, chain_id.as_u64(), txs);
     let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
         block,
         fixed_table_tags: FixedTableTag::iter().collect(),
@@ -145,4 +145,12 @@ pub async fn gen_block_witness(
     let block = witness::block_convert(&builder.block, &builder.code_db);
 
     Ok((block, txs, gas_used, keccak_inputs))
+}
+
+/// Returns suitable inputs for the SuperCircuit.
+pub fn gen_instances() -> Result<Vec<Vec<Fr>>, String> {
+    // SignVerifyChip -> ECDSAChip -> MainGate instance column
+    let instances = vec![vec![]];
+
+    Ok(instances)
 }

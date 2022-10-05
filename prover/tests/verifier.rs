@@ -1,7 +1,6 @@
 #![cfg(feature = "autogen")]
 
 use eth_types::Bytes;
-use halo2_proofs::arithmetic::FieldExt;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::plonk::create_proof;
@@ -26,6 +25,7 @@ use prover::aggregation_circuit::AggregationCircuit;
 use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
+use prover::compute_proof::gen_instances;
 use prover::compute_proof::gen_static_circuit;
 use prover::compute_proof::gen_static_key;
 use prover::ProverCommitmentScheme;
@@ -35,7 +35,6 @@ use std::fs;
 use std::io::Cursor;
 use std::io::Write;
 use std::rc::Rc;
-use zkevm_circuits::tx_circuit::POW_RAND_SIZE;
 
 fn write_bytes(name: &str, vec: &[u8]) {
     let dir = "./../build/plonk-verifier";
@@ -56,12 +55,8 @@ fn load_params(k: usize) -> ProverParams {
     params
 }
 
-fn gen_num_instance(params: &ProverParams) -> Vec<usize> {
-    let mut num_instance = vec![params.n() as usize - 64; POW_RAND_SIZE];
-    // SignVerifyChip -> ECDSAChip -> MainGate instance column
-    num_instance.push(0);
-
-    num_instance
+fn gen_num_instance(instances: &[Vec<Fr>]) -> Vec<usize> {
+    instances.iter().map(|e| e.len()).collect()
 }
 
 fn gen_vk<C: Circuit<Fr>>(params: &ProverParams, circuit: &C) -> VerifyingKey<G1Affine> {
@@ -153,17 +148,7 @@ fn autogen_aggregation_verifier() {
                 .expect("gen_static_circuit");
                 circuit.block.randomness = Fr::from(1);
 
-                let mut instances: Vec<Vec<Fr>> = (1..POW_RAND_SIZE + 1)
-                    .map(|exp| {
-                        vec![
-                            circuit.block.randomness.pow(&[exp as u64, 0, 0, 0]);
-                            params.n() as usize - 64
-                        ]
-                    })
-                    .collect();
-                // SignVerifyChip -> ECDSAChip -> MainGate instance column
-                instances.push(vec![]);
-
+                let instances = gen_instances().unwrap();
                 let proof = gen_proof::<
                     _,
                     _,
@@ -177,7 +162,7 @@ fn autogen_aggregation_verifier() {
                 let protocol = compile(
                     &params,
                     pk.get_vk(),
-                    Config::kzg().with_num_instance(gen_num_instance(&params)),
+                    Config::kzg().with_num_instance(gen_num_instance(&instances)),
                 );
 
                 Snark::new(protocol, instances, proof)

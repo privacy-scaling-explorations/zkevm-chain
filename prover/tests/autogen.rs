@@ -171,12 +171,7 @@ fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTEC
 ) -> Result<Assembly, String> {
     let chain_id = input_block.context.chain_id;
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(OsRng).to_affine();
-    let tx_circuit = TxCircuit::new(
-        aux_generator,
-        input_block.randomness,
-        chain_id.as_u64(),
-        txs,
-    );
+    let tx_circuit = TxCircuit::new(aux_generator, chain_id.as_u64(), txs);
     let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
         block: input_block,
         fixed_table_tags: FixedTableTag::iter().collect(),
