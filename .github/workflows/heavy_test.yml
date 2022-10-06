@@ -28,8 +28,8 @@ jobs:
     steps:
       - name: Cleanup
         run: |
-          rm -rf ./* || true
-          rm -rf ./.* || true
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
 
       - uses: actions/checkout@v2
 
