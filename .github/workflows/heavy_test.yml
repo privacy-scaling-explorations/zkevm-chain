@@ -36,9 +36,9 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ${{ runner.temp }}/docker-cache
-          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.run_id }}
+          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
           restore-keys: |
-            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-
+            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-
 
       - name: Build docker images
         run: >
@@ -55,5 +55,4 @@ jobs:
           ./scripts/ci_commit_errors.sh
 
       - name: Fix docker cache
-        if: success() && github.event_name == 'push'
         run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
