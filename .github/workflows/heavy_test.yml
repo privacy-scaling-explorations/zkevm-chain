@@ -46,13 +46,11 @@ jobs:
           docker buildx bake --load
           --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
           --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
-          bootnode dev
+          bootnode dev &&
+          rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
 
       - name: Run heavy tests
         run: |
           docker compose down -v
           cp .env.example .env && docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh
-
-      - name: Fix docker cache
-        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
