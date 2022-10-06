@@ -42,7 +42,7 @@ jobs:
 
       - name: Build docker images
         run: >
-          docker buildx create --name mybuilder --use &&
+          docker buildx create --name mybuilder --use;
           docker buildx bake --load
           --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
           --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
@@ -50,6 +50,7 @@ jobs:
 
       - name: Run heavy tests
         run: |
+          docker compose down -v
           cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh
 
