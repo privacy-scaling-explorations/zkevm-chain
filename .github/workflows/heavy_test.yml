@@ -6,7 +6,7 @@ on:
 
 jobs:
   wakeup:
-    if: github.event.action == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-heavy-tests')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-heavy-tests')
     name: Wake up self-hosted runner
     runs-on: ubuntu-latest
     timeout-minutes: 10
