@@ -45,7 +45,8 @@ jobs:
 
       - name: Run heavy tests
         run: |
-          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh && ./scripts/test_prover.sh --nocapture'
+          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh
 
       - name: Fix docker cache
         if: success() && github.event_name == 'push'
