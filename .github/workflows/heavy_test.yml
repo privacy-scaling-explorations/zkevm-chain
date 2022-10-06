@@ -20,6 +20,9 @@ jobs:
           AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
 
   test:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
