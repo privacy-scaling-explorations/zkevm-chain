@@ -2,7 +2,7 @@ name: Heavy tests
 on:
   workflow_dispatch:
   pull_request:
-    types: [synchronize, opened, reopened, labelled]
+    types: [synchronize, opened, reopened, labeled]
 
 jobs:
   wakeup:
