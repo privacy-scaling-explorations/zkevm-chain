@@ -13,6 +13,11 @@ jobs:
       cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
+      - name: Cleanup
+        run: |
+          rm -rf ./* || true
+          rm -rf ./.* || true
+
       - uses: actions/checkout@v2
 
       - uses: actions/cache@v3
