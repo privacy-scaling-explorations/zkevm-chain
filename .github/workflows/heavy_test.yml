@@ -1,0 +1,46 @@
+name: Heavy tests
+on:
+  workflow_dispatch:
+
+jobs:
+  wakeup:
+    name: Wake up self-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+      - run: .github/workflows/wakeup_runner.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+
+  test:
+    needs: [wakeup]
+    runs-on: heavy-worker
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/docker-cache
+          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.run_id }}
+          restore-keys: |
+            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-
+
+      - name: Build docker images
+        run: >
+          docker buildx create --name mybuilder --use &&
+          docker buildx bake --load
+          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
+          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+          bootnode dev
+
+      - name: Run heavy tests
+        run: |
+          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh && ./scripts/test_prover.sh --nocapture'
+
+      - name: Fix docker cache
+        if: success() && github.event_name == 'push'
+        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
