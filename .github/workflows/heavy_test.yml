@@ -51,7 +51,7 @@ jobs:
       - name: Run heavy tests
         run: |
           docker compose down -v
-          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
+          cp .env.example .env && docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh
 
       - name: Fix docker cache
