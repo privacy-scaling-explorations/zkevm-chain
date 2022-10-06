@@ -11,7 +11,7 @@ set -xe
 while true; do
   status=$(aws ec2 start-instances --instance-ids "$AWS_INSTANCE_ID" | jq -r .StartingInstances[0].CurrentState.Name)
   echo "$status"
-  if [ "$status" == "running" ]; then
+  if [ "$status" = "running" ]; then
     break
   fi
   sleep 3
