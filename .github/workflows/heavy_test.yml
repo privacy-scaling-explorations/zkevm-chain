@@ -26,6 +26,11 @@ jobs:
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
+      - name: Cleanup
+        run: |
+          rm -rf ./* || true
+          rm -rf ./.* || true
+
       - uses: actions/checkout@v2
 
       - uses: actions/cache@v3
