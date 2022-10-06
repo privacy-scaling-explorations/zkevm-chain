@@ -39,6 +39,8 @@ RUN set -eux; \
         procps \
         jq \
         curl \
+        git \
+        xz-utils \
         ; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \

@@ -1,0 +1,56 @@
+name: Heavy tests
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [synchronize, opened, reopened, labeled]
+
+jobs:
+  wakeup:
+    if: github.event.action == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-heavy-tests')
+    name: Wake up self-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+      - run: .github/workflows/wakeup_runner.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+
+  test:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    needs: [wakeup]
+    runs-on: heavy-worker
+    steps:
+      - name: Cleanup
+        run: |
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+
+      - uses: actions/checkout@v2
+
+      - uses: actions/cache@v3
+        with:
+          path: ${{ runner.temp }}/docker-cache
+          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
+          restore-keys: |
+            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-
+
+      - name: Build docker images
+        run: >
+          (docker buildx create --name mybuilder --use || true);
+          docker buildx bake --load
+          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
+          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
+          bootnode dev &&
+          rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
+
+      - name: Run heavy tests
+        run: |
+          docker compose down -v --remove-orphans
+          cp .env.example .env && docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh
