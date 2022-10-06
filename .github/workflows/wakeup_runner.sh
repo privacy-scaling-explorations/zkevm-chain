@@ -9,6 +9,7 @@ set -xe
 # AWS_INSTANCE_ID
 
 while true; do
+  env
   status=$(aws ec2 start-instances --region "$AWS_DEFAULT_REGION" --instance-ids "$AWS_INSTANCE_ID" | jq -r .StartingInstances[0].CurrentState.Name)
   echo "$status"
   if [ "$status" == "running" ]; then
