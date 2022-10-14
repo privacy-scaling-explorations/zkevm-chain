@@ -22,11 +22,11 @@ tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
 zkevm_common = { path = "../common" }
 plonk_verifier = { git = "https://github.com/pinkiebell/plonk-verifier.git", rev = "7b962013f30219a9db6a8c26b6df0b863f7e8822" }
 itertools = "0.10.3"
+clap = { version = "4.0.14", features = ["derive", "env"] }
 
 # autogen
 mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "489dd46c52e3554b20791a504be06c3d0c0f451c", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
-clap = { version = "3.2.22", features = ["derive", "env"] }
 
 [features]
 default = []
