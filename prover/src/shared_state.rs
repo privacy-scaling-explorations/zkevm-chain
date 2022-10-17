@@ -1,19 +1,26 @@
+use crate::aggregation_circuit::AggregationCircuit;
 use crate::aggregation_circuit::PoseidonTranscript;
-use crate::compute_proof::*;
-use crate::structs::*;
-use crate::ProverCommitmentScheme;
+use crate::aggregation_circuit::Snark;
+use crate::circuit_witness::CircuitWitness;
+use crate::public_input_circuit;
+use crate::super_circuit;
+use crate::utils::collect_instance;
+use crate::utils::fixed_rng;
+use crate::utils::gen_num_instance;
+use crate::utils::gen_proof;
+use crate::G1Affine;
+use crate::ProverKey;
 use crate::ProverParams;
-use eth_types::Bytes;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::bn256::{Fr, G1Affine};
-use halo2_proofs::plonk::create_proof;
-use halo2_proofs::plonk::ProvingKey;
+use halo2_proofs::halo2curves::bn256::Fr;
+use halo2_proofs::plonk::Circuit;
+use halo2_proofs::plonk::{keygen_pk, keygen_vk};
 use halo2_proofs::poly::commitment::Params;
-use halo2_proofs::poly::kzg::multiopen::ProverGWC;
-use halo2_proofs::transcript::TranscriptWriterBuffer;
 use hyper::Uri;
 use plonk_verifier::loader::native::NativeLoader;
-use rand::rngs::OsRng;
+use plonk_verifier::system::halo2::compile;
+use plonk_verifier::system::halo2::transcript::evm::EvmTranscript;
+use plonk_verifier::system::halo2::Config as PlonkConfig;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -23,6 +30,153 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
 use zkevm_common::json_rpc::jsonrpc_request_client;
+use zkevm_common::prover::*;
+
+fn get_param_path(task_options: &ProofRequestOptions, k: usize) -> String {
+    // try to automatically choose a file if the path ends with a `/`.
+    match task_options.param.ends_with('/') {
+        true => {
+            format!("{}{}.bin", task_options.param, k)
+        }
+        false => task_options.param.clone(),
+    }
+}
+
+macro_rules! gen_proof {
+    ($shared_state:expr, $task_options:expr, $witness:expr, $CIRCUIT:ident) => {{
+        let witness = $witness;
+        // uncomment for testing purposes
+        // Note: evm verifier doesn't work yet with different inputs
+        //let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
+        let task_options = $task_options;
+        let shared_state = $shared_state;
+
+        log::info!("Using circuit parameters: {:#?}", CIRCUIT_CONFIG);
+
+        // lazily load the file and cache it.
+        // Note: we are not validating it for `min_k`,
+        // this error will eventually bubble up later.
+        let param_path = get_param_path(&task_options, CIRCUIT_CONFIG.min_k);
+        let param = shared_state.load_param(&param_path).await;
+
+        let mut circuit_proof = ProofResult::default();
+        circuit_proof.k = param.k() as u8;
+        let mut aggregation_proof = ProofResult::default();
+
+        if task_options.mock {
+            // only run the mock prover
+            let time_started = Instant::now();
+            let circuit = $CIRCUIT::gen_circuit::<
+                { CIRCUIT_CONFIG.max_txs },
+                { CIRCUIT_CONFIG.max_calldata },
+                _,
+            >(&CIRCUIT_CONFIG, &witness, fixed_rng())?;
+            let prover =
+                MockProver::run(param.k(), &circuit, circuit.instance()).expect("MockProver::run");
+            let res = prover.verify_par();
+            log::info!("MockProver: {:#?}", res);
+            circuit_proof.duration = Instant::now().duration_since(time_started).as_millis() as u32;
+        } else {
+            let circuit = $CIRCUIT::gen_circuit::<
+                { CIRCUIT_CONFIG.max_txs },
+                { CIRCUIT_CONFIG.max_calldata },
+                _,
+            >(&CIRCUIT_CONFIG, &witness, fixed_rng())?;
+            // generate and cache the prover key
+            let pk = {
+                let cache_key = format!(
+                    "{}{}{:?}",
+                    &task_options.circuit, &param_path, &CIRCUIT_CONFIG
+                );
+                shared_state
+                    .gen_pk(&cache_key, &param_path, &circuit)
+                    .await
+                    .map_err(|e| e.to_string())?
+            };
+
+            let circuit_instance = circuit.instance();
+            circuit_proof.instance = collect_instance(&circuit_instance);
+
+            if task_options.aggregate {
+                let time_started = Instant::now();
+                let proof = gen_proof::<
+                    _,
+                    _,
+                    PoseidonTranscript<NativeLoader, _, _>,
+                    PoseidonTranscript<NativeLoader, _, _>,
+                    _,
+                >(
+                    &param, &pk, circuit, circuit_instance.clone(), fixed_rng()
+                );
+                circuit_proof.duration =
+                    Instant::now().duration_since(time_started).as_millis() as u32;
+                circuit_proof.proof = proof.clone().into();
+
+                // aggregate the circuit proof
+                let time_started = Instant::now();
+                let protocol = compile(
+                    param.as_ref(),
+                    pk.get_vk(),
+                    PlonkConfig::kzg().with_num_instance(gen_num_instance(&circuit_instance)),
+                );
+                let snark = Snark::new(protocol, circuit_instance, proof);
+
+                let agg_param_path =
+                    get_param_path(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
+                let agg_params = shared_state.load_param(&agg_param_path).await;
+                aggregation_proof.k = agg_params.k() as u8;
+
+                let agg_circuit =
+                    AggregationCircuit::new(agg_params.as_ref(), [snark], fixed_rng());
+                let agg_pk = {
+                    let cache_key = format!(
+                        "{}{}{:?}ag",
+                        &task_options.circuit, &agg_param_path, &CIRCUIT_CONFIG
+                    );
+                    shared_state
+                        .gen_pk(&cache_key, &agg_param_path, &agg_circuit)
+                        .await
+                        .map_err(|e| e.to_string())?
+                };
+                let agg_instance = agg_circuit.instance();
+                aggregation_proof.instance = collect_instance(&agg_instance);
+                let proof = gen_proof::<
+                    _,
+                    _,
+                    EvmTranscript<G1Affine, _, _, _>,
+                    EvmTranscript<G1Affine, _, _, _>,
+                    _,
+                >(
+                    agg_params.as_ref(),
+                    &agg_pk,
+                    agg_circuit,
+                    agg_instance,
+                    fixed_rng(),
+                );
+                aggregation_proof.duration =
+                    Instant::now().duration_since(time_started).as_millis() as u32;
+                aggregation_proof.proof = proof.into();
+            } else {
+                let time_started = Instant::now();
+                let proof = gen_proof::<
+                    _,
+                    _,
+                    EvmTranscript<G1Affine, _, _, _>,
+                    EvmTranscript<G1Affine, _, _, _>,
+                    _,
+                >(
+                    &param, &pk, circuit, circuit_instance.clone(), fixed_rng()
+                );
+                circuit_proof.duration =
+                    Instant::now().duration_since(time_started).as_millis() as u32;
+                circuit_proof.proof = proof.clone().into();
+            }
+        }
+
+        // return
+        (CIRCUIT_CONFIG, circuit_proof, aggregation_proof)
+    }};
+}
 
 #[derive(Clone)]
 pub struct RoState {
@@ -36,7 +190,7 @@ pub struct RoState {
 pub struct RwState {
     pub tasks: Vec<ProofRequest>,
     pub params_cache: HashMap<String, Arc<ProverParams>>,
-    pub pk_cache: HashMap<String, Arc<ProvingKey<G1Affine>>>,
+    pub pk_cache: HashMap<String, Arc<ProverKey>>,
     /// The current active task this instance wants to obtain or is working on.
     pub pending: Option<ProofRequestOptions>,
     /// `true` if this instance started working on `pending`
@@ -180,92 +334,51 @@ impl SharedState {
         // instead.
 
         // spawn a task to catch panics
-        let task_options_copy = task_options.clone();
-        let self_copy = self.clone();
-        let task_result: Result<Result<Proofs, String>, tokio::task::JoinError> =
+        let task_result: Result<Result<Proofs, String>, tokio::task::JoinError> = {
+            let task_options_copy = task_options.clone();
+            let self_copy = self.clone();
+
             tokio::spawn(async move {
-                let (block, txs, gas_used, keccak_inputs) =
-                    gen_block_witness(&task_options_copy.block, &task_options_copy.rpc)
+                let witness =
+                    CircuitWitness::from_rpc(&task_options_copy.block, &task_options_copy.rpc)
                         .await
                         .map_err(|e| e.to_string())?;
 
-                let (evm_proof, k_used, duration) = crate::match_circuit_params!(
-                    gas_used,
+                let (config, circuit_proof, aggregation_proof) = crate::match_circuit_params!(
+                    witness.gas_used(),
                     {
-                        log::info!(
-                            "Using circuit parameters: BLOCK_GAS_LIMIT={} MAX_TXS={} MAX_CALLDATA={} MAX_BYTECODE={} MIN_K={} STATE_CIRCUIT_PAD_TO={}",
-                            BLOCK_GAS_LIMIT, MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MIN_K, STATE_CIRCUIT_PAD_TO
-                        );
-
-                        // try to automatically choose a file if the path ends with a `/`.
-                        let param_path = match task_options_copy.param.ends_with('/') {
-                            true => format!("{}{}.bin", task_options_copy.param, MIN_K),
-                            false => task_options_copy.param,
-                        };
-
-                        // lazily load the file and cache it.
-                        // Note: we are not validating it for `MIN_K`,
-                        // this error will eventually bubble up later.
-                        let param = self_copy.load_param(&param_path).await;
-                        // gen circuit inputs
-                        let instances = gen_instances().unwrap();
-                        let instance_ref: Vec<&[Fr]> = instances.iter().map(|e| e.as_slice()).collect();
-                        let instances_ref = match instance_ref.is_empty() {
-                            true => vec![],
-                            false => vec![instance_ref.as_slice()],
-                        };
-
-                        let time_started;
-                        let mut transcript = PoseidonTranscript::<NativeLoader, _, _>::init(vec![]);
-                        if task_options_copy.mock {
-                            time_started = Instant::now();
-                            let circuit =
-                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
-                            let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
-                            let res = prover.verify_par();
-                            log::info!("MockProver: {:#?}", res);
-                        } else {
-                            // generate and cache the prover key
-                            let pk = self_copy.gen_pk::<MAX_TXS, MAX_CALLDATA>(
-                                &param_path,
-                                BLOCK_GAS_LIMIT,
-                                MAX_BYTECODE,
-                                STATE_CIRCUIT_PAD_TO,
-                                ).await
-                                .map_err(|e| e.to_string())?;
-
-                            time_started = Instant::now();
-                            let circuit =
-                                gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block.clone(), txs.clone(), keccak_inputs.clone())?;
-                            let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, _, _>(&param, &pk, &[circuit], &instances_ref, OsRng, &mut transcript);
-                            // run the `MockProver` and return (hopefully) useful errors
-                            if let Err(proof_err) = res {
-                                let circuit =
-                                    gen_circuit::<MAX_TXS, MAX_CALLDATA>(MAX_BYTECODE, block, txs, keccak_inputs)?;
-                                let prover = MockProver::run(param.k(), &circuit, instances).expect("MockProver::run");
-                                let res = prover.verify_par();
-                                panic!("create_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+                        match task_options_copy.circuit.as_str() {
+                            "pi" => gen_proof!(
+                                self_copy,
+                                task_options_copy,
+                                &witness,
+                                public_input_circuit
+                            ),
+                            "super" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, super_circuit)
                             }
+                            _ => panic!("unknown circuit"),
                         }
-                        // return
-                        (transcript.finalize(), param.k(), Instant::now().duration_since(time_started).as_millis())
                     },
                     {
-                        return Err(format!("No circuit parameters found for block with gas used={}", gas_used));
+                        return Err(format!(
+                            "No circuit parameters found for block with gas used={}",
+                            witness.gas_used()
+                        ));
                     }
                 );
+
                 let res = Proofs {
-                    evm_proof: evm_proof.into(),
-                    state_proof: Bytes::default(),
-                    duration: duration as u64,
-                    k: k_used as u8,
-                    gas: gas_used,
-                    randomness: block.randomness.to_bytes().into(),
+                    config,
+                    circuit: circuit_proof,
+                    aggregation: aggregation_proof,
+                    gas: witness.gas_used(),
                 };
 
                 Ok(res)
             })
-            .await;
+            .await
+        };
 
         // convert the JoinError to string - if applicable
         let task_result: Result<Proofs, String> = match task_result {
@@ -384,39 +497,35 @@ impl SharedState {
         rw.params_cache.get(params_path).unwrap().clone()
     }
 
-    async fn gen_pk<const MAX_TXS: usize, const MAX_CALLDATA: usize>(
+    // TODO: can this be pre-generated to a file?
+    // related
+    // https://github.com/zcash/halo2/issues/443
+    // https://github.com/zcash/halo2/issues/449
+    /// Compute or retrieve a proving key from cache.
+    async fn gen_pk<C: Circuit<Fr>>(
         &self,
+        cache_key: &str,
         params_path: &str,
-        block_gas_limit: usize,
-        max_bytecode: usize,
-        state_circuit_pad_to: usize,
-    ) -> Result<Arc<ProvingKey<G1Affine>>, Box<dyn std::error::Error>> {
-        let cache_key = format!(
-            "{}{}{}{}{}{}",
-            params_path, MAX_TXS, MAX_CALLDATA, block_gas_limit, max_bytecode, state_circuit_pad_to
-        );
+        circuit: &C,
+    ) -> Result<Arc<ProverKey>, Box<dyn std::error::Error>> {
         let mut rw = self.rw.lock().await;
-        if !rw.pk_cache.contains_key(&cache_key) {
+        if !rw.pk_cache.contains_key(cache_key) {
             // drop, potentially long running
             drop(rw);
 
             let param = self.load_param(params_path).await;
-            let pk = gen_static_key::<MAX_TXS, MAX_CALLDATA>(
-                &param,
-                block_gas_limit,
-                max_bytecode,
-                state_circuit_pad_to,
-            )?;
+            let vk = keygen_vk(param.as_ref(), circuit)?;
+            let pk = keygen_pk(param.as_ref(), vk, circuit)?;
             let pk = Arc::new(pk);
 
             // acquire lock and update
             rw = self.rw.lock().await;
-            rw.pk_cache.insert(cache_key.clone(), pk);
+            rw.pk_cache.insert(cache_key.to_string(), pk);
 
             log::info!("ProvingKey: generated and cached key={}", cache_key);
         }
 
-        Ok(rw.pk_cache.get(&cache_key).unwrap().clone())
+        Ok(rw.pk_cache.get(cache_key).unwrap().clone())
     }
 
     async fn merge_tasks(&self, node_info: &NodeInformation) {

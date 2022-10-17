@@ -79,9 +79,10 @@ macro_rules! sleep {
 }
 
 macro_rules! await_state {
-    () => {
+    () => {{
+        init_logger();
         get_shared_state().await.lock().await
-    };
+    }};
 }
 
 fn init_logger() {
@@ -113,8 +114,6 @@ fn zkevm_abi() -> ethers_core::abi::Contract {
 
 #[tokio::test]
 async fn native_deposit() {
-    init_logger();
-
     let abi = zkevm_abi();
     let shared_state = await_state!();
     let mut deposits: Vec<H256> = Vec::new();
@@ -201,8 +200,6 @@ async fn native_deposit() {
 
 #[tokio::test]
 async fn native_withdraw() {
-    init_logger();
-
     let abi = zkevm_abi();
     let shared_state = await_state!();
     let mut messages: Vec<H256> = Vec::new();
@@ -312,8 +309,6 @@ async fn native_withdraw() {
 #[ignore]
 #[tokio::test]
 async fn hop_deposit() {
-    init_logger();
-
     let abi = AbiParser::default()
         .parse(&[
             // hop-protocol
@@ -383,8 +378,6 @@ async fn hop_deposit() {
 #[ignore]
 #[tokio::test]
 async fn hop_cross_chain_message() {
-    init_logger();
-
     let abi = AbiParser::default()
         .parse(&[
             // hop-protocol
@@ -493,8 +486,6 @@ async fn hop_cross_chain_message() {
 
 #[tokio::test]
 async fn native_deposit_revert() {
-    init_logger();
-
     let abi = zkevm_abi();
     let shared_state = await_state!();
     let mut deposits: Vec<H256> = Vec::new();

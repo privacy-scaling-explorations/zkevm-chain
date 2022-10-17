@@ -40,6 +40,7 @@ use zkevm_circuits::tx_circuit::Curve;
 use zkevm_circuits::tx_circuit::Group;
 use zkevm_circuits::tx_circuit::Secp256k1Affine;
 use zkevm_circuits::tx_circuit::TxCircuit;
+use zkevm_common::prover::*;
 
 #[derive(Debug, Default)]
 struct Assembly {
@@ -282,17 +283,23 @@ macro_rules! estimate {
             .highest_row;
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row);
+            // TODO: estimate aggregation circuit requirements
+            let agg_k = 20;
             let remaining_rows = (1 << k) - highest_row;
+            assert!(remaining_rows >= 256);
+            let n = 1 << k;
+            let pad_to = n - 256;
+            let config = CircuitConfig {
+                block_gas_limit: BLOCK_GAS_LIMIT,
+                max_txs: MAX_TXS,
+                max_calldata: MAX_CALLDATA,
+                max_bytecode: MAX_BYTECODE,
+                min_k: k as usize,
+                pad_to,
+                min_k_aggregation: agg_k,
+            };
 
-            $scope(
-                BLOCK_GAS_LIMIT,
-                MAX_TXS,
-                MAX_CALLDATA,
-                MAX_BYTECODE,
-                highest_row,
-                remaining_rows,
-                k,
-            );
+            $scope(config, highest_row, remaining_rows);
         }
     }};
 }
@@ -348,40 +355,27 @@ fn proverd_autogen() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // use a map to track the largest circuit parameters for `k`
-    let mut params = BTreeMap::<usize, (usize, usize, usize, usize, usize)>::new();
-    let mut callback = |block_gas_limit,
-                        max_txs,
-                        max_calldata,
-                        max_bytecode,
-                        highest_row,
-                        remaining_rows,
-                        k| {
+    let mut params = BTreeMap::<usize, CircuitConfig>::new();
+    let mut callback = |config: CircuitConfig, highest_row, remaining_rows| {
         println!(
             "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
-            block_gas_limit, max_txs, max_calldata, max_bytecode, highest_row, remaining_rows, k
+            config.block_gas_limit,
+            config.max_txs,
+            config.max_calldata,
+            config.max_bytecode,
+            highest_row,
+            remaining_rows,
+            config.min_k,
         );
 
-        let k = k as usize;
-        if let Some(val) = params.get(&k) {
+        if let Some(val) = params.get(&config.min_k) {
             // don't update if the previous entity has a lower gas limit
-            if val.0 < block_gas_limit {
+            if val.block_gas_limit < config.block_gas_limit {
                 return;
             }
         }
 
-        assert!(remaining_rows >= 256);
-        let n = 1 << k;
-        let state_circuit_pad_to = n - 256;
-        params.insert(
-            k,
-            (
-                block_gas_limit,
-                max_txs,
-                max_calldata,
-                max_bytecode,
-                state_circuit_pad_to,
-            ),
-        );
+        params.insert(config.min_k, config);
     };
 
     // baseline
@@ -515,31 +509,18 @@ fn proverd_autogen() {
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;
     let mut str = String::new();
-    for (k, (block_gas_limit, max_txs, max_calldata, max_bytecode, state_circuit_pad_to)) in params
-    {
+    for (_, config) in params {
         write!(
             str,
             "{}..={} => {{
-                const BLOCK_GAS_LIMIT: usize = {};
-                const MAX_TXS: usize = {};
-                const MAX_CALLDATA: usize = {};
-                const MAX_BYTECODE: usize = {};
-                const MIN_K: usize = {};
-                const STATE_CIRCUIT_PAD_TO: usize = {};
+                const CIRCUIT_CONFIG: CircuitConfig = {:#?};
                 $on_match
             }},
             ",
-            prev_gas,
-            block_gas_limit,
-            block_gas_limit,
-            max_txs,
-            max_calldata,
-            max_bytecode,
-            k,
-            state_circuit_pad_to,
+            prev_gas, config.block_gas_limit, config,
         )
         .expect("fmt write");
-        prev_gas = block_gas_limit + 1;
+        prev_gas = config.block_gas_limit + 1;
     }
 
     let str = format!(

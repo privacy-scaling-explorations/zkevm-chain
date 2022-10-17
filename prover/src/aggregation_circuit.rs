@@ -28,6 +28,7 @@ use plonk_verifier::{
     Protocol,
 };
 use rand::rngs::OsRng;
+use rand::Rng;
 use std::iter;
 use std::rc::Rc;
 
@@ -60,9 +61,9 @@ pub type PoseidonTranscript<L, S, B> = system::halo2::transcript::halo2::Poseido
 >;
 
 pub struct Snark {
-    protocol: Protocol<G1Affine>,
-    instances: Vec<Vec<Fr>>,
-    proof: Vec<u8>,
+    pub protocol: Protocol<G1Affine>,
+    pub instances: Vec<Vec<Fr>>,
+    pub proof: Vec<u8>,
 }
 
 impl Snark {
@@ -196,10 +197,15 @@ pub struct AggregationCircuit {
     snarks: Vec<SnarkWitness>,
     instances: Vec<Fr>,
     as_proof: Value<Vec<u8>>,
+    aux_generator: G1Affine,
 }
 
 impl AggregationCircuit {
-    pub fn new(params: &ProverParams, snarks: impl IntoIterator<Item = Snark>) -> Self {
+    pub fn new<RNG: Rng>(
+        params: &ProverParams,
+        snarks: impl IntoIterator<Item = Snark>,
+        mut rng: RNG,
+    ) -> Self {
         let svk = params.get_g()[0].into();
         let snarks = snarks.into_iter().collect_vec();
 
@@ -217,9 +223,13 @@ impl AggregationCircuit {
 
         let (accumulator, as_proof) = {
             let mut transcript = PoseidonTranscript::<NativeLoader, _, _>::new(Vec::new());
-            let accumulator =
-                As::create_proof(&Default::default(), &accumulators, &mut transcript, OsRng)
-                    .unwrap();
+            let accumulator = As::create_proof(
+                &Default::default(),
+                &accumulators,
+                &mut transcript,
+                &mut rng,
+            )
+            .unwrap();
             (accumulator, transcript.finalize())
         };
 
@@ -233,6 +243,7 @@ impl AggregationCircuit {
             snarks: snarks.into_iter().map_into().collect(),
             instances,
             as_proof: Value::known(as_proof),
+            aux_generator: G1Affine::random(&mut rng),
         }
     }
 
@@ -244,7 +255,7 @@ impl AggregationCircuit {
         vec![4 * LIMBS]
     }
 
-    pub fn instances(&self) -> Vec<Vec<Fr>> {
+    pub fn instance(&self) -> Vec<Vec<Fr>> {
         vec![self.instances.clone()]
     }
 
@@ -267,6 +278,7 @@ impl Circuit<Fr> for AggregationCircuit {
                 .collect(),
             instances: Vec::new(),
             as_proof: Value::unknown(),
+            aux_generator: G1Affine::random(OsRng),
         }
     }
 
@@ -294,7 +306,7 @@ impl Circuit<Fr> for AggregationCircuit {
                 let ctx = RegionCtx::new(region, 0);
 
                 let ecc_chip = config.ecc_chip();
-                let loader = Halo2Loader::new(ecc_chip, ctx);
+                let loader = Halo2Loader::new(ecc_chip, ctx, self.aux_generator);
                 let KzgAccumulator { lhs, rhs } =
                     aggregate(&self.svk, &loader, &self.snarks, self.as_proof());
 
