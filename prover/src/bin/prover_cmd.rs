@@ -1,7 +1,7 @@
 use env_logger::Env;
 use prover::shared_state::SharedState;
-use prover::structs::ProofRequestOptions;
 use std::env::var;
+use zkevm_common::prover::*;
 
 /// This command generates and prints the proofs to stdout.
 /// Required environment variables:
@@ -27,11 +27,13 @@ async fn main() {
 
     let state = SharedState::new(String::new(), None);
     let request = ProofRequestOptions {
+        circuit: "super".to_string(),
         block: block_num,
         rpc: rpc_url,
         retry: false,
         param: params_path,
         mock: false,
+        aggregate: false,
     };
 
     state.get_or_enqueue(&request).await;

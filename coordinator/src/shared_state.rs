@@ -25,6 +25,8 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
+use zkevm_common::prover::ProofRequestOptions;
+use zkevm_common::prover::Proofs;
 
 pub struct RoState {
     pub l2_message_deliverer_addr: Address,
@@ -550,17 +552,40 @@ impl SharedState {
         match proofs.unwrap() {
             None => log::info!("{} proof not yet computed for: {}", LOG_TAG, block_num),
             Some(proof) => {
-                log::info!("{} found proof: {:?} for {}", LOG_TAG, proof, block_num);
+                log::info!("{} found proof: {:#?} for {}", LOG_TAG, proof, block_num);
 
                 let block_hash = block.hash.unwrap();
                 let witness: Bytes = self
                     .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
                     .await
                     .expect("debug_getHeaderRlp");
+
+                // choose the aggregation proof if not empty
+                let proof_result = {
+                    if proof.aggregation.proof.len() != 0 {
+                        proof.aggregation
+                    } else {
+                        proof.circuit
+                    }
+                };
+                let mut verifier_calldata = vec![];
+                let mut tmp_buf = vec![0u8; 32];
+
+                proof_result.instance.iter().for_each(|v| {
+                    v.to_big_endian(&mut tmp_buf);
+                    verifier_calldata.extend_from_slice(&tmp_buf);
+                });
+                verifier_calldata.extend_from_slice(proof_result.proof.as_ref());
+
                 let mut proof_data = vec![];
-                proof_data.extend_from_slice(proof.evm_proof.as_ref());
-                proof_data.extend_from_slice(proof.state_proof.as_ref());
+                let verifier_addr =
+                    U256::from(proof.config.block_gas_limit + proof_result.instance.len());
+                verifier_addr.to_big_endian(&mut tmp_buf);
+                proof_data.extend_from_slice(&tmp_buf);
+                proof_data.extend_from_slice(&verifier_calldata);
+
                 let proof_data = Bytes::from(proof_data);
+                log::debug!("proof_data: {}", proof_data);
 
                 let calldata = self
                     .ro
@@ -941,15 +966,7 @@ impl SharedState {
         let resp: Result<H256, String> = self
             .request_l1(
                 "eth_call",
-                serde_json::json!(
-                [
-                {
-                    "to": l1_bridge_addr,
-                    "data": calldata,
-                },
-                "latest"
-                ]
-                ),
+                serde_json::json!([{ "to": l1_bridge_addr, "data": calldata }, "latest"]),
             )
             .await;
 
@@ -987,21 +1004,19 @@ impl SharedState {
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
         if self.config.lock().await.dummy_prover {
             log::warn!("COORDINATOR_DUMMY_PROVER");
-            let proof = Proofs {
-                evm_proof: Bytes::from([0xffu8]),
-                state_proof: Bytes::from([0xffu8]),
-            };
-            return Ok(Some(proof));
+            return Ok(Some(Proofs::default()));
         }
 
         let config = self.config.lock().await;
         let prover_rpcd_url = config.prover_rpcd_url.clone();
         let proof_options = ProofRequestOptions {
+            circuit: config.circuit_name.clone(),
             block: block_num.as_u64(),
             rpc: config.l2_rpc_url.to_string(),
             retry: false,
             param: config.params_path.clone(),
             mock: config.mock_prover,
+            aggregate: false,
         };
         drop(config);
 

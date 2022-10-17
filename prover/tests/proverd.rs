@@ -1,8 +1,7 @@
-use tokio::time::{sleep, Duration};
-
 use prover::server::serve;
 use prover::shared_state::SharedState;
-use prover::structs::ProofRequestOptions;
+use tokio::time::{sleep, Duration};
+use zkevm_common::prover::*;
 
 fn init_logger() {
     let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
@@ -26,18 +25,22 @@ async fn proverd_simple_signaling() {
     sleep(Duration::from_millis(300)).await;
 
     let proof_a = ProofRequestOptions {
+        circuit: "super".to_string(),
         block: 1,
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
         mock: false,
+        aggregate: false,
     };
     let proof_b = ProofRequestOptions {
+        circuit: "super".to_string(),
         block: 2,
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
         mock: false,
+        aggregate: false,
     };
 
     // enqueue tasks

@@ -56,6 +56,11 @@ pub struct Config {
     #[clap(long, env = "COORDINATOR_PARAMS_PATH")]
     /// Parameters file or directory to use for the prover requests.
     pub params_path: String,
+
+    #[clap(long, env = "COORDINATOR_CIRCUIT_NAME")]
+    /// The name of the circuit to use in proof requests.
+    /// Either "pi" or "super".
+    pub circuit_name: String,
 }
 
 impl Config {

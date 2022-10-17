@@ -11,12 +11,6 @@ pub struct ForkchoiceStateV1 {
     pub finalized_block_hash: H256,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct Proofs {
-    pub state_proof: Bytes,
-    pub evm_proof: Bytes,
-}
-
 #[derive(Clone, Debug)]
 pub struct MessageBeacon {
     pub id: H256,
@@ -89,18 +83,4 @@ pub struct StorageProof {
 pub struct Witness {
     pub randomness: U256,
     pub input: Bytes,
-}
-
-#[derive(Debug, Default, Clone, serde::Serialize)]
-pub struct ProofRequestOptions {
-    /// the block number
-    pub block: u64,
-    /// the rpc url
-    pub rpc: String,
-    /// retry proof computation if error
-    pub retry: bool,
-    /// parameter file to use
-    pub param: String,
-    /// Only use MockProver if true.
-    pub mock: bool,
 }

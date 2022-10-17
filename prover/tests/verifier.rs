@@ -1,20 +1,13 @@
 #![cfg(feature = "autogen")]
 
 use eth_types::Bytes;
-use halo2_proofs::dev::MockProver;
+use eth_types::U256;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
-use halo2_proofs::plonk::create_proof;
+use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
-use halo2_proofs::plonk::Circuit;
-use halo2_proofs::plonk::ProvingKey;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsProver;
-use halo2_proofs::poly::kzg::multiopen::ProverGWC;
-use halo2_proofs::transcript::EncodedChallenge;
-use halo2_proofs::transcript::TranscriptReadBuffer;
-use halo2_proofs::transcript::TranscriptWriterBuffer;
-use itertools::Itertools;
 use plonk_verifier::loader::evm::EvmLoader;
 use plonk_verifier::loader::native::NativeLoader;
 use plonk_verifier::{
@@ -25,16 +18,26 @@ use prover::aggregation_circuit::AggregationCircuit;
 use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
-use prover::compute_proof::gen_instances;
-use prover::compute_proof::gen_static_circuit;
-use prover::compute_proof::gen_static_key;
-use prover::ProverCommitmentScheme;
+use prover::circuit_witness::CircuitWitness;
+use prover::public_input_circuit;
+use prover::super_circuit;
+use prover::utils::collect_instance;
+use prover::utils::fixed_rng;
+use prover::utils::gen_num_instance;
+use prover::utils::gen_proof;
 use prover::ProverParams;
-use rand::rngs::OsRng;
 use std::fs;
-use std::io::Cursor;
 use std::io::Write;
 use std::rc::Rc;
+use zkevm_common::prover::*;
+
+#[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
+struct Verifier {
+    config: CircuitConfig,
+    instance: Vec<U256>,
+    proof: Bytes,
+    runtime_code: Bytes,
+}
 
 fn write_bytes(name: &str, vec: &[u8]) {
     let dir = "./../build/plonk-verifier";
@@ -42,7 +45,7 @@ fn write_bytes(name: &str, vec: &[u8]) {
     let path = format!("{}/{}", dir, name);
     fs::File::create(&path)
         .unwrap_or_else(|_| panic!("create {}", &path))
-        .write_all(format!("{}", Bytes::from(Vec::from(vec))).as_bytes())
+        .write_all(vec)
         .unwrap_or_else(|_| panic!("write {}", &path));
 }
 
@@ -55,64 +58,40 @@ fn load_params(k: usize) -> ProverParams {
     params
 }
 
-fn gen_num_instance(instances: &[Vec<Fr>]) -> Vec<usize> {
-    instances.iter().map(|e| e.len()).collect()
-}
-
-fn gen_vk<C: Circuit<Fr>>(params: &ProverParams, circuit: &C) -> VerifyingKey<G1Affine> {
-    keygen_vk(params, circuit).unwrap()
-}
-
-fn gen_proof<
-    C: Circuit<Fr>,
-    E: EncodedChallenge<G1Affine>,
-    TR: TranscriptReadBuffer<Cursor<Vec<u8>>, G1Affine, E>,
-    TW: TranscriptWriterBuffer<Vec<u8>, G1Affine, E>,
->(
+fn gen_aggregation_evm_verifier(
     params: &ProverParams,
-    pk: &ProvingKey<G1Affine>,
-    circuit: C,
-    instances: Vec<Vec<Fr>>,
+    vk: &VerifyingKey<G1Affine>,
+    instance: Vec<Vec<Fr>>,
 ) -> Vec<u8> {
-    let res = MockProver::run(params.k(), &circuit, instances.clone())
-        .expect("MockProver::run")
-        .verify_par();
-    if let Err(err) = res {
-        panic!("MockProver: {:#?}", err);
-    }
+    let num_instance = gen_num_instance(&instance);
+    let config = Config::kzg()
+        .with_num_instance(num_instance)
+        .with_accumulator_indices(AggregationCircuit::accumulator_indices());
 
-    let instances = instances
-        .iter()
-        .map(|instances| instances.as_slice())
-        .collect_vec();
-    let proof = {
-        let mut transcript = TW::init(Vec::new());
-        create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, TW, _>(
-            params,
-            pk,
-            &[circuit],
-            &[instances.as_slice()],
-            OsRng,
-            &mut transcript,
-        )
-        .unwrap();
-        transcript.finalize()
-    };
-
-    proof
+    gen_verifier(params, vk, instance, config)
 }
 
-fn gen_aggregation_evm_verifier(params: &ProverParams, vk: &VerifyingKey<G1Affine>) -> Vec<u8> {
-    let num_instance = AggregationCircuit::num_instance();
+fn gen_evm_verifier(
+    params: &ProverParams,
+    vk: &VerifyingKey<G1Affine>,
+    instance: Vec<Vec<Fr>>,
+) -> Vec<u8> {
+    let num_instance = gen_num_instance(&instance);
+    let config = Config::kzg().with_num_instance(num_instance);
+
+    gen_verifier(params, vk, instance, config)
+}
+
+fn gen_verifier(
+    params: &ProverParams,
+    vk: &VerifyingKey<G1Affine>,
+    instance: Vec<Vec<Fr>>,
+    config: Config,
+) -> Vec<u8> {
+    let num_instance = gen_num_instance(&instance);
     let svk = params.get_g()[0].into();
     let dk = (params.g2(), params.s_g2()).into();
-    let protocol = compile(
-        params,
-        vk,
-        Config::kzg()
-            .with_num_instance(num_instance.clone())
-            .with_accumulator_indices(AggregationCircuit::accumulator_indices()),
-    );
+    let protocol = compile(params, vk, config);
 
     let loader = EvmLoader::new::<Fq, Fr>();
     let mut transcript = EvmTranscript::<_, Rc<EvmLoader>, _, _>::new(loader.clone());
@@ -124,61 +103,128 @@ fn gen_aggregation_evm_verifier(params: &ProverParams, vk: &VerifyingKey<G1Affin
     loader.runtime_code()
 }
 
-#[test]
-fn autogen_aggregation_verifier() {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-        .try_init();
+macro_rules! test_aggregation {
+    ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {{
+        let _ =
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
+                .try_init();
 
-    let agg_params = load_params(21);
-    prover::match_circuit_params!(
-        50_000,
-        {
-            let snark = {
-                let params = load_params(MIN_K);
-                let pk = gen_static_key::<MAX_TXS, MAX_CALLDATA>(
-                    &params,
-                    BLOCK_GAS_LIMIT,
-                    MAX_BYTECODE,
-                    STATE_CIRCUIT_PAD_TO,
-                )
-                .expect("gen_static_pk");
+        prover::match_circuit_params!(
+            $GAS,
+            {
+                let snark = {
+                    let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
+                    let circuit = $CIRCUIT::gen_circuit::<
+                        { CIRCUIT_CONFIG.max_txs },
+                        { CIRCUIT_CONFIG.max_calldata },
+                        _,
+                    >(&CIRCUIT_CONFIG, &witness, fixed_rng())
+                    .expect("gen_static_circuit");
+                    let instance = circuit.instance();
 
-                let mut circuit = gen_static_circuit::<MAX_TXS, MAX_CALLDATA>(
-                    BLOCK_GAS_LIMIT,
-                    MAX_BYTECODE,
-                    STATE_CIRCUIT_PAD_TO,
-                )
-                .expect("gen_static_circuit");
-                circuit.block.randomness = Fr::from(1);
+                    let params = load_params(CIRCUIT_CONFIG.min_k);
+                    let vk = keygen_vk(&params, &circuit).expect("vk");
+                    let pk = keygen_pk(&params, vk, &circuit).expect("pk");
 
-                let instances = gen_instances().unwrap();
+                    {
+                        let mut data = Verifier::default();
+                        data.config = CIRCUIT_CONFIG;
+                        data.runtime_code =
+                            gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
+
+                        let proof = gen_proof::<
+                            _,
+                            _,
+                            EvmTranscript<G1Affine, _, _, _>,
+                            EvmTranscript<G1Affine, _, _, _>,
+                            _,
+                        >(
+                            &params,
+                            &pk,
+                            circuit.clone(),
+                            circuit.instance(),
+                            fixed_rng(),
+                        );
+                        data.instance = collect_instance(&circuit.instance());
+                        data.proof = proof.into();
+
+                        write_bytes(
+                            &format!("evm-{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit),
+                            &serde_json::to_vec(&data).unwrap(),
+                        );
+                    }
+
+                    let proof = gen_proof::<
+                        _,
+                        _,
+                        PoseidonTranscript<NativeLoader, _, _>,
+                        PoseidonTranscript<NativeLoader, _, _>,
+                        _,
+                    >(
+                        &params, &pk, circuit, instance.clone(), fixed_rng()
+                    );
+
+                    let protocol = compile(
+                        &params,
+                        pk.get_vk(),
+                        Config::kzg().with_num_instance(gen_num_instance(&instance)),
+                    );
+
+                    Snark::new(protocol, instance, proof)
+                };
+
+                let agg_params = load_params(CIRCUIT_CONFIG.min_k_aggregation);
+                let agg_circuit = AggregationCircuit::new(&agg_params, [snark], fixed_rng());
+                let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
+
+                let mut data = Verifier::default();
+                data.config = CIRCUIT_CONFIG;
+                data.runtime_code =
+                    gen_aggregation_evm_verifier(&agg_params, &agg_vk, agg_circuit.instance())
+                        .into();
+
+                let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
                 let proof = gen_proof::<
                     _,
                     _,
-                    PoseidonTranscript<NativeLoader, _, _>,
-                    PoseidonTranscript<NativeLoader, _, _>,
-                >(&params, &pk, circuit, instances.clone());
-
-                let path = format!("proof-k{}", params.k());
-                write_bytes(&path, &proof);
-
-                let protocol = compile(
-                    &params,
-                    pk.get_vk(),
-                    Config::kzg().with_num_instance(gen_num_instance(&instances)),
+                    EvmTranscript<G1Affine, _, _, _>,
+                    EvmTranscript<G1Affine, _, _, _>,
+                    _,
+                >(
+                    &agg_params,
+                    &agg_pk,
+                    agg_circuit.clone(),
+                    agg_circuit.instance(),
+                    fixed_rng(),
                 );
+                data.instance = collect_instance(&agg_circuit.instance());
+                data.proof = proof.into();
 
-                Snark::new(protocol, instances, proof)
-            };
+                write_bytes(
+                    &format!(
+                        "aggregation-evm-{}-{}",
+                        $LABEL, CIRCUIT_CONFIG.block_gas_limit
+                    ),
+                    &serde_json::to_vec(&data).unwrap(),
+                );
+            },
+            {
+                panic!("no circuit parameters found");
+            }
+        );
+    }};
+}
 
-            let agg_circuit = AggregationCircuit::new(&agg_params, [snark]);
-            let vk = gen_vk(&agg_params, &agg_circuit);
-            let runtime_code = gen_aggregation_evm_verifier(&agg_params, &vk);
-            let path = format!("aggregator-k{}", agg_params.k());
-            write_bytes(&path, &runtime_code);
-        },
-        {
-            panic!("no circuit parameters found");
-        }
-    );
+#[test]
+fn autogen_aggregation_super() {
+    test_aggregation!("super", super_circuit, 63_000);
+    test_aggregation!("super", super_circuit, 150_000);
+    test_aggregation!("super", super_circuit, 300_000);
+}
+
+#[test]
+fn autogen_aggregation_pi() {
+    test_aggregation!("pi", public_input_circuit, 63_000);
+    test_aggregation!("pi", public_input_circuit, 150_000);
+    test_aggregation!("pi", public_input_circuit, 300_000);
 }

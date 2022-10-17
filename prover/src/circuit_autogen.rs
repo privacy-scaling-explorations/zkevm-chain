@@ -3,30 +3,39 @@ macro_rules! match_circuit_params {
     ($gas_used:expr, $on_match:expr, $on_error:expr) => {
         match $gas_used {
             0..=63000 => {
-                const BLOCK_GAS_LIMIT: usize = 63000;
-                const MAX_TXS: usize = 3;
-                const MAX_CALLDATA: usize = 10500;
-                const MAX_BYTECODE: usize = 21000;
-                const MIN_K: usize = 19;
-                const STATE_CIRCUIT_PAD_TO: usize = 524032;
+                const CIRCUIT_CONFIG: CircuitConfig = CircuitConfig {
+                    block_gas_limit: 63000,
+                    max_txs: 3,
+                    max_calldata: 10500,
+                    max_bytecode: 21000,
+                    min_k: 19,
+                    pad_to: 524032,
+                    min_k_aggregation: 20,
+                };
                 $on_match
             }
             63001..=150000 => {
-                const BLOCK_GAS_LIMIT: usize = 150000;
-                const MAX_TXS: usize = 7;
-                const MAX_CALLDATA: usize = 32250;
-                const MAX_BYTECODE: usize = 64500;
-                const MIN_K: usize = 20;
-                const STATE_CIRCUIT_PAD_TO: usize = 1048320;
+                const CIRCUIT_CONFIG: CircuitConfig = CircuitConfig {
+                    block_gas_limit: 150000,
+                    max_txs: 7,
+                    max_calldata: 32250,
+                    max_bytecode: 64500,
+                    min_k: 20,
+                    pad_to: 1048320,
+                    min_k_aggregation: 20,
+                };
                 $on_match
             }
             150001..=300000 => {
-                const BLOCK_GAS_LIMIT: usize = 300000;
-                const MAX_TXS: usize = 14;
-                const MAX_CALLDATA: usize = 69750;
-                const MAX_BYTECODE: usize = 139500;
-                const MIN_K: usize = 21;
-                const STATE_CIRCUIT_PAD_TO: usize = 2096896;
+                const CIRCUIT_CONFIG: CircuitConfig = CircuitConfig {
+                    block_gas_limit: 300000,
+                    max_txs: 14,
+                    max_calldata: 69750,
+                    max_bytecode: 139500,
+                    min_k: 21,
+                    pad_to: 2096896,
+                    min_k_aggregation: 20,
+                };
                 $on_match
             }
 

@@ -30,12 +30,35 @@ contract ZkEvmL1Bridge is
     emit BlockSubmitted();
   }
 
-  function finalizeBlock (bytes32 blockHash, bytes calldata _witness, bytes calldata _proof) external {
+  function finalizeBlock (bytes32 blockHash, bytes calldata _witness, bytes calldata proof) external {
     finalizedBlockHash = blockHash;
     assembly {
       let stateRootOffset := add(_witness.offset, 91)
       let val := calldataload(stateRootOffset)
       sstore(stateRoot.slot, val)
+
+      if gt(proof.length, 32) {
+        // call contract at `addr` for proof verification
+        let offset := proof.offset
+        let addr := calldataload(offset)
+        switch extcodesize(addr)
+        case 0 {
+          // no code at `addr`
+          revert(0, 1)
+        }
+
+        let len := sub(proof.length, 32)
+        offset := add(offset, 32)
+        let memPtr := mload(64)
+        calldatacopy(memPtr, offset, len)
+        let success := staticcall(gas(), addr, memPtr, len, 0, 0)
+        switch success
+        case 0 {
+          // plonk verification failed
+          returndatacopy(0, 0, returndatasize())
+          revert(0, returndatasize())
+        }
+      }
     }
 
     emit BlockFinalized(blockHash);

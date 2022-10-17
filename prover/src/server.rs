@@ -1,5 +1,4 @@
 use crate::shared_state::SharedState;
-use crate::structs::*;
 use hyper::body::Buf;
 use hyper::body::HttpBody;
 use hyper::header::HeaderValue;
@@ -9,6 +8,7 @@ use zkevm_common::json_rpc::JsonRpcError;
 use zkevm_common::json_rpc::JsonRpcRequest;
 use zkevm_common::json_rpc::JsonRpcResponse;
 use zkevm_common::json_rpc::JsonRpcResponseError;
+use zkevm_common::prover::*;
 
 /// Starts the proverd json-rpc server.
 /// Note: the server may not immediately listening after returning the
