@@ -65,7 +65,8 @@ impl Faucet {
                 let res = spawn(async move {
                     shared_state
                         .transaction_to_l1(Some(receiver), faucet_amount, vec![])
-                        .await;
+                        .await
+                        .expect("receipt");
                 })
                 .await;
 

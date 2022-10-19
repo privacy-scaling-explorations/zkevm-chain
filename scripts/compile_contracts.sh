@@ -12,17 +12,14 @@ for file in $(find "$ROOT"/contracts/templates/ -iname '*.sol'); do
   done
 done
 
+OUTPUT_PATH="$ROOT/build/contracts"
+mkdir -p "$OUTPUT_PATH"
+
 SOLC=$(which solc || printf '%s' "docker run --rm -w /app -v $(pwd):/app ethereum/solc:0.8.16")
 $SOLC \
-  --overwrite \
   --metadata-hash none \
-  --asm-json \
-  --storage-layout \
-  --bin \
-  --bin-runtime \
-  --abi \
+  --combined-json bin,bin-runtime,srcmap,srcmap-runtime,storage-layout \
   --optimize \
   --optimize-runs 4294967295 \
-  --userdoc \
-  -o "$ROOT"/build/contracts/ \
-  $(find "$ROOT"/contracts/ -iname '*.sol' | grep -v templates/)
+  $(find "$ROOT"/contracts/ -iname '*.sol' | grep -v templates/) \
+  | jq -cr '.contracts | to_entries | map(.key |= split(":")[1]) | .[] | .key, .value' | awk 'NR%2{f="'"$OUTPUT_PATH/"'"$0".json";next} {print >f;close(f)}'

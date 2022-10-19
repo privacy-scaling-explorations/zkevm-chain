@@ -1,5 +1,9 @@
 mod common;
 
+use crate::common::ContractArtifact;
+use coordinator::shared_state::SharedState;
+use coordinator::structs::ProofRequest;
+use coordinator::utils::marshal_proof;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::Tokenizable;
 use ethers_core::types::Bytes;
@@ -7,10 +11,6 @@ use ethers_core::types::H256;
 use ethers_core::types::U256;
 use std::fs::File;
 use std::io::BufReader;
-
-use coordinator::shared_state::SharedState;
-use coordinator::structs::ProofRequest;
-use coordinator::utils::marshal_proof;
 
 #[derive(Debug, serde::Deserialize)]
 struct BlockHeader {
@@ -60,7 +60,9 @@ async fn patricia_validator() {
                 ])
                 .expect("calldata");
 
-            let result = common::l1_trace(&Bytes::from(calldata), &shared_state).await;
+            let result = ContractArtifact::load("ZkEvmTest")
+                .l1_trace(&Bytes::from(calldata), &shared_state)
+                .await;
             let error_expected = storage_proof.value.is_zero();
             assert_eq!(
                 result.is_err(),

@@ -34,7 +34,7 @@ abstract contract OptimismWrapper is ICrossDomainMessenger, ZkEvmUtils {
     }
 
     bytes memory data = abi.encodeWithSignature('relay(address,address,bytes)', msg.sender, _target, _message);
-    bytes32 messageHash = IZkEvmMessageDispatcher(fromBridge).dispatchMessage(toBridge, fee, deadline, nonce, data);
+    IZkEvmMessageDispatcher(fromBridge).dispatchMessage(toBridge, fee, deadline, nonce, data);
 
     emit SentMessage(_target, msg.sender, _message, nonce, _gasLimit);
   }

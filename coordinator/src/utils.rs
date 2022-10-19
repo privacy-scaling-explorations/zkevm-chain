@@ -21,7 +21,7 @@ pub async fn send_transaction_to_l1(
     to: Option<Address>,
     value: U256,
     calldata: Vec<u8>,
-) {
+) -> Result<TransactionReceipt, String> {
     let nonce: U256 = jsonrpc_request_client(
         5000,
         client,
@@ -34,7 +34,7 @@ pub async fn send_transaction_to_l1(
 
     let raw_tx = sign_transaction_l1(client, node_uri, wallet, to, value, calldata, nonce).await;
     // wait up to 120 seconds
-    let _ = timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await);
+    timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await)
 }
 
 /// may override any pending transactions

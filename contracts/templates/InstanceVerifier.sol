@@ -13,7 +13,7 @@ contract InstanceVerifier {
     uint256 parentStateRoot,
     bytes calldata witness,
     bool clearMemory
-  ) internal returns (uint256[] memory table, uint256 blockHash) {
+  ) internal pure returns (uint256[] memory table, uint256 blockHash) {
     // https://github.com/privacy-scaling-explorations/zkevm-specs/blob/08c6c30a7b53f83558a7ea7e50dc0e4d74fab0c8/src/zkevm_specs/public_inputs.py#L290
     assembly ("memory-safe") {
       //@INCLUDE:rlp.yul

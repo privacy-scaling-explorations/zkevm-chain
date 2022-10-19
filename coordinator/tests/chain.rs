@@ -1,4 +1,7 @@
-use coordinator::shared_state::SharedState;
+mod common;
+
+use crate::common::get_shared_state;
+use crate::common::zkevm_abi;
 use coordinator::utils::*;
 use ethers_core::abi::encode;
 use ethers_core::abi::AbiParser;
@@ -11,106 +14,8 @@ use ethers_core::types::U256;
 use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
-use tokio::sync::Mutex;
-use tokio::sync::OnceCell;
 use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
-
-macro_rules! sync {
-    ($shared_state:expr) => {
-        // sync bridge and process events
-        $shared_state.sync().await;
-        while $shared_state.rw.lock().await.l1_message_queue.len() > 0 {
-            $shared_state.mine().await;
-            $shared_state.sync().await;
-        }
-    };
-}
-
-macro_rules! wait_for_tx {
-    ($tx_hash:expr, $url:expr) => {{
-        let mut resp: Option<TransactionReceipt> = None;
-
-        while (resp.is_none()) {
-            resp = match jsonrpc_request($url, "eth_getTransactionReceipt", [$tx_hash]).await {
-                Ok(val) => Some(val),
-                Err(_) => None,
-            };
-        }
-
-        let receipt = resp.unwrap();
-        if receipt.status.unwrap() != U64::from(1) {
-            panic!("transaction reverted");
-        }
-
-        receipt
-    }};
-}
-
-macro_rules! finalize_chain {
-    ($shared_state:expr) => {
-        loop {
-            let rw = $shared_state.rw.lock().await;
-            if rw.chain_state.head_block_hash == rw.chain_state.finalized_block_hash {
-                break;
-            }
-            drop(rw);
-
-            sync!($shared_state);
-            $shared_state.submit_blocks().await;
-            $shared_state
-                .finalize_blocks()
-                .await
-                .expect("finalize_blocks");
-            sync!($shared_state);
-            while $shared_state.rw.lock().await.l2_message_queue.len() != 0 {
-                $shared_state.relay_to_l1().await;
-                sync!($shared_state);
-            }
-        }
-    };
-}
-
-macro_rules! sleep {
-    ($ms:expr) => {{
-        use tokio::time::{sleep, Duration};
-        sleep(Duration::from_millis($ms)).await;
-    }};
-}
-
-macro_rules! await_state {
-    () => {{
-        init_logger();
-        get_shared_state().await.lock().await
-    }};
-}
-
-fn init_logger() {
-    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-        .is_test(true)
-        .try_init();
-}
-
-static ONCE: OnceCell<Mutex<SharedState>> = OnceCell::const_new();
-
-async fn get_shared_state() -> &'static Mutex<SharedState> {
-    ONCE.get_or_init(|| async {
-        let shared_state = SharedState::from_env().await;
-        shared_state.init().await;
-
-        Mutex::new(shared_state)
-    })
-    .await
-}
-
-fn zkevm_abi() -> ethers_core::abi::Contract {
-    AbiParser::default()
-        .parse(&[
-            // zkevm native bridge
-            "function dispatchMessage(address to, uint256 fee, uint256 deadline, uint256 nonce, bytes calldata _data) external payable",
-        ])
-        .expect("parse abi")
-}
 
 #[tokio::test]
 async fn native_deposit() {
@@ -165,7 +70,8 @@ async fn native_deposit() {
             expected_balance += value;
             shared_state
                 .transaction_to_l1(l1_bridge_addr, value, calldata)
-                .await;
+                .await
+                .expect("receipt");
         }
     }
 
@@ -354,7 +260,8 @@ async fn hop_deposit() {
 
         shared_state
             .transaction_to_l1(Some(hop), amount, calldata)
-            .await;
+            .await
+            .expect("receipt");
         sync!(shared_state);
 
         let balance_after: U256 = jsonrpc_request(

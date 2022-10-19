@@ -6,6 +6,7 @@ use ethers_core::abi::AbiParser;
 use ethers_core::abi::RawLog;
 use ethers_core::abi::Token;
 use ethers_core::abi::Tokenizable;
+use ethers_core::types::TransactionReceipt;
 use ethers_core::types::{
     Address, Block, Bytes, Filter, Log, Transaction, TransactionRequest, TxpoolStatus,
     ValueOrArray, H256, U256, U64,
@@ -508,7 +509,8 @@ impl SharedState {
                         .expect("calldata");
 
                     self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
-                        .await;
+                        .await
+                        .expect("receipt");
                 }
             }
         }
@@ -601,14 +603,20 @@ impl SharedState {
 
                 let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
                 self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
-                    .await;
+                    .await
+                    .expect("receipt");
             }
         }
 
         Ok(())
     }
 
-    pub async fn transaction_to_l1(&self, to: Option<Address>, value: U256, calldata: Vec<u8>) {
+    pub async fn transaction_to_l1(
+        &self,
+        to: Option<Address>,
+        value: U256,
+        calldata: Vec<u8>,
+    ) -> Result<TransactionReceipt, String> {
         send_transaction_to_l1(
             &self.ro.http_client,
             &self.config.lock().await.l1_rpc_url,
@@ -617,7 +625,7 @@ impl SharedState {
             value,
             calldata,
         )
-        .await;
+        .await
     }
 
     pub async fn transaction_to_l2(
@@ -921,7 +929,8 @@ impl SharedState {
                 ])
                 .expect("calldata");
             self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
-                .await;
+                .await
+                .expect("receipt");
         }
     }
 
