@@ -1,5 +1,6 @@
 mod common;
 
+use crate::common::ContractArtifact;
 use coordinator::shared_state::SharedState;
 use coordinator::utils::*;
 use ethers_core::abi::AbiParser;
@@ -31,7 +32,7 @@ const COLUMNS: [&str; 11] = [
 struct PublicInputs {
     max_txs: U256,
     max_calldata: U256,
-    rand_rpi: U256,
+    // rand_rpi: U256,
     chain_id: U256,
     // rpi_rlc: U256,
     // state_root: U256,
@@ -51,7 +52,7 @@ async fn witness_verifier() {
     let abi = AbiParser::default()
         .parse(&[
                "function Error(string)",
-               "function testPublicInput(uint256 zeta, uint256 MAX_TXS, uint256 MAX_CALLDATA, uint256 chainId, uint256 parentStateRoot, bytes calldata witness) external returns (uint256[])",
+               "function testPublicInput(uint256 MAX_TXS, uint256 MAX_CALLDATA, uint256 chainId, uint256 parentStateRoot, bytes calldata witness) external returns (uint256[])",
         ])
         .expect("parse abi");
     let shared_state = SharedState::from_env().await;
@@ -75,7 +76,6 @@ async fn witness_verifier() {
             .function("testPublicInput")
             .unwrap()
             .encode_input(&[
-                test_data.public_inputs.rand_rpi.into_token(),
                 test_data.public_inputs.max_txs.into_token(),
                 test_data.public_inputs.max_calldata.into_token(),
                 test_data.public_inputs.chain_id.into_token(),
@@ -86,7 +86,8 @@ async fn witness_verifier() {
 
         println!("{:?}", path);
 
-        let trace = common::l1_trace(&Bytes::from(calldata), &shared_state)
+        let trace = ContractArtifact::load("ZkEvmTest")
+            .l1_trace(&Bytes::from(calldata), &shared_state)
             .await
             .unwrap();
         let mut result = abi

@@ -20,7 +20,7 @@ contract ZkEvmL2MessageDeliverer is
 
   /// @notice This method imports [stateRoot, timestamp] of a block header.
   /// `blockNumber` & `blockHash` must be checked by the L1 verification step(s).
-  function importBlockHeader (uint256 blockNumber, bytes32 blockHash, bytes calldata blockHeader) external {
+  function importBlockHeader (uint256 /*blockNumber*/, bytes32 blockHash, bytes calldata blockHeader) external {
     assembly {
       // TODO: use templating techniques and DRY code (with PatriciaValidator).
 

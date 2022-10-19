@@ -14,14 +14,13 @@ contract ZkEvmTest is PatriciaValidator, InstanceVerifier {
   }
 
   function testPublicInput(
-    uint256 zeta,
     uint256 MAX_TXS,
     uint256 MAX_CALLDATA,
     uint256 chainId,
     uint256 parentStateRoot,
     bytes calldata witness
-  ) external returns (uint256[] memory) {
-    (uint256[] memory publicInput, uint256 blockHash) =
+  ) external pure returns (uint256[] memory) {
+    (uint256[] memory publicInput,) =
       _buildTable(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, false);
 
     // Use of assembly here because it otherwise does
