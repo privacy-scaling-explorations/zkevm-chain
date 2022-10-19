@@ -19,6 +19,7 @@ use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
+use prover::dummy_circuit;
 use prover::public_input_circuit;
 use prover::super_circuit;
 use prover::utils::collect_instance;
@@ -227,4 +228,11 @@ fn autogen_aggregation_pi() {
     test_aggregation!("pi", public_input_circuit, 63_000);
     test_aggregation!("pi", public_input_circuit, 150_000);
     test_aggregation!("pi", public_input_circuit, 300_000);
+}
+
+#[test]
+fn autogen_aggregation_dummy() {
+    test_aggregation!("dummy", dummy_circuit, 63_000);
+    test_aggregation!("dummy", dummy_circuit, 150_000);
+    test_aggregation!("dummy", dummy_circuit, 300_000);
 }

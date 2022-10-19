@@ -11,6 +11,7 @@ pub type ProverKey = ProvingKey<G1Affine>;
 pub mod aggregation_circuit;
 pub mod circuit_autogen;
 pub mod circuit_witness;
+pub mod dummy_circuit;
 pub mod public_input_circuit;
 pub mod server;
 pub mod shared_state;
