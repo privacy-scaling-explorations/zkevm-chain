@@ -13,6 +13,8 @@ pub struct ProofResult {
     pub randomness: Bytes,
     /// Proofing time
     pub duration: u32,
+    /// Circuit name / identifier
+    pub label: String,
 }
 
 impl std::fmt::Debug for ProofResult {

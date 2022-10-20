@@ -1,5 +1,6 @@
 #![cfg(feature = "autogen")]
 
+use eth_types::Address;
 use eth_types::Bytes;
 use eth_types::U256;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
@@ -19,6 +20,7 @@ use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
+use prover::dummy_circuit;
 use prover::public_input_circuit;
 use prover::super_circuit;
 use prover::utils::collect_instance;
@@ -33,10 +35,26 @@ use zkevm_common::prover::*;
 
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 struct Verifier {
+    label: String,
     config: CircuitConfig,
     instance: Vec<U256>,
     proof: Bytes,
     runtime_code: Bytes,
+    address: Address,
+}
+
+impl Verifier {
+    fn build(&mut self) -> &Self {
+        let mut tmp = [0; 20];
+        let bytes = self.label.as_bytes();
+        let x = 20 - bytes.len();
+        for (i, v) in bytes.iter().enumerate() {
+            tmp[i + x] = *v;
+        }
+        self.address = Address::from(tmp);
+
+        self
+    }
 }
 
 fn write_bytes(name: &str, vec: &[u8]) {
@@ -128,6 +146,7 @@ macro_rules! test_aggregation {
 
                     {
                         let mut data = Verifier::default();
+                        data.label = format!("{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                         data.config = CIRCUIT_CONFIG;
                         data.runtime_code =
                             gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
@@ -148,10 +167,8 @@ macro_rules! test_aggregation {
                         data.instance = collect_instance(&circuit.instance());
                         data.proof = proof.into();
 
-                        write_bytes(
-                            &format!("evm-{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit),
-                            &serde_json::to_vec(&data).unwrap(),
-                        );
+                        let data = data.build();
+                        write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                     }
 
                     let proof = gen_proof::<
@@ -178,6 +195,7 @@ macro_rules! test_aggregation {
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 
                 let mut data = Verifier::default();
+                data.label = format!("{}-{}-a", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                 data.config = CIRCUIT_CONFIG;
                 data.runtime_code =
                     gen_aggregation_evm_verifier(&agg_params, &agg_vk, agg_circuit.instance())
@@ -200,13 +218,8 @@ macro_rules! test_aggregation {
                 data.instance = collect_instance(&agg_circuit.instance());
                 data.proof = proof.into();
 
-                write_bytes(
-                    &format!(
-                        "aggregation-evm-{}-{}",
-                        $LABEL, CIRCUIT_CONFIG.block_gas_limit
-                    ),
-                    &serde_json::to_vec(&data).unwrap(),
-                );
+                let data = data.build();
+                write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
             },
             {
                 panic!("no circuit parameters found");
@@ -227,4 +240,11 @@ fn autogen_aggregation_pi() {
     test_aggregation!("pi", public_input_circuit, 63_000);
     test_aggregation!("pi", public_input_circuit, 150_000);
     test_aggregation!("pi", public_input_circuit, 300_000);
+}
+
+#[test]
+fn autogen_aggregation_dummy() {
+    test_aggregation!("dummy", dummy_circuit, 63_000);
+    test_aggregation!("dummy", dummy_circuit, 150_000);
+    test_aggregation!("dummy", dummy_circuit, 300_000);
 }

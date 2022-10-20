@@ -2,6 +2,7 @@ use crate::aggregation_circuit::AggregationCircuit;
 use crate::aggregation_circuit::PoseidonTranscript;
 use crate::aggregation_circuit::Snark;
 use crate::circuit_witness::CircuitWitness;
+use crate::dummy_circuit;
 use crate::public_input_circuit;
 use crate::super_circuit;
 use crate::utils::collect_instance;
@@ -60,8 +61,16 @@ macro_rules! gen_proof {
         let param = shared_state.load_param(&param_path).await;
 
         let mut circuit_proof = ProofResult::default();
+        circuit_proof.label = format!(
+            "{}-{}",
+            task_options.circuit, CIRCUIT_CONFIG.block_gas_limit
+        );
         circuit_proof.k = param.k() as u8;
         let mut aggregation_proof = ProofResult::default();
+        aggregation_proof.label = format!(
+            "{}-{}-a",
+            task_options.circuit, CIRCUIT_CONFIG.block_gas_limit
+        );
 
         if task_options.mock {
             // only run the mock prover
@@ -356,6 +365,9 @@ impl SharedState {
                             ),
                             "super" => {
                                 gen_proof!(self_copy, task_options_copy, &witness, super_circuit)
+                            }
+                            "dummy" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, dummy_circuit)
                             }
                             _ => panic!("unknown circuit"),
                         }
