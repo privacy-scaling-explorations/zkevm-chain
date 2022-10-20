@@ -149,7 +149,11 @@ async fn deploy_l1_evm_verifier() {
         address: String,
     }
 
-    for item in read_dir("../build/plonk-verifier/").unwrap() {
+    let items = read_dir("../build/plonk-verifier/");
+    if items.is_err() {
+        return;
+    }
+    for item in items.unwrap() {
         let path = item.expect("path").path();
         let file = File::open(&path).expect("open");
         let data: Data = serde_json::from_reader(BufReader::new(file)).expect("json");
