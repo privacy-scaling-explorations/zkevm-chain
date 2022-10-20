@@ -59,8 +59,12 @@ pub struct Config {
 
     #[clap(long, env = "COORDINATOR_CIRCUIT_NAME")]
     /// The name of the circuit to use in proof requests.
-    /// Either "pi" or "super".
+    /// Either "pi", "super" or "dummy".
     pub circuit_name: String,
+
+    #[clap(long, env = "COORDINATOR_AGGREGATE_PROOF", default_value_t = false)]
+    /// Signals the prover to aggregate the circuit proof
+    pub aggregate_proof: bool,
 }
 
 impl Config {
