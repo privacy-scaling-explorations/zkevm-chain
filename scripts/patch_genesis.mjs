@@ -20,8 +20,11 @@ const baseAddress = BigInt('0x1111111111111111111111111111111111111111');
 const path = './build/plonk-verifier';
 for (const file of fs.readdirSync(path)) {
   const json = JSON.parse(fs.readFileSync(`${path}/${file}`));
-  let addr = pad(40, BigInt(json.config.block_gas_limit + json.instance.length));
+  const addr = pad(40, BigInt(json.address));
   console.log({file, addr});
+  if (L1_CONTRACTS[addr]) {
+    throw Error('exists');
+  }
   L1_CONTRACTS[addr] = { name: file, code: json.runtime_code };
 }
 
@@ -45,30 +48,30 @@ for (const [path, contracts] of OBJS) {
   const genesis = JSON.parse(fs.readFileSync(path));
 
   for (const addr in contracts) {
+    let code;
+    let name;
     let value = contracts[addr];
     if (typeof value === 'string') {
-      const code = getCode(value);
-      const proxy = genesis.alloc[addr] || { balance: '0' };
-      proxy.comment = 'Proxy:' + value;
-      proxy.code = PROXY_CODE;
-      proxy.storage = proxy.storage || {};
-      const implAddr = pad(40, BigInt.asUintN(160, BigInt('0x' + addr) + 0xcbaf2257000313ba2574n));
-      proxy.storage[PROXY_SLOT] = implAddr;
-      genesis.alloc[addr] = proxy;
-
-      genesis.alloc[implAddr] = {
-        comment: value,
-        balance: '0',
-        code
-      };
+      code = getCode(value);
+      name = value;
     } else {
-      const code = value.code;
-      const name = value.name;
-      const account = genesis.alloc[addr] || { balance: '0' };
-      account.comment = name;
-      account.code = code;
-      genesis.alloc[addr] = account;
+      code = value.code;
+      name = value.name;
     }
+
+    const proxy = genesis.alloc[addr] || { balance: '0' };
+    proxy.comment = 'Proxy:' + name;
+    proxy.code = PROXY_CODE;
+    proxy.storage = proxy.storage || {};
+    const implAddr = pad(40, BigInt.asUintN(160, BigInt('0x' + addr) + 0xcbaf2257000313ba2574n));
+    proxy.storage[PROXY_SLOT] = implAddr;
+    genesis.alloc[addr] = proxy;
+
+    genesis.alloc[implAddr] = {
+      comment: name,
+      balance: '0',
+      code
+    };
   }
 
   fs.writeFileSync(path, JSON.stringify(genesis, null, 2));

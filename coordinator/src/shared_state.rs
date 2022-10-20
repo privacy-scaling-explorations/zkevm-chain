@@ -580,8 +580,12 @@ impl SharedState {
                 verifier_calldata.extend_from_slice(proof_result.proof.as_ref());
 
                 let mut proof_data = vec![];
-                let verifier_addr =
-                    U256::from(proof.config.block_gas_limit + proof_result.instance.len());
+                // this is temporary until proper contract setup
+                let verifier_addr = {
+                    let label = &self.config.lock().await.circuit_name;
+                    let id: usize = label.as_bytes().iter().map(|v| *v as usize).sum();
+                    U256::from(proof.config.block_gas_limit + id)
+                };
                 verifier_addr.to_big_endian(&mut tmp_buf);
                 proof_data.extend_from_slice(&tmp_buf);
                 proof_data.extend_from_slice(&verifier_calldata);

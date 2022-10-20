@@ -34,10 +34,21 @@ use zkevm_common::prover::*;
 
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 struct Verifier {
+    label: String,
     config: CircuitConfig,
     instance: Vec<U256>,
     proof: Bytes,
     runtime_code: Bytes,
+    address: String,
+}
+
+impl Verifier {
+    fn build(&mut self) -> &Self {
+        let id: usize = self.label.as_bytes().iter().map(|v| *v as usize).sum();
+        self.address = format!("0x{:040x}", self.config.block_gas_limit + id);
+
+        self
+    }
 }
 
 fn write_bytes(name: &str, vec: &[u8]) {
@@ -129,6 +140,7 @@ macro_rules! test_aggregation {
 
                     {
                         let mut data = Verifier::default();
+                        data.label = $LABEL.to_string();
                         data.config = CIRCUIT_CONFIG;
                         data.runtime_code =
                             gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
@@ -151,7 +163,7 @@ macro_rules! test_aggregation {
 
                         write_bytes(
                             &format!("evm-{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit),
-                            &serde_json::to_vec(&data).unwrap(),
+                            &serde_json::to_vec(data.build()).unwrap(),
                         );
                     }
 
@@ -179,6 +191,7 @@ macro_rules! test_aggregation {
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 
                 let mut data = Verifier::default();
+                data.label = format!("agg-{}", $LABEL);
                 data.config = CIRCUIT_CONFIG;
                 data.runtime_code =
                     gen_aggregation_evm_verifier(&agg_params, &agg_vk, agg_circuit.instance())
@@ -206,7 +219,7 @@ macro_rules! test_aggregation {
                         "aggregation-evm-{}-{}",
                         $LABEL, CIRCUIT_CONFIG.block_gas_limit
                     ),
-                    &serde_json::to_vec(&data).unwrap(),
+                    &serde_json::to_vec(data.build()).unwrap(),
                 );
             },
             {

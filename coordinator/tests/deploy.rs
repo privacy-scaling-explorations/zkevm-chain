@@ -5,13 +5,18 @@ use crate::common::proxy_abi;
 use crate::common::ContractArtifact;
 use ethers_core::abi::Tokenizable;
 use ethers_core::types::Address;
+use ethers_core::types::Bytes;
 use ethers_core::types::TransactionReceipt;
 use ethers_core::types::U256;
 use ethers_core::types::U64;
+use serde::Deserialize;
+use std::fs::read_dir;
+use std::fs::File;
+use std::io::BufReader;
 use std::str::FromStr;
 
 macro_rules! deploy_l1 {
-    ($NAME:expr, $ADDRESS:expr) => {{
+    ($DEPLOY_CODE:expr, $ADDRESS:expr) => {{
         let _ =
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
                 .is_test(true)
@@ -19,9 +24,8 @@ macro_rules! deploy_l1 {
         let abi = proxy_abi();
         let shared_state = await_state!();
 
-        let artifact = ContractArtifact::load($NAME);
         let receipt = shared_state
-            .transaction_to_l1(None, U256::zero(), artifact.bin.to_vec())
+            .transaction_to_l1(None, U256::zero(), $DEPLOY_CODE)
             .await
             .expect("receipt");
         assert!(receipt.status.unwrap() == U64::from(1));
@@ -46,7 +50,7 @@ macro_rules! deploy_l1 {
 }
 
 macro_rules! deploy_l2 {
-    ($NAME:expr, $ADDRESS:expr) => {{
+    ($DEPLOY_CODE:expr, $ADDRESS:expr) => {{
         let _ =
             env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
                 .is_test(true)
@@ -54,9 +58,8 @@ macro_rules! deploy_l2 {
         let abi = proxy_abi();
         let shared_state = await_state!();
 
-        let artifact = ContractArtifact::load($NAME);
         let tx_hash = shared_state
-            .transaction_to_l2(None, U256::zero(), artifact.bin.to_vec())
+            .transaction_to_l2(None, U256::zero(), $DEPLOY_CODE)
             .await
             .expect("tx_hash");
         shared_state.mine().await;
@@ -92,10 +95,16 @@ macro_rules! deploy_l2 {
     }};
 }
 
+macro_rules! code {
+    ($NAME:expr) => {{
+        ContractArtifact::load($NAME).bin.to_vec()
+    }};
+}
+
 #[tokio::test]
 async fn deploy_l1_bridge() {
     deploy_l1!(
-        "ZkEvmL1Bridge",
+        code!("ZkEvmL1Bridge"),
         "0x936a70c0b28532aa22240dce21f89a8399d6ac60"
     );
 }
@@ -103,7 +112,7 @@ async fn deploy_l1_bridge() {
 #[tokio::test]
 async fn deploy_l1_optimism() {
     deploy_l1!(
-        "L1OptimismBridge",
+        code!("L1OptimismBridge"),
         "0x936a70c0b28532aa22240dce21f89a8399d6ac61"
     );
 }
@@ -113,11 +122,11 @@ async fn deploy_l1_optimism() {
 #[tokio::test]
 async fn deploy_l2_bridge() {
     deploy_l2!(
-        "ZkEvmL2MessageDeliverer",
+        code!("ZkEvmL2MessageDeliverer"),
         "0x0000000000000000000000000000000000010000"
     );
     deploy_l2!(
-        "ZkEvmL2MessageDispatcher",
+        code!("ZkEvmL2MessageDispatcher"),
         "0x0000000000000000000000000000000000020000"
     );
 }
@@ -127,7 +136,28 @@ async fn deploy_l2_bridge() {
 #[tokio::test]
 async fn deploy_l2_optimism() {
     deploy_l2!(
-        "L2OptimisimBridge",
+        code!("L2OptimisimBridge"),
         "0x4200000000000000000000000000000000000007"
     );
+}
+
+#[tokio::test]
+async fn deploy_l1_evm_verifier() {
+    #[derive(Deserialize)]
+    struct Data {
+        runtime_code: Bytes,
+        address: String,
+    }
+
+    for item in read_dir("../build/plonk-verifier/").unwrap() {
+        let path = item.expect("path").path();
+        let file = File::open(&path).expect("open");
+        let data: Data = serde_json::from_reader(BufReader::new(file)).expect("json");
+        let mut deploy_code = vec![
+            0x60, 0x0b, 0x38, 0x03, 0x80, 0x60, 0x0b, 0x3d, 0x39, 0x3d, 0xf3,
+        ];
+        deploy_code.extend_from_slice(data.runtime_code.as_ref());
+        println!("{:?} {}", path, data.address);
+        deploy_l1!(deploy_code, &data.address);
+    }
 }
