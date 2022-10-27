@@ -111,8 +111,8 @@ macro_rules! gen_proof {
                 let proof = gen_proof::<
                     _,
                     _,
-                    PoseidonTranscript<NativeLoader, _, _>,
-                    PoseidonTranscript<NativeLoader, _, _>,
+                    PoseidonTranscript<NativeLoader, _>,
+                    PoseidonTranscript<NativeLoader, _>,
                     _,
                 >(
                     &param, &pk, circuit, circuit_instance.clone(), fixed_rng()
