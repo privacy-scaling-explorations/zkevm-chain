@@ -9,9 +9,15 @@ trap 'pkill --parent $$' TERM EXIT INT
 ./scripts/compile_contracts.sh
 
 cargo build --release --bin prover_rpcd
-cargo run --release --bin prover_rpcd > PROVER_LOG.txt 2>&1 &
+env time --output PROVER_STATS.txt --verbose -- cargo run --release --bin prover_rpcd > PROVER_LOG.txt 2>&1 &
+PID=$!
+
 COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator
 status=$?
+
+pkill -9 prover_rpcd || true
+wait $PID
+cat PROVER_STATS.txt
 
 if [ $status -eq 0 ]; then
   exit 0
