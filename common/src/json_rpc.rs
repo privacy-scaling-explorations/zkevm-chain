@@ -65,7 +65,7 @@ pub async fn jsonrpc_request_client<T: Serialize + Send + Sync, R: DeserializeOw
         .body(Body::from(serde_json::to_vec(&req_obj).unwrap()))
         .unwrap();
 
-    log::debug!("jsonrpc_request_client: {} {}", uri, method);
+    log::trace!("jsonrpc_request_client: {} {}", uri, method);
 
     let json = tokio::time::timeout(std::time::Duration::from_millis(timeout), async {
         let resp = client.request(node_req).await.unwrap();

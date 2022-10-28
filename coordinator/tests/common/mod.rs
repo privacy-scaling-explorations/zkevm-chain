@@ -127,6 +127,7 @@ macro_rules! sync {
         while $shared_state.rw.lock().await.l1_message_queue.len() > 0 {
             $shared_state.mine().await;
             $shared_state.sync().await;
+            sleep!(300);
         }
     };
 }
