@@ -1,5 +1,6 @@
 #![cfg(feature = "autogen")]
 
+use bus_mapping::circuit_input_builder::CircuitsParams;
 use bus_mapping::mock::BlockData;
 use env_logger::Env;
 use eth_types::geth_types::GethData;
@@ -159,27 +160,23 @@ impl<F: Field> Assignment<F> for Assembly {
     }
 }
 
-fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTECODE: usize>(
+fn run_assembly<
+    const MAX_TXS: usize,
+    const MAX_CALLDATA: usize,
+    const MAX_BYTECODE: usize,
+    const MAX_RWS: usize,
+>(
     witness: CircuitWitness,
 ) -> Result<Assembly, String> {
-    let config = CircuitConfig {
-        max_txs: MAX_TXS,
-        max_calldata: MAX_CALLDATA,
-        // TODO: why does it succeed if bytecode for tx is > MAX_BYTECODE?
-        max_bytecode: MAX_BYTECODE,
-        ..Default::default()
-    };
     let circuit =
-        super_circuit::gen_circuit::<MAX_TXS, MAX_CALLDATA, _>(&config, &witness, fixed_rng())
+        super_circuit::gen_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
             .expect("gen_static_circuit");
 
     let mut cs = ConstraintSystem::default();
-    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA>::configure(&mut cs);
+    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>::configure(&mut cs);
     let mut assembly = Assembly::default();
-    // TODO: cs.constants.clone() - private field, but empty
-    // assert_eq!(cs.constants.len(), 0);
-    let constants = vec![];
-    SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants)
+    let constants = cs.constants();
+    SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())
         .map_err(|e| e.to_string())?;
 
     Ok(assembly)
@@ -194,11 +191,23 @@ macro_rules! estimate {
         const MAX_TXS: usize = BLOCK_GAS_LIMIT / 21_000;
         const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
+        // TODO: add proper worst-case estimate
+        const MAX_RWS: usize = (1 << 19) * (BLOCK_GAS_LIMIT / 63_000);
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::zero(); 256];
         let block_number = history_hashes.len();
         let chain_id: u64 = 99;
+        let mut circuit_config = CircuitConfig {
+            block_gas_limit: BLOCK_GAS_LIMIT,
+            max_txs: MAX_TXS,
+            max_calldata: MAX_CALLDATA,
+            max_bytecode: MAX_BYTECODE,
+            max_rws: MAX_RWS,
+            min_k: 0,
+            pad_to: 0,
+            min_k_aggregation: 0,
+        };
         let circuit_witness;
 
         // prepare block
@@ -235,8 +244,13 @@ macro_rules! estimate {
             .into();
             block.sign(&wallets);
 
+            let circuit_params = CircuitsParams {
+                max_rws: circuit_config.max_rws,
+                max_txs: circuit_config.max_txs,
+            };
             let mut builder =
-                BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+                BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)
+                    .new_circuit_input_builder();
             builder
                 .handle_block(&block.eth_block, &block.geth_traces)
                 .expect("could not handle block tx");
@@ -256,6 +270,7 @@ macro_rules! estimate {
             }
 
             circuit_witness = CircuitWitness {
+                circuit_config: circuit_config.clone(),
                 eth_block: block.eth_block,
                 block: builder.block,
                 code_db: builder.code_db,
@@ -264,28 +279,23 @@ macro_rules! estimate {
         }
         // calculate circuit stats
         {
-            let highest_row = run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(circuit_witness)
-                .unwrap()
-                .highest_row;
+            let highest_row =
+                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS>(circuit_witness)
+                    .unwrap()
+                    .highest_row;
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row);
             // TODO: estimate aggregation circuit requirements
             let agg_k = 20;
             let remaining_rows = (1 << k) - highest_row;
-            assert!(remaining_rows >= 256);
+            //assert!(remaining_rows >= 256);
             let n = 1 << k;
             let pad_to = n - 256;
-            let config = CircuitConfig {
-                block_gas_limit: BLOCK_GAS_LIMIT,
-                max_txs: MAX_TXS,
-                max_calldata: MAX_CALLDATA,
-                max_bytecode: MAX_BYTECODE,
-                min_k: k as usize,
-                pad_to,
-                min_k_aggregation: agg_k,
-            };
+            circuit_config.min_k = k as usize;
+            circuit_config.pad_to = pad_to;
+            circuit_config.min_k_aggregation = agg_k;
 
-            $scope(config, highest_row, remaining_rows);
+            $scope(circuit_config, highest_row, remaining_rows);
         }
     }};
 }

@@ -132,12 +132,13 @@ macro_rules! gen_match {
             $GAS,
             {
                 let snark = {
-                    let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
+                    let witness = CircuitWitness::dummy(CIRCUIT_CONFIG).unwrap();
                     let circuit = $CIRCUIT::gen_circuit::<
                         { CIRCUIT_CONFIG.max_txs },
                         { CIRCUIT_CONFIG.max_calldata },
+                        { CIRCUIT_CONFIG.max_rws },
                         _,
-                    >(&CIRCUIT_CONFIG, &witness, fixed_rng())
+                    >(&witness, fixed_rng())
                     .expect("gen_static_circuit");
                     let instance = circuit.instance();
 

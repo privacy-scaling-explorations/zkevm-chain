@@ -11,15 +11,18 @@ use zkevm_circuits::tx_circuit::Curve;
 use zkevm_circuits::tx_circuit::Group;
 use zkevm_circuits::tx_circuit::Secp256k1Affine;
 use zkevm_circuits::tx_circuit::TxCircuit;
-use zkevm_common::prover::CircuitConfig;
 
 /// Returns a instance of the `SuperCircuit`.
-pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize, RNG: Rng>(
-    config: &CircuitConfig,
+pub fn gen_circuit<
+    const MAX_TXS: usize,
+    const MAX_CALLDATA: usize,
+    const MAX_RWS: usize,
+    RNG: Rng,
+>(
     witness: &CircuitWitness,
     mut rng: RNG,
-) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
-    let (mut block, keccak_inputs) = witness.evm_witness(config.pad_to);
+) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>, String> {
+    let (mut block, keccak_inputs) = witness.evm_witness();
     block.randomness = Fr::random(&mut rng);
 
     let pi_circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
@@ -31,12 +34,12 @@ pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize, RNG: Rng>(
     let chain_id = block.context.chain_id;
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(&mut rng).to_affine();
     let tx_circuit = TxCircuit::new(aux_generator, chain_id.as_u64(), witness.txs());
-    let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
+    let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS> {
         block,
         fixed_table_tags: FixedTableTag::iter().collect(),
         tx_circuit,
         keccak_inputs,
-        bytecode_size: config.max_bytecode,
+        bytecode_size: witness.circuit_config.max_bytecode,
         pi_circuit,
     };
 

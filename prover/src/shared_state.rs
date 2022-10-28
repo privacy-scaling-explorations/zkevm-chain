@@ -78,8 +78,9 @@ macro_rules! gen_proof {
             let circuit = $CIRCUIT::gen_circuit::<
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
+                { CIRCUIT_CONFIG.max_rws },
                 _,
-            >(&CIRCUIT_CONFIG, &witness, fixed_rng())?;
+            >(&witness, fixed_rng())?;
             let prover =
                 MockProver::run(param.k(), &circuit, circuit.instance()).expect("MockProver::run");
             let res = prover.verify_par();
@@ -89,8 +90,9 @@ macro_rules! gen_proof {
             let circuit = $CIRCUIT::gen_circuit::<
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
+                { CIRCUIT_CONFIG.max_rws },
                 _,
-            >(&CIRCUIT_CONFIG, &witness, fixed_rng())?;
+            >(&witness, fixed_rng())?;
             // generate and cache the prover key
             let pk = {
                 let cache_key = format!(

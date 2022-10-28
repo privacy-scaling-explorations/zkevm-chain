@@ -102,6 +102,7 @@ pub struct CircuitConfig {
     pub max_txs: usize,
     pub max_calldata: usize,
     pub max_bytecode: usize,
+    pub max_rws: usize,
     pub min_k: usize,
     pub pad_to: usize,
     pub min_k_aggregation: usize,

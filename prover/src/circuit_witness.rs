@@ -1,5 +1,6 @@
 use bus_mapping::circuit_input_builder::Block;
 use bus_mapping::circuit_input_builder::BuilderClient;
+use bus_mapping::circuit_input_builder::CircuitsParams;
 use bus_mapping::rpc::GethClient;
 use bus_mapping::state_db::CodeDB;
 use eth_types::geth_types;
@@ -13,9 +14,11 @@ use halo2_proofs::halo2curves::bn256::Fr;
 use std::str::FromStr;
 use zkevm_circuits::evm_circuit;
 use zkevm_circuits::pi_circuit::PublicData;
+use zkevm_common::prover::CircuitConfig;
 
 /// Wrapper struct for circuit witness data.
 pub struct CircuitWitness {
+    pub circuit_config: CircuitConfig,
     pub eth_block: eth_types::Block<eth_types::Transaction>,
     pub block: bus_mapping::circuit_input_builder::Block,
     pub code_db: bus_mapping::state_db::CodeDB,
@@ -23,22 +26,33 @@ pub struct CircuitWitness {
 }
 
 impl CircuitWitness {
-    pub fn dummy(block_gas_limit: usize) -> Result<Self, String> {
+    pub fn dummy(circuit_config: CircuitConfig) -> Result<Self, String> {
         let history_hashes = vec![Word::zero(); 256];
         let mut eth_block: eth_types::Block<eth_types::Transaction> = eth_types::Block::default();
         eth_block.author = Some(Address::zero());
         eth_block.number = Some(history_hashes.len().into());
         eth_block.base_fee_per_gas = Some(0.into());
         eth_block.hash = Some(eth_block.parent_hash);
-        eth_block.gas_limit = block_gas_limit.into();
+        eth_block.gas_limit = circuit_config.block_gas_limit.into();
 
+        let circuit_params = CircuitsParams {
+            max_rws: circuit_config.max_rws,
+            max_txs: circuit_config.max_txs,
+        };
         let keccak_inputs = Vec::new();
         let code_db = CodeDB::new();
         let chain_id = U256::from(99);
-        let block = Block::new(chain_id, history_hashes, U256::default(), &eth_block)
-            .map_err(|e| e.to_string())?;
+        let block = Block::new(
+            chain_id,
+            history_hashes,
+            U256::default(),
+            &eth_block,
+            circuit_params,
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(Self {
+            circuit_config,
             eth_block,
             block,
             code_db,
@@ -54,11 +68,26 @@ impl CircuitWitness {
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let url = Http::from_str(rpc_url)?;
         let geth_client = GethClient::new(url);
-        let builder = BuilderClient::new(geth_client).await?;
+        // TODO: add support for `eth_getHeaderByNumber`
+        let block = geth_client.get_block_by_number((*block_num).into()).await?;
+        let circuit_config =
+            crate::match_circuit_params!(block.gas_used.as_usize(), CIRCUIT_CONFIG, {
+                return Err(format!(
+                    "No circuit parameters found for block with gas used={}",
+                    block.gas_used
+                )
+                .into());
+            });
+        let circuit_params = CircuitsParams {
+            max_rws: circuit_config.max_rws,
+            max_txs: circuit_config.max_txs,
+        };
+        let builder = BuilderClient::new(geth_client, circuit_params).await?;
         let (builder, eth_block) = builder.gen_inputs(*block_num).await?;
         let keccak_inputs = builder.keccak_inputs()?;
 
         Ok(Self {
+            circuit_config,
             eth_block,
             block: builder.block,
             code_db: builder.code_db,
@@ -66,11 +95,9 @@ impl CircuitWitness {
         })
     }
 
-    pub fn evm_witness(&self, pad: usize) -> (zkevm_circuits::witness::Block<Fr>, Vec<Vec<u8>>) {
+    pub fn evm_witness(&self) -> (zkevm_circuits::witness::Block<Fr>, Vec<Vec<u8>>) {
         let mut block = evm_circuit::witness::block_convert(&self.block, &self.code_db);
-        // use the same padding for both evm + state
-        block.state_circuit_pad_to = pad;
-        block.evm_circuit_pad_to = pad;
+        block.evm_circuit_pad_to = self.circuit_config.pad_to;
         let keccak_inputs = self.keccak_inputs.clone();
 
         (block, keccak_inputs)
