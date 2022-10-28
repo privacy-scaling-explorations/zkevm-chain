@@ -55,3 +55,7 @@ jobs:
           docker compose down -v --remove-orphans
           cp .env.example .env && docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh
+
+      - name: Dummy step for cache
+        if: always()
+        run: exit
