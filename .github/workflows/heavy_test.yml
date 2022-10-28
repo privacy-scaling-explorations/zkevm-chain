@@ -30,7 +30,7 @@ jobs:
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune -f
+          sudo docker system prune -af
 
       - uses: actions/checkout@v2
 
