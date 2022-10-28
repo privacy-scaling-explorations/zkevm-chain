@@ -14,3 +14,6 @@ git config --global user.email 'bot@github.action'
 git config --global user.name 'github action'
 branch=prover-error-$(git rev-parse HEAD)
 git checkout -b $branch && git add errors/ && git commit -m 'add prover errors' && git push origin $branch
+
+# exit with error to signal prover failure
+exit 1
