@@ -192,7 +192,7 @@ macro_rules! estimate {
         const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
         // TODO: add proper worst-case estimate
-        const MAX_RWS: usize = (1 << 19) * (BLOCK_GAS_LIMIT / 63_000);
+        const MAX_RWS: usize = ((1 << 19) * (BLOCK_GAS_LIMIT / 63_000) - 512);
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::zero(); 256];
@@ -288,7 +288,7 @@ macro_rules! estimate {
             // TODO: estimate aggregation circuit requirements
             let agg_k = 20;
             let remaining_rows = (1 << k) - highest_row;
-            //assert!(remaining_rows >= 256);
+            assert!(remaining_rows >= 256);
             let n = 1 << k;
             let pad_to = n - 256;
             circuit_config.min_k = k as usize;
