@@ -12,6 +12,9 @@ cargo build --release --bin prover_rpcd
 env time --output PROVER_STATS.txt --verbose -- cargo run --release --bin prover_rpcd > PROVER_LOG.txt 2>&1 &
 PID=$!
 
+# sleep a bit in case the geth nodes are not up yet
+sleep 3
+
 COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator
 status=$?
 
