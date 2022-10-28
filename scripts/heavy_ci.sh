@@ -10,9 +10,8 @@ trap 'pkill --parent $$' TERM EXIT INT
 
 cargo build --release --bin prover_rpcd
 cargo run --release --bin prover_rpcd > PROVER_LOG.txt 2>&1 &
-COORDINATOR_DUMMY_PROVER=false cargo test -- --nocapture
+COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator
 status=$?
-cat PROVER_LOG.txt
 
 if [ $status -eq 0 ]; then
   exit 0
