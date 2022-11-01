@@ -163,6 +163,7 @@ macro_rules! test_aggregation {
                             circuit.clone(),
                             circuit.instance(),
                             fixed_rng(),
+                            true,
                         );
                         data.instance = collect_instance(&circuit.instance());
                         data.proof = proof.into();
@@ -178,7 +179,7 @@ macro_rules! test_aggregation {
                         PoseidonTranscript<NativeLoader, _, _>,
                         _,
                     >(
-                        &params, &pk, circuit, instance.clone(), fixed_rng()
+                        &params, &pk, circuit, instance.clone(), fixed_rng(), true
                     );
 
                     let protocol = compile(
@@ -214,6 +215,7 @@ macro_rules! test_aggregation {
                     agg_circuit.clone(),
                     agg_circuit.instance(),
                     fixed_rng(),
+                    true,
                 );
                 data.instance = collect_instance(&agg_circuit.instance());
                 data.proof = proof.into();

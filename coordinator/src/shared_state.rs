@@ -1026,6 +1026,7 @@ impl SharedState {
             param: config.params_path.clone(),
             mock: config.mock_prover,
             aggregate: config.aggregate_proof,
+            mock_feedback: true,
         };
         drop(config);
 

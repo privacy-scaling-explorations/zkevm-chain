@@ -30,8 +30,7 @@ async fn proverd_simple_signaling() {
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
-        mock: false,
-        aggregate: false,
+        ..Default::default()
     };
     let proof_b = ProofRequestOptions {
         circuit: "super".to_string(),
@@ -39,8 +38,7 @@ async fn proverd_simple_signaling() {
         param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
-        mock: false,
-        aggregate: false,
+        ..Default::default()
     };
 
     // enqueue tasks

@@ -115,7 +115,12 @@ macro_rules! gen_proof {
                     PoseidonTranscript<NativeLoader, _, _>,
                     _,
                 >(
-                    &param, &pk, circuit, circuit_instance.clone(), fixed_rng()
+                    &param,
+                    &pk,
+                    circuit,
+                    circuit_instance.clone(),
+                    fixed_rng(),
+                    task_options.mock_feedback,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -161,6 +166,7 @@ macro_rules! gen_proof {
                     agg_circuit,
                     agg_instance,
                     fixed_rng(),
+                    task_options.mock_feedback,
                 );
                 aggregation_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -174,7 +180,12 @@ macro_rules! gen_proof {
                     EvmTranscript<G1Affine, _, _, _>,
                     _,
                 >(
-                    &param, &pk, circuit, circuit_instance.clone(), fixed_rng()
+                    &param,
+                    &pk,
+                    circuit,
+                    circuit_instance.clone(),
+                    fixed_rng(),
+                    task_options.mock_feedback,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
