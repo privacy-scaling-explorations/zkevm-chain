@@ -152,7 +152,7 @@ macro_rules! gen_match {
                         data.runtime_code =
                             gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
 
-                        if var("MINI").is_ok() {
+                        if var("ONLY_EVM").is_ok() {
                             log::info!("returning early");
                             let data = data.build();
                             write_bytes(&data.label, &serde_json::to_vec(data).unwrap());

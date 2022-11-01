@@ -51,7 +51,7 @@ jobs:
 
       - name: EVM verifier
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'ONLY_EVM=1 ./scripts/autogen.sh autogen_verifier_'
 
       - name: Commit
         run: ./scripts/ci_autogen_commit.sh
