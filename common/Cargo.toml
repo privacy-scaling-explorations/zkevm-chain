@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "b2b93631eb728a80c90adcef3a70aa16cb8322aa" }
+eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "43b34b6a341a54c2b19f412b72e18e0bbbe80c3c" }
 hyper = { version = "0.14.16", features = ["server"] }
 log = "0.4.14"
 serde = { version = "1.0.136", features = ["derive"] }

@@ -124,9 +124,8 @@ fn gen_verifier(
 
 macro_rules! gen_match {
     ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {{
-        let _ =
-            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-                .try_init();
+        let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+            .try_init();
 
         prover::match_circuit_params!(
             $GAS,
