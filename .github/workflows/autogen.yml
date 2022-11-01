@@ -1,0 +1,56 @@
+name: Autogen
+on:
+  workflow_dispatch:
+
+jobs:
+  wakeup:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-heavy-tests')
+    name: Wake up self-hosted runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+      - run: .github/workflows/wakeup_runner.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
+
+  gen:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    needs: [wakeup]
+    runs-on: heavy-worker
+    steps:
+      - name: Cleanup
+        run: |
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+          sudo docker system prune -f
+
+      - uses: actions/checkout@v2
+
+      - name: Setup
+        run: cp .env.example .env
+
+      - name: Build docker images
+        run: |
+          docker compose down -v --remove-orphans
+          docker compose build dev
+
+      - name: Circuit config
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_circuit_config'
+
+      - name: Cargo fmt
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'cargo fmt --all'
+
+      - name: EVM verifier
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_'
+
+      - name: Commit
+        run: ./scripts/ci_autogen_commit.sh

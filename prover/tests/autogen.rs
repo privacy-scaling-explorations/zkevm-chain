@@ -347,7 +347,7 @@ macro_rules! estimate_all {
 /// Generates `circuit_autogen.rs` and prints a markdown table about
 /// SuperCircuit parameters.
 #[test]
-fn proverd_autogen() {
+fn autogen_circuit_config() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // use a map to track the largest circuit parameters for `k`
