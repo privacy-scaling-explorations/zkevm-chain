@@ -38,7 +38,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          docker compose down -v --remove-orphans
+          docker compose down -v --remove-orphans || true
           docker compose build dev
 
       - name: Circuit config
