@@ -1,12 +1,12 @@
 use clap::Parser;
 use ethers_core::types::Address;
 use hyper::Uri;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use std::net::SocketAddr;
 
 #[serde_as]
-#[derive(Parser, Serialize, Clone, Debug)]
+#[derive(Parser, Deserialize, Serialize, Clone, Debug)]
 #[clap(version, about)]
 /// zkEVM coordinator, coordinates between the prover and the block production and relays between the bridge contracts in L1 and L2.
 pub struct Config {
@@ -29,6 +29,10 @@ pub struct Config {
     #[clap(long, env = "COORDINATOR_MOCK_PROVER", default_value_t = false)]
     /// Only use the mock prover for proof requests.
     pub mock_prover: bool,
+
+    #[clap(long, env = "COORDINATOR_MOCK_PROVER_IF_ERROR", default_value_t = true)]
+    /// Run the mock prover if a proof request fails.
+    pub mock_prover_if_error: bool,
 
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
     #[serde_as(as = "DisplayFromStr")]
