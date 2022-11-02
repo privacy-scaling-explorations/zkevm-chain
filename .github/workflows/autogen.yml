@@ -32,6 +32,9 @@ jobs:
           sudo docker system prune -f
 
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - name: Setup
         run: cp .env.example .env
