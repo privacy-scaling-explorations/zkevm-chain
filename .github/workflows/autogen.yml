@@ -41,6 +41,10 @@ jobs:
           docker compose down -v --remove-orphans || true
           docker compose build dev
 
+      - name: Contracts
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh'
+
       - name: Circuit config
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_circuit_config'
