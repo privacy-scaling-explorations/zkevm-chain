@@ -57,5 +57,8 @@ jobs:
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'ONLY_EVM=1 ./scripts/autogen.sh autogen_verifier_'
 
+      - name: Patch genesis templates
+        run: docker run --rm -v $(pwd):/host -w /host node:lts-alpine scripts/patch_genesis.mjs
+
       - name: Commit
         run: ./scripts/ci_autogen_commit.sh
