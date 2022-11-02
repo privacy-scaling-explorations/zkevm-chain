@@ -167,7 +167,7 @@ fn run_assembly<
     const MAX_RWS: usize,
 >(
     witness: CircuitWitness,
-) -> Result<Assembly, String> {
+) -> Result<usize, String> {
     let circuit =
         super_circuit::gen_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
             .expect("gen_static_circuit");
@@ -179,7 +179,7 @@ fn run_assembly<
     SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())
         .map_err(|e| e.to_string())?;
 
-    Ok(assembly)
+    Ok(assembly.highest_row + cs.blinding_factors() + 1)
 }
 
 macro_rules! estimate {
@@ -192,10 +192,10 @@ macro_rules! estimate {
         const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
         // TODO: add proper worst-case estimate
-        const MAX_RWS: usize = ((1 << 19) * (BLOCK_GAS_LIMIT / 63_000) - 512);
+        const MAX_RWS: usize = ((1 << 19) * (BLOCK_GAS_LIMIT / 63_000) - (1 << 15));
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
-        let history_hashes = vec![Word::zero(); 256];
+        let history_hashes = vec![Word::one(); 256];
         let block_number = history_hashes.len();
         let chain_id: u64 = 99;
         let mut circuit_config = CircuitConfig {
@@ -281,18 +281,14 @@ macro_rules! estimate {
         {
             let highest_row =
                 run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS>(circuit_witness)
-                    .unwrap()
-                    .highest_row;
+                    .unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row);
             // TODO: estimate aggregation circuit requirements
             let agg_k = 20;
             let remaining_rows = (1 << k) - highest_row;
-            assert!(remaining_rows >= 256);
-            let n = 1 << k;
-            let pad_to = n - 256;
             circuit_config.min_k = k as usize;
-            circuit_config.pad_to = pad_to;
+            circuit_config.pad_to = MAX_RWS;
             circuit_config.min_k_aggregation = agg_k;
 
             $scope(circuit_config, highest_row, remaining_rows);
