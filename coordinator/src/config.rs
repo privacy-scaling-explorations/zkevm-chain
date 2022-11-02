@@ -69,6 +69,10 @@ pub struct Config {
     #[clap(long, env = "COORDINATOR_AGGREGATE_PROOF", default_value_t = false)]
     /// Signals the prover to aggregate the circuit proof
     pub aggregate_proof: bool,
+
+    #[clap(long, env = "COORDINATOR_UNSAFE_RPC", default_value_t = false)]
+    /// Allow unsafe rpc methods of the coordinator if true
+    pub unsafe_rpc: bool,
 }
 
 impl Config {

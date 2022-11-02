@@ -325,6 +325,10 @@ async fn handle_method(
 ) -> Result<serde_json::Value, String> {
     match method {
         "config" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
             let config = match params.get(0) {
                 Some(options) => {
                     let options: Config =
