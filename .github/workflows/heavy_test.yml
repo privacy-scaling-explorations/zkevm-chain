@@ -30,27 +30,24 @@ jobs:
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
+          sudo docker system prune -f
 
       - uses: actions/checkout@v2
 
-      - uses: actions/cache@v3
-        with:
-          path: ${{ runner.temp }}/docker-cache
-          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-${{ github.run_id }}
-          restore-keys: |
-            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.ref }}-
+      - name: Setup
+        run: cp .env.example .env
 
       - name: Build docker images
-        run: >
-          (docker buildx create --name mybuilder --use || true);
-          docker buildx bake --load
-          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
-          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
-          bootnode dev &&
-          rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
-
-      - name: Run heavy tests
         run: |
           docker compose down -v --remove-orphans
-          cp .env.example .env && docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/heavy_ci.sh'
-          ./scripts/ci_commit_errors.sh
+          docker compose build bootnode dev
+
+      - name: Pi Circuit
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh pi
+
+      - name: Super Circuit
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh super

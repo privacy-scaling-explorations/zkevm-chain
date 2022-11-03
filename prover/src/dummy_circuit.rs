@@ -12,7 +12,6 @@ use halo2_proofs::plonk::Fixed;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::poly::Rotation;
 use rand::Rng;
-use zkevm_common::prover::CircuitConfig;
 
 #[derive(Clone, Copy)]
 pub struct DummyCircuitConfig {
@@ -131,8 +130,12 @@ impl Circuit<Fr> for DummyCircuit {
 }
 
 /// Returns a instance of the `DummyCircuit`.
-pub fn gen_circuit<const MAX_TXS: usize, const MAX_CALLDATA: usize, RNG: Rng>(
-    _config: &CircuitConfig,
+pub fn gen_circuit<
+    const MAX_TXS: usize,
+    const MAX_CALLDATA: usize,
+    const MAX_RWS: usize,
+    RNG: Rng,
+>(
     witness: &CircuitWitness,
     mut _rng: RNG,
 ) -> Result<DummyCircuit, String> {

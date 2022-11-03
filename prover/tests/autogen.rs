@@ -1,13 +1,12 @@
 #![cfg(feature = "autogen")]
 
+use bus_mapping::circuit_input_builder::CircuitsParams;
 use bus_mapping::mock::BlockData;
 use env_logger::Env;
-use eth_types::geth_types;
 use eth_types::geth_types::GethData;
 use eth_types::{address, Word};
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
-use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::circuit::Value;
@@ -26,20 +25,16 @@ use halo2_proofs::plonk::FloorPlanner;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::plonk::Selector;
 use mock::TestContext;
-use rand::rngs::OsRng;
+use prover::circuit_witness::CircuitWitness;
+use prover::super_circuit;
+use prover::utils::fixed_rng;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::Write as fwrite;
-use strum::IntoEnumIterator;
-use zkevm_circuits::evm_circuit::witness;
-use zkevm_circuits::evm_circuit::{table::FixedTableTag, witness::block_convert};
+use zkevm_circuits::evm_circuit::witness::block_convert;
 use zkevm_circuits::super_circuit::SuperCircuit;
-use zkevm_circuits::tx_circuit::Curve;
-use zkevm_circuits::tx_circuit::Group;
-use zkevm_circuits::tx_circuit::Secp256k1Affine;
-use zkevm_circuits::tx_circuit::TxCircuit;
 use zkevm_common::prover::*;
 
 #[derive(Debug, Default)]
@@ -165,33 +160,26 @@ impl<F: Field> Assignment<F> for Assembly {
     }
 }
 
-fn run_assembly<const MAX_TXS: usize, const MAX_CALLDATA: usize, const MAX_BYTECODE: usize>(
-    input_block: witness::Block<Fr>,
-    txs: Vec<geth_types::Transaction>,
-    keccak_inputs: Vec<Vec<u8>>,
-) -> Result<Assembly, String> {
-    let chain_id = input_block.context.chain_id;
-    let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(OsRng).to_affine();
-    let tx_circuit = TxCircuit::new(aux_generator, chain_id.as_u64(), txs);
-    let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
-        block: input_block,
-        fixed_table_tags: FixedTableTag::iter().collect(),
-        tx_circuit,
-        keccak_inputs,
-        // TODO: why does it succeed if bytecode for tx is > MAX_BYTECODE?
-        bytecode_size: MAX_BYTECODE,
-    };
+fn run_assembly<
+    const MAX_TXS: usize,
+    const MAX_CALLDATA: usize,
+    const MAX_BYTECODE: usize,
+    const MAX_RWS: usize,
+>(
+    witness: CircuitWitness,
+) -> Result<usize, String> {
+    let circuit =
+        super_circuit::gen_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
+            .expect("gen_static_circuit");
 
     let mut cs = ConstraintSystem::default();
-    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA>::configure(&mut cs);
+    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>::configure(&mut cs);
     let mut assembly = Assembly::default();
-    // TODO: cs.constants.clone() - private field, but empty
-    // assert_eq!(cs.constants.len(), 0);
-    let constants = vec![];
-    SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants)
+    let constants = cs.constants();
+    SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())
         .map_err(|e| e.to_string())?;
 
-    Ok(assembly)
+    Ok(assembly.highest_row + cs.blinding_factors() + 1)
 }
 
 macro_rules! estimate {
@@ -203,18 +191,28 @@ macro_rules! estimate {
         const MAX_TXS: usize = BLOCK_GAS_LIMIT / 21_000;
         const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
+        // TODO: add proper worst-case estimate
+        const MAX_RWS: usize = ((1 << 19) * (BLOCK_GAS_LIMIT / 63_000) - (1 << 15));
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
-        let history_hashes = vec![Word::zero(); 256];
+        let history_hashes = vec![Word::one(); 256];
         let block_number = history_hashes.len();
-        let input_block;
-        let txs: Vec<geth_types::Transaction>;
-        let keccak_inputs;
         let chain_id: u64 = 99;
+        let mut circuit_config = CircuitConfig {
+            block_gas_limit: BLOCK_GAS_LIMIT,
+            max_txs: MAX_TXS,
+            max_calldata: MAX_CALLDATA,
+            max_bytecode: MAX_BYTECODE,
+            max_rws: MAX_RWS,
+            min_k: 0,
+            pad_to: 0,
+            min_k_aggregation: 0,
+        };
+        let circuit_witness;
 
         // prepare block
         {
-            let wallet_a = LocalWallet::new(&mut OsRng).with_chain_id(chain_id);
+            let wallet_a = LocalWallet::new(&mut fixed_rng()).with_chain_id(chain_id);
             let addr_a = wallet_a.address();
             let addr_b = address!("0x000000000000000000000000000000000000BBBB");
             let mut wallets = HashMap::new();
@@ -244,25 +242,24 @@ macro_rules! estimate {
             )
             .unwrap()
             .into();
-
             block.sign(&wallets);
-            txs = block
-                .eth_block
-                .transactions
-                .iter()
-                .map(geth_types::Transaction::from)
-                .collect();
 
+            let circuit_params = CircuitsParams {
+                max_rws: circuit_config.max_rws,
+                max_txs: circuit_config.max_txs,
+            };
             let mut builder =
-                BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+                BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)
+                    .new_circuit_input_builder();
             builder
                 .handle_block(&block.eth_block, &block.geth_traces)
                 .expect("could not handle block tx");
-            keccak_inputs = builder.keccak_inputs().expect("keccak_inputs");
-            input_block = block_convert(&builder.block, &builder.code_db);
+            let keccak_inputs = builder.keccak_inputs().expect("keccak_inputs");
+
             // check gas used
             {
                 let mut cumulative_gas = Word::zero();
+                let input_block = block_convert(&builder.block, &builder.code_db);
                 for tx in input_block.txs.iter() {
                     let gas_limit = tx.gas;
                     let gas_left = tx.steps.iter().last().unwrap().gas_left;
@@ -271,35 +268,30 @@ macro_rules! estimate {
                 let diff = input_block.context.gas_limit - cumulative_gas.as_u64();
                 assert!(diff <= $MAX_UNUSED_GAS);
             }
+
+            circuit_witness = CircuitWitness {
+                circuit_config: circuit_config.clone(),
+                eth_block: block.eth_block,
+                block: builder.block,
+                code_db: builder.code_db,
+                keccak_inputs,
+            };
         }
         // calculate circuit stats
         {
-            let highest_row = run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE>(
-                input_block,
-                txs,
-                keccak_inputs,
-            )
-            .unwrap()
-            .highest_row;
+            let highest_row =
+                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS>(circuit_witness)
+                    .unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row);
             // TODO: estimate aggregation circuit requirements
             let agg_k = 20;
             let remaining_rows = (1 << k) - highest_row;
-            assert!(remaining_rows >= 256);
-            let n = 1 << k;
-            let pad_to = n - 256;
-            let config = CircuitConfig {
-                block_gas_limit: BLOCK_GAS_LIMIT,
-                max_txs: MAX_TXS,
-                max_calldata: MAX_CALLDATA,
-                max_bytecode: MAX_BYTECODE,
-                min_k: k as usize,
-                pad_to,
-                min_k_aggregation: agg_k,
-            };
+            circuit_config.min_k = k as usize;
+            circuit_config.pad_to = MAX_RWS;
+            circuit_config.min_k_aggregation = agg_k;
 
-            $scope(config, highest_row, remaining_rows);
+            $scope(circuit_config, highest_row, remaining_rows);
         }
     }};
 }
@@ -351,7 +343,7 @@ macro_rules! estimate_all {
 /// Generates `circuit_autogen.rs` and prints a markdown table about
 /// SuperCircuit parameters.
 #[test]
-fn proverd_autogen() {
+fn autogen_circuit_config() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     // use a map to track the largest circuit parameters for `k`

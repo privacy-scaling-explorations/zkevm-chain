@@ -28,6 +28,7 @@ use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
 use prover::utils::gen_proof;
 use prover::ProverParams;
+use std::env::var;
 use std::fs;
 use std::io::Write;
 use std::rc::Rc;
@@ -121,22 +122,22 @@ fn gen_verifier(
     loader.runtime_code()
 }
 
-macro_rules! test_aggregation {
+macro_rules! gen_match {
     ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {{
-        let _ =
-            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
-                .try_init();
+        let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+            .try_init();
 
         prover::match_circuit_params!(
             $GAS,
             {
                 let snark = {
-                    let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
+                    let witness = CircuitWitness::dummy(CIRCUIT_CONFIG).unwrap();
                     let circuit = $CIRCUIT::gen_circuit::<
                         { CIRCUIT_CONFIG.max_txs },
                         { CIRCUIT_CONFIG.max_calldata },
+                        { CIRCUIT_CONFIG.max_rws },
                         _,
-                    >(&CIRCUIT_CONFIG, &witness, fixed_rng())
+                    >(&witness, fixed_rng())
                     .expect("gen_static_circuit");
                     let instance = circuit.instance();
 
@@ -150,6 +151,13 @@ macro_rules! test_aggregation {
                         data.config = CIRCUIT_CONFIG;
                         data.runtime_code =
                             gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
+
+                        if var("ONLY_EVM").is_ok() {
+                            log::info!("returning early");
+                            let data = data.build();
+                            write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
+                            return;
+                        }
 
                         let proof = gen_proof::<
                             _,
@@ -174,8 +182,8 @@ macro_rules! test_aggregation {
                     let proof = gen_proof::<
                         _,
                         _,
-                        PoseidonTranscript<NativeLoader, _, _>,
-                        PoseidonTranscript<NativeLoader, _, _>,
+                        PoseidonTranscript<NativeLoader, _>,
+                        PoseidonTranscript<NativeLoader, _>,
                         _,
                     >(
                         &params, &pk, circuit, instance.clone(), fixed_rng()
@@ -228,23 +236,35 @@ macro_rules! test_aggregation {
     }};
 }
 
-#[test]
-fn autogen_aggregation_super() {
-    test_aggregation!("super", super_circuit, 63_000);
-    test_aggregation!("super", super_circuit, 150_000);
-    test_aggregation!("super", super_circuit, 300_000);
+// wrapper
+macro_rules! gen {
+    ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {{
+        fn func() {
+            gen_match!($LABEL, $CIRCUIT, $GAS);
+        }
+        func();
+    }};
+}
+
+macro_rules! for_each {
+    ($LABEL:expr, $CIRCUIT:ident) => {{
+        gen!($LABEL, $CIRCUIT, 63_000);
+        gen!($LABEL, $CIRCUIT, 150_000);
+        gen!($LABEL, $CIRCUIT, 300_000);
+    }};
 }
 
 #[test]
-fn autogen_aggregation_pi() {
-    test_aggregation!("pi", public_input_circuit, 63_000);
-    test_aggregation!("pi", public_input_circuit, 150_000);
-    test_aggregation!("pi", public_input_circuit, 300_000);
+fn autogen_verifier_super() {
+    for_each!("super", super_circuit);
 }
 
 #[test]
-fn autogen_aggregation_dummy() {
-    test_aggregation!("dummy", dummy_circuit, 63_000);
-    test_aggregation!("dummy", dummy_circuit, 150_000);
-    test_aggregation!("dummy", dummy_circuit, 300_000);
+fn autogen_verifier_pi() {
+    for_each!("pi", public_input_circuit);
+}
+
+#[test]
+fn autogen_verifier_dummy() {
+    for_each!("dummy", dummy_circuit);
 }

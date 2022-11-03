@@ -1,13 +1,13 @@
 use crate::ProverParams;
-use halo2_proofs::halo2curves::bn256::{Bn256, Fq, Fr, G1Affine};
-use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::{
     circuit::{Layouter, SimpleFloorPlanner, Value},
+    halo2curves::bn256::{Bn256, Fq, Fr, G1Affine},
     plonk::{self, Circuit, ConstraintSystem},
+    poly::commitment::ParamsProver,
 };
 use itertools::Itertools;
-use plonk_verifier::loader::halo2::halo2_wrong_ecc;
 use plonk_verifier::loader::halo2::halo2_wrong_ecc::{
+    self,
     integer::rns::Rns,
     maingate::{
         MainGate, MainGateConfig, MainGateInstructions, RangeChip, RangeConfig, RangeInstructions,
@@ -15,19 +15,17 @@ use plonk_verifier::loader::halo2::halo2_wrong_ecc::{
     },
     EccConfig,
 };
-use plonk_verifier::loader::halo2::halo2_wrong_transcript::NativeRepresentation;
-use plonk_verifier::loader::native::NativeLoader;
-use plonk_verifier::pcs::AccumulationScheme;
-use plonk_verifier::pcs::AccumulationSchemeProver;
 use plonk_verifier::{
-    loader,
-    pcs::kzg::{Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey, LimbsEncoding},
+    loader::{self, native::NativeLoader},
+    pcs::{
+        kzg::{Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey, LimbsEncoding},
+        AccumulationScheme, AccumulationSchemeProver,
+    },
     system,
     util::arithmetic::{fe_to_limbs, FieldExt},
     verifier::{self, PlonkVerifier},
     Protocol,
 };
-use rand::rngs::OsRng;
 use rand::Rng;
 use std::iter;
 use std::rc::Rc;
@@ -37,6 +35,7 @@ const BITS: usize = 68;
 type Pcs = Kzg<Bn256, Gwc19>;
 type As = KzgAs<Pcs>;
 pub type Plonk = verifier::Plonk<Pcs, LimbsEncoding<LIMBS, BITS>>;
+
 const T: usize = 5;
 const RATE: usize = 4;
 const R_F: usize = 8;
@@ -44,21 +43,9 @@ const R_P: usize = 60;
 
 type Svk = KzgSuccinctVerifyingKey<G1Affine>;
 type BaseFieldEccChip = halo2_wrong_ecc::BaseFieldEccChip<G1Affine, LIMBS, BITS>;
-type Halo2Loader<'a> = loader::halo2::Halo2Loader<'a, G1Affine, Fr, BaseFieldEccChip>;
-pub type PoseidonTranscript<L, S, B> = system::halo2::transcript::halo2::PoseidonTranscript<
-    G1Affine,
-    Fr,
-    NativeRepresentation,
-    L,
-    S,
-    B,
-    LIMBS,
-    BITS,
-    T,
-    RATE,
-    R_F,
-    R_P,
->;
+type Halo2Loader<'a> = loader::halo2::Halo2Loader<'a, G1Affine, BaseFieldEccChip>;
+pub type PoseidonTranscript<L, S> =
+    system::halo2::transcript::halo2::PoseidonTranscript<G1Affine, L, S, T, RATE, R_F, R_P>;
 
 pub struct Snark {
     pub protocol: Protocol<G1Affine>,
@@ -138,7 +125,7 @@ pub fn aggregate<'a>(
         .flat_map(|snark| {
             let instances = assign_instances(&snark.instances);
             let mut transcript =
-                PoseidonTranscript::<Rc<Halo2Loader>, _, _>::new(loader, snark.proof());
+                PoseidonTranscript::<Rc<Halo2Loader>, _>::new(loader, snark.proof());
             let proof =
                 Plonk::read_proof(svk, &snark.protocol, &instances, &mut transcript).unwrap();
             Plonk::succinct_verify(svk, &snark.protocol, &instances, &proof).unwrap()
@@ -146,7 +133,7 @@ pub fn aggregate<'a>(
         .collect_vec();
 
     let acccumulator = {
-        let mut transcript = PoseidonTranscript::<Rc<Halo2Loader>, _, _>::new(loader, as_proof);
+        let mut transcript = PoseidonTranscript::<Rc<Halo2Loader>, _>::new(loader, as_proof);
         let proof = As::read_proof(&Default::default(), &accumulators, &mut transcript).unwrap();
         As::verify(&Default::default(), &accumulators, &proof).unwrap()
     };
@@ -197,7 +184,6 @@ pub struct AggregationCircuit {
     snarks: Vec<SnarkWitness>,
     instances: Vec<Fr>,
     as_proof: Value<Vec<u8>>,
-    aux_generator: G1Affine,
 }
 
 impl AggregationCircuit {
@@ -213,7 +199,7 @@ impl AggregationCircuit {
             .iter()
             .flat_map(|snark| {
                 let mut transcript =
-                    PoseidonTranscript::<NativeLoader, _, _>::new(snark.proof.as_slice());
+                    PoseidonTranscript::<NativeLoader, _>::new(snark.proof.as_slice());
                 let proof =
                     Plonk::read_proof(&svk, &snark.protocol, &snark.instances, &mut transcript)
                         .unwrap();
@@ -222,7 +208,7 @@ impl AggregationCircuit {
             .collect_vec();
 
         let (accumulator, as_proof) = {
-            let mut transcript = PoseidonTranscript::<NativeLoader, _, _>::new(Vec::new());
+            let mut transcript = PoseidonTranscript::<NativeLoader, _>::new(Vec::new());
             let accumulator = As::create_proof(
                 &Default::default(),
                 &accumulators,
@@ -243,7 +229,6 @@ impl AggregationCircuit {
             snarks: snarks.into_iter().map_into().collect(),
             instances,
             as_proof: Value::known(as_proof),
-            aux_generator: G1Affine::random(&mut rng),
         }
     }
 
@@ -278,7 +263,6 @@ impl Circuit<Fr> for AggregationCircuit {
                 .collect(),
             instances: Vec::new(),
             as_proof: Value::unknown(),
-            aux_generator: G1Affine::random(OsRng),
         }
     }
 
@@ -306,7 +290,7 @@ impl Circuit<Fr> for AggregationCircuit {
                 let ctx = RegionCtx::new(region, 0);
 
                 let ecc_chip = config.ecc_chip();
-                let loader = Halo2Loader::new(ecc_chip, ctx, self.aux_generator);
+                let loader = Halo2Loader::new(ecc_chip, ctx);
                 let KzgAccumulator { lhs, rhs } =
                     aggregate(&self.svk, &loader, &self.snarks, self.as_proof());
 

@@ -268,7 +268,7 @@ checksum = "8f1e260c3a9040a7c19a12468758f4c16f31a81a1fe087482be9570ec864bb6c"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -714,7 +714,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
 dependencies = [
  "group",
- "integer",
+ "integer 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "ecc"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22#63bde545d934e69c806ef9bc8b18f03f6ec0fe8e"
+dependencies = [
+ "group",
+ "integer 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -727,7 +741,7 @@ name = "ecdsa"
 version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
 dependencies = [
- "ecc",
+ "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
  "group",
  "num-bigint",
  "num-integer",
@@ -821,7 +835,7 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "ethers-core",
  "ethers-signers",
@@ -837,6 +851,8 @@ dependencies = [
  "serde_json",
  "serde_with 1.14.0",
  "sha3 0.10.2",
+ "strum",
+ "strum_macros",
  "subtle",
  "uint",
 ]
@@ -973,7 +989,7 @@ dependencies = [
 [[package]]
 name = "external-tracer"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "eth-types",
  "geth-utils",
@@ -1164,7 +1180,7 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "digest 0.7.6",
  "eth-types",
@@ -1204,7 +1220,7 @@ dependencies = [
 [[package]]
 name = "geth-utils"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "gobuild",
 ]
@@ -1279,12 +1295,12 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/han0110/halo2.git?branch=feature/configurable-instance-query#432d72f462ed47ccf5c93b1111afed14c95db52b"
+source = "git+https://github.com/pinkiebell/halo2.git?rev=5fc8ce89ef3235d8eefeb8994173ac706e89e4ec#5fc8ce89ef3235d8eefeb8994173ac706e89e4ec"
 dependencies = [
  "blake2b_simd",
  "ff",
  "group",
- "halo2curves 0.2.1",
+ "halo2curves",
  "rand_core",
  "rayon",
  "tracing",
@@ -1292,25 +1308,8 @@ dependencies = [
 
 [[package]]
 name = "halo2curves"
-version = "0.2.0"
-source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=v0.2.0#bbd4cee10dbf9c51e0456ea67ec2b894b49f688c"
-dependencies = [
- "ff",
- "group",
- "lazy_static",
- "num-bigint",
- "num-traits",
- "pasta_curves",
- "rand",
- "rand_core",
- "static_assertions",
- "subtle",
-]
-
-[[package]]
-name = "halo2curves"
 version = "0.2.1"
-source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.2.1#f75ed26c961179186e9cec02cc3f841ca9e3fec1"
+source = "git+https://github.com/privacy-scaling-explorations/halo2curves?tag=0.3.0#83c72d49762343ffc9576ca11a2aa615efe1029b"
 dependencies = [
  "ff",
  "group",
@@ -1328,6 +1327,18 @@ dependencies = [
 name = "halo2wrong"
 version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
+dependencies = [
+ "group",
+ "halo2_proofs 0.2.0",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "halo2wrong"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22#63bde545d934e69c806ef9bc8b18f03f6ec0fe8e"
 dependencies = [
  "group",
  "halo2_proofs 0.2.0",
@@ -1576,7 +1587,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
 dependencies = [
  "group",
- "maingate",
+ "maingate 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "integer"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22#63bde545d934e69c806ef9bc8b18f03f6ec0fe8e"
+dependencies = [
+ "group",
+ "maingate 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -1636,7 +1661,7 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "eth-types",
  "halo2_proofs 0.1.0",
@@ -1731,7 +1756,21 @@ version = "0.1.0"
 source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
 dependencies = [
  "group",
- "halo2wrong",
+ "halo2wrong 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
+ "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "subtle",
+]
+
+[[package]]
+name = "maingate"
+version = "0.1.0"
+source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22#63bde545d934e69c806ef9bc8b18f03f6ec0fe8e"
+dependencies = [
+ "group",
+ "halo2wrong 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22)",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -1781,7 +1820,7 @@ dependencies = [
 [[package]]
 name = "mock"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -2112,30 +2151,30 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "plonk_verifier"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=dac44da362b86c3e7058af29ce82d47e4b4475fe#dac44da362b86c3e7058af29ce82d47e4b4475fe"
+source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=916b29fe89cb0dafebdf040777b1384587208ab5#916b29fe89cb0dafebdf040777b1384587208ab5"
 dependencies = [
- "ecc",
+ "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22)",
  "ethereum-types",
  "halo2_proofs 0.2.0",
- "halo2curves 0.2.1",
+ "halo2curves",
  "itertools",
  "lazy_static",
  "num-bigint",
+ "num-integer",
  "num-traits",
  "poseidon",
  "rand",
  "rand_chacha",
  "sha3 0.10.2",
- "transcript",
 ]
 
 [[package]]
 name = "poseidon"
 version = "0.2.0"
-source = "git+https://github.com/privacy-scaling-explorations/poseidon?branch=padding#6a305ac124810a1eaf83ae7fafd520b19bfa304e"
+source = "git+https://github.com/privacy-scaling-explorations/poseidon?tag=v2022_10_22#5d29df01a95e3df6334080d28e983407f56b5da3"
 dependencies = [
  "group",
- "halo2curves 0.2.0",
+ "halo2curves",
  "subtle",
 ]
 
@@ -3030,17 +3069,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "transcript"
-version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09#2d708b4453387f03059aad68d6d87441db112a2f"
-dependencies = [
- "ecc",
- "group",
- "poseidon",
- "subtle",
-]
-
-[[package]]
 name = "try-lock"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3396,24 +3424,24 @@ checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=d5d491459578e4e3034b2ce77d29201de807a8a7#d5d491459578e4e3034b2ce77d29201de807a8a7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?rev=4e1832bf8f0fabfd3eab79fe59728d43628d79c1#4e1832bf8f0fabfd3eab79fe59728d43628d79c1"
 dependencies = [
  "array-init",
  "bus-mapping",
- "ecc",
+ "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
  "ecdsa 0.1.0",
  "env_logger",
  "eth-types",
  "ethers-core",
  "gadgets",
  "halo2_proofs 0.2.0",
- "integer",
+ "integer 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
  "itertools",
  "keccak256",
  "lazy_static",
  "libsecp256k1",
  "log",
- "maingate",
+ "maingate 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_09_09)",
  "num",
  "num-bigint",
  "rand",

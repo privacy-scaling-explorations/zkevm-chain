@@ -41,6 +41,7 @@ RUN set -eux; \
         curl \
         git \
         xz-utils \
+        time \
         ; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
