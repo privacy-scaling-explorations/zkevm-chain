@@ -85,7 +85,7 @@ fn gen_aggregation_evm_verifier(
     let num_instance = gen_num_instance(&instance);
     let config = Config::kzg()
         .with_num_instance(num_instance)
-        .with_accumulator_indices(AggregationCircuit::accumulator_indices());
+        .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices()));
 
     gen_verifier(params, vk, instance, config)
 }
@@ -113,7 +113,8 @@ fn gen_verifier(
     let protocol = compile(params, vk, config);
 
     let loader = EvmLoader::new::<Fq, Fr>();
-    let mut transcript = EvmTranscript::<_, Rc<EvmLoader>, _, _>::new(loader.clone());
+    let protocol = protocol.loaded(&loader);
+    let mut transcript = EvmTranscript::<_, Rc<EvmLoader>, _, _>::new(&loader);
 
     let instances = transcript.load_instances(num_instance);
     let proof = Plonk::read_proof(&svk, &protocol, &instances, &mut transcript).unwrap();

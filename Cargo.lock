@@ -2151,7 +2151,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 [[package]]
 name = "plonk_verifier"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/plonk-verifier.git?rev=916b29fe89cb0dafebdf040777b1384587208ab5#916b29fe89cb0dafebdf040777b1384587208ab5"
+source = "git+https://github.com/privacy-scaling-explorations/plonk-verifier.git?rev=2cd8b9d1e57949979db1cbfa8506518e63d27e93#2cd8b9d1e57949979db1cbfa8506518e63d27e93"
 dependencies = [
  "ecc 0.1.0 (git+https://github.com/privacy-scaling-explorations/halo2wrong?tag=v2022_10_22)",
  "ethereum-types",
@@ -2164,7 +2164,6 @@ dependencies = [
  "num-traits",
  "poseidon",
  "rand",
- "rand_chacha",
  "sha3 0.10.2",
 ]
 
