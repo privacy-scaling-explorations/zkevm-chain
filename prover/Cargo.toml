@@ -6,9 +6,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22" }
-bus-mapping = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "4e1832bf8f0fabfd3eab79fe59728d43628d79c1" }
-eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "4e1832bf8f0fabfd3eab79fe59728d43628d79c1" }
-zkevm-circuits = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "4e1832bf8f0fabfd3eab79fe59728d43628d79c1" }
+bus-mapping = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "93abf023f061c719d8737478b2d87539c517431a" }
+eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "93abf023f061c719d8737478b2d87539c517431a" }
+zkevm-circuits = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "93abf023f061c719d8737478b2d87539c517431a" }
 plonk_verifier = { git = "https://github.com/privacy-scaling-explorations/plonk-verifier.git", rev = "2cd8b9d1e57949979db1cbfa8506518e63d27e93" }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"
@@ -25,7 +25,7 @@ itertools = "0.10.3"
 clap = { version = "4.0.14", features = ["derive", "env"] }
 
 # autogen
-mock = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "4e1832bf8f0fabfd3eab79fe59728d43628d79c1", optional = true }
+mock = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "93abf023f061c719d8737478b2d87539c517431a", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
 
 [features]
