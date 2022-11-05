@@ -144,6 +144,26 @@ services:
     deploy:
       replicas: 1
 
+  coverage-l1:
+    profiles:
+      - dev
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.2
+    volumes:
+      - .:/host:ro
+    working_dir: /host
+    environment:
+      - RPC=http://l1-testnet-geth:8545
+
+  coverage-l2:
+    profiles:
+      - dev
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.2
+    volumes:
+      - .:/host:ro
+    working_dir: /host
+    environment:
+      - RPC=http://leader-testnet-geth:8545
+
   dev:
     profiles:
       - dev
@@ -151,6 +171,8 @@ services:
       - leader-testnet-geth
       - server-testnet-geth
       - l1-testnet-geth
+      - coverage-l1
+      - coverage-l2
     build:
       dockerfile: docker/dev/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
@@ -160,8 +182,8 @@ services:
     environment:
       - COORDINATOR_LISTEN=[::]:8000
       - COORDINATOR_RPC_SERVER_NODES=server-testnet-geth:8545
-      - COORDINATOR_L2_RPC_URL=http://leader-testnet-geth:8545
-      - COORDINATOR_L1_RPC_URL=http://l1-testnet-geth:8545
+      - COORDINATOR_L2_RPC_URL=http://coverage-l2:8545
+      - COORDINATOR_L1_RPC_URL=http://coverage-l1:8545
       - COORDINATOR_L1_BRIDGE=0x936a70c0b28532aa22240dce21f89a8399d6ac60
       - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
       - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-true}
