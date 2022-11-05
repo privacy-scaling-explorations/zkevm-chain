@@ -34,17 +34,9 @@ jobs:
         run: |
           cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh && ./scripts/load_coverage.sh'
 
-      - name: Run coordinator tests
-        run: |
-          docker compose run --no-TTY --rm --entrypoint bash dev -c 'cargo test'
-
-      - name: Fix docker cache
-        if: success() && github.event_name == 'push'
-        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
-
       - name: Coverage
         run: |
-          docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/get_coverage.sh'
+          docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/get_coverage.sh && cat build/coverage-report.lcov'
 
       - name: Upload Coverage
         if: success()
