@@ -6,6 +6,7 @@ use ethers_core::abi::ParamType;
 use ethers_core::types::Bytes;
 use serde::de::IntoDeserializer;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use tokio::sync::Mutex;
@@ -19,7 +20,12 @@ fn deserialize_bytes<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Resul
     Ok(res.unwrap())
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct CombinedJson {
+    pub contracts: HashMap<String, ContractArtifact>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct ContractArtifact {
     #[serde(rename = "bin-runtime", deserialize_with = "deserialize_bytes")]
     pub bin_runtime: Bytes,
@@ -36,11 +42,18 @@ pub struct Trace {
 
 impl ContractArtifact {
     pub fn load(name: &str) -> Self {
-        let path = format!("../build/contracts/{}.json", name);
+        let path = "../build/contracts/combined.json";
         let file = File::open(&path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
         let reader = BufReader::new(file);
+        let combined: CombinedJson = serde_json::from_reader(reader).unwrap();
 
-        serde_json::from_reader(reader).unwrap()
+        for (id, artifact) in combined.contracts {
+            if id.ends_with(name) {
+                return artifact;
+            }
+        }
+
+        panic!("{} not found", name);
     }
 
     pub async fn l1_trace(

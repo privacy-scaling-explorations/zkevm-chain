@@ -21,5 +21,6 @@ $SOLC \
   --combined-json bin,bin-runtime,srcmap,srcmap-runtime,storage-layout \
   --optimize \
   --optimize-runs 4294967295 \
-  $(find "$ROOT"/contracts/ -iname '*.sol' | grep -v templates/) \
-  | jq -cr '.contracts | to_entries | map(.key |= split(":")[1]) | .[] | .key, .value' | awk 'NR%2{f="'"$OUTPUT_PATH/"'"$0".json";next} {print >f;close(f)}'
+  --overwrite \
+  -o "$OUTPUT_PATH" \
+  $(find "$ROOT"/contracts/ -iname '*.sol' | grep -v templates/)

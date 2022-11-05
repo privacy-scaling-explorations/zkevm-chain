@@ -7,25 +7,32 @@ function pad (n, v) {
 }
 
 function getCode (name) {
-  const json = JSON.parse(fs.readFileSync(`./build/contracts/${name}.json`));
+  for (const id in artifacts) {
+    if (id.split(':')[1] === name) {
+      return '0x' + artifacts[id]['bin-runtime'];
+    }
+  }
 
-  return '0x' + json['bin-runtime'];
+  throw new Error(`${name} not found`);
 }
 
+const artifacts = JSON.parse(fs.readFileSync('./build/contracts/combined.json')).contracts;
 const L1_CONTRACTS = {
   '936a70c0b28532aa22240dce21f89a8399d6ac60': 'ZkEvmL1Bridge',
   '936a70c0b28532aa22240dce21f89a8399d6ac61': 'L1OptimismBridge',
 };
 const baseAddress = BigInt('0x1111111111111111111111111111111111111111');
 const path = './build/plonk-verifier';
-for (const file of fs.readdirSync(path)) {
-  const json = JSON.parse(fs.readFileSync(`${path}/${file}`));
-  const addr = pad(40, BigInt(json.address));
-  console.log({file, addr});
-  if (L1_CONTRACTS[addr]) {
-    throw Error('exists');
+if (fs.existsSync(path)) {
+  for (const file of fs.readdirSync(path)) {
+    const json = JSON.parse(fs.readFileSync(`${path}/${file}`));
+    const addr = pad(40, BigInt(json.address));
+    console.log({file, addr});
+    if (L1_CONTRACTS[addr]) {
+      throw Error('exists');
+    }
+    L1_CONTRACTS[addr] = { name: file, code: json.runtime_code };
   }
-  L1_CONTRACTS[addr] = { name: file, code: json.runtime_code };
 }
 
 const L2_CONTRACTS = {
