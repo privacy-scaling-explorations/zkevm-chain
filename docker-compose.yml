@@ -131,6 +131,7 @@ services:
       - COORDINATOR_ENABLE_FAUCET=true
       - COORDINATOR_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
       - COORDINATOR_CIRCUIT_NAME=super
+      - COORDINATOR_UNSAFE_RPC=${COORDINATOR_UNSAFE_RPC:-false}
 
   prover-rpcd:
     init: true
