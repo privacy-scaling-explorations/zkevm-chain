@@ -39,6 +39,7 @@ pub fn gen_proof<
     circuit: C,
     instance: Vec<Vec<Fr>>,
     rng: RNG,
+    mock_feedback: bool,
 ) -> Vec<u8> {
     let mut transcript = TW::init(Vec::new());
     let inputs: Vec<&[Fr]> = instance.iter().map(|v| v.as_slice()).collect();
@@ -52,10 +53,14 @@ pub fn gen_proof<
     );
     // run the `MockProver` and return (hopefully) useful errors
     if let Err(proof_err) = res {
-        let res = MockProver::run(params.k(), &circuit, instance)
-            .expect("MockProver::run")
-            .verify_par();
-        panic!("gen_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+        if mock_feedback {
+            let res = MockProver::run(params.k(), &circuit, instance)
+                .expect("MockProver::run")
+                .verify_par();
+            panic!("gen_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+        } else {
+            panic!("gen_proof: {:#?}", proof_err);
+        }
     }
 
     transcript.finalize()

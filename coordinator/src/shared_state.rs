@@ -1026,6 +1026,7 @@ impl SharedState {
             param: config.params_path.clone(),
             mock: config.mock_prover,
             aggregate: config.aggregate_proof,
+            mock_feedback: config.mock_prover_if_error,
         };
         drop(config);
 
@@ -1052,8 +1053,16 @@ impl SharedState {
         }
     }
 
-    pub async fn get_config_owned(&self) -> Config {
+    /// Returns the current coordinator configuration.
+    pub async fn get_config(&self) -> Config {
         self.config.lock().await.to_owned()
+    }
+
+    /// Sets the coordinator configuration.
+    /// Not all changes to the config may be reflected.
+    pub async fn set_config(&self, config: Config) {
+        // TODO: doesn't update all config values at the moment.
+        *self.config.lock().await = config;
     }
 }
 

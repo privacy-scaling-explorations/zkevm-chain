@@ -60,6 +60,9 @@ pub struct ProofRequestOptions {
     /// Additionaly aggregates the circuit proof if true
     #[serde(default = "default_bool")]
     pub aggregate: bool,
+    /// Runs the MockProver if proofing fails.
+    #[serde(default = "default_bool")]
+    pub mock_feedback: bool,
 }
 
 impl PartialEq for ProofRequestOptions {

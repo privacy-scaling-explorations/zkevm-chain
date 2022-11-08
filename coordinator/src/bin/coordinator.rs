@@ -266,7 +266,8 @@ async fn handle_request(
 /// Discovers healthy nodes via DNS service discovery.
 /// If nodes are discovered but are not up-to-date, then this function attempts to choose a
 /// fallback node.
-async fn check_nodes(ctx: SharedState, server_nodes: String, client: hyper::Client<HttpConnector>) {
+async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
+    let server_nodes = ctx.config.lock().await.rpc_server_nodes.clone();
     let head_hash = ctx.rw.lock().await.chain_state.head_block_hash;
     let mut nodes = Vec::new();
     let mut fallback_node_uri = None;
@@ -324,23 +325,23 @@ async fn handle_method(
 ) -> Result<serde_json::Value, String> {
     match method {
         "config" => {
-            #[derive(serde::Deserialize)]
-            struct CoordinatorConfig {
-                dummy_proof: bool,
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
             }
 
-            let options = params.get(0).ok_or("expected struct CoordinatorConfig")?;
-            let options: CoordinatorConfig =
-                serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+            let config = match params.get(0) {
+                Some(options) => {
+                    let options: Config =
+                        serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
 
-            shared_state.config.lock().await.dummy_prover = options.dummy_proof;
+                    shared_state.set_config(options.clone()).await;
+                    options
+                }
+                None => shared_state.get_config().await,
+            };
 
-            Ok(serde_json::Value::Bool(true))
-        }
-
-        "get_config" => {
-            // TODO: possible to do it without to_owned?
-            Ok(serde_json::to_value(shared_state.get_config_owned().await).unwrap())
+            // return the current configuration
+            Ok(serde_json::to_value(config).unwrap())
         }
 
         _ => Err("this method is not available".to_string()),
@@ -431,12 +432,7 @@ async fn main() {
             let client = hyper::Client::new();
             loop {
                 log::debug!("spawning check_nodes task");
-                let res = spawn(check_nodes(
-                    ctx.clone(),
-                    config.rpc_server_nodes.clone(),
-                    client.to_owned(),
-                ))
-                .await;
+                let res = spawn(check_nodes(ctx.clone(), client.to_owned())).await;
 
                 if let Err(err) = res {
                     log::error!("task: {}", err);

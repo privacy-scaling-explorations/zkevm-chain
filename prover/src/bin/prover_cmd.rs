@@ -34,6 +34,7 @@ async fn main() {
         param: params_path,
         mock: false,
         aggregate: false,
+        ..Default::default()
     };
 
     state.get_or_enqueue(&request).await;
