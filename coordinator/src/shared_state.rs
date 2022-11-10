@@ -185,6 +185,11 @@ impl SharedState {
                 .request_l1("eth_getLogs", [&filter])
                 .await
                 .expect("eth_getLogs");
+            // TODO: ugly hack to fix geth inconstency issues
+            if logs.is_empty() {
+                // don't update latest block
+                return;
+            }
 
             for log in logs {
                 let topic = log.topics[0];
@@ -808,6 +813,11 @@ impl SharedState {
                 .request_l2("eth_getLogs", [&filter])
                 .await
                 .expect("eth_getLogs");
+            // TODO: ugly hack to fix geth inconstency issues
+            if logs.is_empty() {
+                // don't update latest block
+                return;
+            }
 
             for log in logs {
                 let message_id = H256::from_slice(log.data.as_ref());
