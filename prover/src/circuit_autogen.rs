@@ -26,7 +26,7 @@ macro_rules! match_circuit_params {
                     min_k: 20,
                     pad_to: 1015808,
                     min_k_aggregation: 20,
-                    keccak_padding: 1000,
+                    keccak_padding: 2380,
                 };
                 $on_match
             }
@@ -40,7 +40,7 @@ macro_rules! match_circuit_params {
                     min_k: 21,
                     pad_to: 2064384,
                     min_k_aggregation: 20,
-                    keccak_padding: 1000,
+                    keccak_padding: 4761,
                 };
                 $on_match
             }
