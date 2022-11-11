@@ -570,3 +570,81 @@ async fn keccak() {
     finalize_chain!(shared_state);
     shared_state.config.lock().await.mock_prover = false;
 }
+
+#[tokio::test]
+async fn l1_l2_sync_test() {
+    let abi = zkevm_abi();
+    let shared_state = await_state!();
+    let mut deposits: Vec<H256> = Vec::new();
+
+    for _ in 0..2 {
+        let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
+        // create deposits
+        let from = shared_state.ro.l1_wallet.address();
+        let to = Address::zero();
+        let value = U256::from(1u64);
+        let fee = U256::zero();
+        let deadline = U256::from(0xffffffffffffffffu64);
+        let nonce: U256 = rand::random::<usize>().into();
+        let data = Bytes::from([]);
+        let calldata = abi
+            .function("dispatchMessage")
+            .unwrap()
+            .encode_input(&[
+                to.into_token(),
+                fee.into_token(),
+                deadline.into_token(),
+                nonce.into_token(),
+                data.clone().into_token(),
+            ])
+            .expect("calldata");
+
+        let id: H256 = keccak256(encode(&[
+            from.into_token(),
+            to.into_token(),
+            value.into_token(),
+            fee.into_token(),
+            deadline.into_token(),
+            nonce.into_token(),
+            data.into_token(),
+        ]))
+        .into();
+        deposits.push(id);
+
+        // create a block with zero logs before the bridge deposit
+        let _ = shared_state
+            .transaction_to_l1(
+                Some(shared_state.ro.l2_wallet.address()),
+                U256::zero(),
+                vec![],
+            )
+            .await
+            .expect("receipt");
+        // deposit
+        shared_state
+            .transaction_to_l1(l1_bridge_addr, value, calldata)
+            .await
+            .expect("receipt");
+    }
+
+    sync!(shared_state);
+
+    // verify that all deposit are picked up
+    for id in deposits {
+        let mut i = 0;
+        shared_state
+            .rw
+            .lock()
+            .await
+            .l2_delivered_messages
+            .iter()
+            .for_each(|e| {
+                if e == &id {
+                    i += 1
+                }
+            });
+        assert!(i == 1, "message id should exist and only once");
+    }
+
+    finalize_chain!(shared_state);
+}

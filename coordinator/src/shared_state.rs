@@ -165,6 +165,7 @@ impl SharedState {
             .request_l1("eth_blockNumber", ())
             .await
             .expect("eth_blockNumber");
+        let mut last_to_block: U64 = U64::zero();
         let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.config.lock().await.l1_bridge))
@@ -185,6 +186,10 @@ impl SharedState {
                 .request_l1("eth_getLogs", [&filter])
                 .await
                 .expect("eth_getLogs");
+            // TODO: ugly hack to fix geth inconstency issues
+            if !logs.is_empty() {
+                last_to_block = to;
+            }
 
             for log in logs {
                 let topic = log.topics[0];
@@ -255,7 +260,9 @@ impl SharedState {
             from = to + 1u64;
         }
 
-        self.rw.lock().await.l1_last_sync_block = latest_block;
+        if last_to_block != U64::zero() {
+            self.rw.lock().await.l1_last_sync_block = last_to_block;
+        }
         self.sync_l2().await;
     }
 
@@ -792,6 +799,7 @@ impl SharedState {
             .request_l2("eth_blockNumber", ())
             .await
             .expect("eth_blockNumber");
+        let mut last_to_block: U64 = U64::zero();
         let mut from: U64 = self.rw.lock().await.l2_last_sync_block + 1;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.ro.l2_message_deliverer_addr))
@@ -808,6 +816,10 @@ impl SharedState {
                 .request_l2("eth_getLogs", [&filter])
                 .await
                 .expect("eth_getLogs");
+            // TODO: ugly hack to fix geth inconstency issues
+            if !logs.is_empty() {
+                last_to_block = to;
+            }
 
             for log in logs {
                 let message_id = H256::from_slice(log.data.as_ref());
@@ -817,9 +829,11 @@ impl SharedState {
             from = to + 1u64;
         }
 
-        let mut rw = self.rw.lock().await;
-        rw.l2_last_sync_block = latest_block;
-        rw.l2_delivered_messages.extend_from_slice(&executed_msgs);
+        if last_to_block != U64::zero() {
+            let mut rw = self.rw.lock().await;
+            rw.l2_last_sync_block = last_to_block;
+            rw.l2_delivered_messages.extend_from_slice(&executed_msgs);
+        }
     }
 
     /// keeps track of L2 > L1 message events
