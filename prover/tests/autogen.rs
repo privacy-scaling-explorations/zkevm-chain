@@ -207,6 +207,8 @@ macro_rules! estimate {
             min_k: 0,
             pad_to: 0,
             min_k_aggregation: 0,
+            // TODO: proper worst-case estimate
+            keccak_padding: BLOCK_GAS_LIMIT / 12,
         };
         let circuit_witness;
 
@@ -247,6 +249,7 @@ macro_rules! estimate {
             let circuit_params = CircuitsParams {
                 max_rws: circuit_config.max_rws,
                 max_txs: circuit_config.max_txs,
+                keccak_padding: Some(circuit_config.keccak_padding),
             };
             let mut builder =
                 BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)

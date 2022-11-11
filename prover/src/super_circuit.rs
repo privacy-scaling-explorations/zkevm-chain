@@ -41,6 +41,7 @@ pub fn gen_circuit<
         keccak_inputs,
         bytecode_size: witness.circuit_config.max_bytecode,
         pi_circuit,
+        circuits_params: witness.block.circuits_params.clone(),
     };
 
     Ok(circuit)

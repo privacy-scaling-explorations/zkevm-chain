@@ -38,6 +38,7 @@ impl CircuitWitness {
         let circuit_params = CircuitsParams {
             max_rws: circuit_config.max_rws,
             max_txs: circuit_config.max_txs,
+            keccak_padding: Some(circuit_config.keccak_padding),
         };
         let keccak_inputs = Vec::new();
         let code_db = CodeDB::new();
@@ -81,6 +82,7 @@ impl CircuitWitness {
         let circuit_params = CircuitsParams {
             max_rws: circuit_config.max_rws,
             max_txs: circuit_config.max_txs,
+            keccak_padding: Some(circuit_config.keccak_padding),
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;
         let (builder, eth_block) = builder.gen_inputs(*block_num).await?;

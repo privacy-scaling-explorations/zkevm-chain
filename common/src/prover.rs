@@ -109,6 +109,7 @@ pub struct CircuitConfig {
     pub min_k: usize,
     pub pad_to: usize,
     pub min_k_aggregation: usize,
+    pub keccak_padding: usize,
 }
 
 fn default_bool() -> bool {
