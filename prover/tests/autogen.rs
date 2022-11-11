@@ -208,7 +208,7 @@ macro_rules! estimate {
             pad_to: 0,
             min_k_aggregation: 0,
             // TODO: proper worst-case estimate
-            keccak_padding: BLOCK_GAS_LIMIT / 12,
+            keccak_padding: BLOCK_GAS_LIMIT / 63,
         };
         let circuit_witness;
 
