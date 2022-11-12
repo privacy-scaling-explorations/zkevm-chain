@@ -42,9 +42,9 @@ jobs:
           docker compose down -v --remove-orphans
           docker compose build bootnode dev
 
-      - name: Pi Circuit
+      - name: Pi Circuit aggregation
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh pi
 
       - name: Super Circuit
