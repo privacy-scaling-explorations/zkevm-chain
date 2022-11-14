@@ -14,7 +14,7 @@ use ethers_core::types::U256;
 use lzma::LzmaReader;
 use std::fs::File;
 
-const COLUMNS: [&str; 11] = [
+const COLUMNS: [&str; 12] = [
     "q_block_table",
     "block_table",
     "q_tx_table",
@@ -26,6 +26,7 @@ const COLUMNS: [&str; 11] = [
     "rpi_rlc_acc",
     "rand_rpi",
     "q_end",
+    "q_not_end",
 ];
 
 #[derive(Debug, serde::Deserialize)]
@@ -97,8 +98,9 @@ async fn witness_verifier() {
             .expect("decode output");
         let table: Vec<Token> = result.pop().unwrap().into_array().unwrap();
 
-        assert_eq!(test_data.rows.len() * 11, table.len(), "# rows");
+        assert_eq!(test_data.rows.len() * COLUMNS.len(), table.len(), "# rows");
 
+        let mut success = true;
         for (i, token) in table.iter().enumerate() {
             let tag = COLUMNS[i % COLUMNS.len()];
             let value: U256 = token.clone().into_uint().unwrap();
@@ -107,17 +109,28 @@ async fn witness_verifier() {
                 println!("row({})", i / COLUMNS.len());
             }
             println!("{:4}({:17})={:064x}", i, tag, value);
-            let row = &test_data.rows[i / 11];
+
+            let row = &test_data.rows[i / COLUMNS.len()];
             let expected = row[i % COLUMNS.len()];
-            //if tag != "rpi_rlc_acc" && tag != "rand_rpi" {
-            assert_eq!(
-                expected, value,
-                "{:?}:{} expected={:064x} has={:064x}",
-                path, tag, expected, value
-            );
-            //}
+
+            if std::env::args().any(|e| e == "--nocapture") {
+                if expected != value {
+                    success = false;
+                    println!(
+                        "{:?}:{} expected={:064x} has={:064x}",
+                        path, tag, expected, value
+                    );
+                }
+            } else {
+                assert_eq!(
+                    expected, value,
+                    "{:?}:{} expected={:064x} has={:064x}",
+                    path, tag, expected, value
+                );
+            }
         }
 
         println!("{:?}: gas={}", path, trace.gas);
+        assert!(success);
     }
 }

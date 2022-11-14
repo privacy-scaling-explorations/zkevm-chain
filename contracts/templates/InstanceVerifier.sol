@@ -28,6 +28,7 @@ contract InstanceVerifier {
       // 256..288: rpi_rlc_acc: FQ  # raw_public_inputs accumulated RLC from bottom to top
       // 288..320: rand_rpi: FQ
       // 320..352: q_end: FQ  # Fixed Column
+      // 352..384: q_not_end: FQ  # Fixed Column
 
       // Writes to the public input table and
       // the raw_public_inputs array.
@@ -61,7 +62,8 @@ contract InstanceVerifier {
         // rpi_rlc_acc
         // rand_rpi
         // q_end
-        ptr := add(ptr, 288)
+        // q_not_end
+        ptr := add(ptr, 320)
         mstore(callframe, ptr)
       }
 
@@ -132,7 +134,8 @@ contract InstanceVerifier {
         // rpi_rlc_acc
         // rand_rpi
         // q_end
-        ptr := add(ptr, 128)
+        // q_not_end
+        ptr := add(ptr, 160)
 
         mstore(callframe, ptr)
       }
@@ -171,7 +174,8 @@ contract InstanceVerifier {
           // rpi_rlc_acc
           // rand_rpi
           // q_end
-          ptr := add(ptr, 128)
+          // q_not_end
+          ptr := add(ptr, 160)
 
           // callframe.calldataTableOffset
           mstore(add(callframe, 32), ptr)
@@ -215,13 +219,15 @@ contract InstanceVerifier {
       // 128..160: callframe.calldataBytes
       table := add(table, 160)
       {
-        // 256 + 7 + 3
-        let BLOCK_FIELDS := 266
+        // hashes(256) + block(8) + extra(3)
+        let BLOCK_FIELDS := 267
         let TX_FIELDS := 10
         let MAX_TX_FIELDS := mul(TX_FIELDS, MAX_TXS)
         let N_FIELDS := add(MAX_TX_FIELDS, MAX_CALLDATA)
+        // initial zero row
+        N_FIELDS := add(1, N_FIELDS)
         let N_RAW_INPUTS := add(BLOCK_FIELDS, mul(3, N_FIELDS))
-        let PI_ROW_FIELDS := 11
+        let PI_ROW_FIELDS := 12
         let N_PI_ROWS := mul(N_RAW_INPUTS, PI_ROW_FIELDS)
         // uint256[].length
         mstore(table, N_PI_ROWS)
@@ -253,7 +259,7 @@ contract InstanceVerifier {
         mstore(callframe, table)
 
         // callframe.calldataTableOffset
-        let calldataTable := add(table, mul(352, MAX_TX_FIELDS))
+        let calldataTable := add(table, mul(384, MAX_TX_FIELDS))
         mstore(add(callframe, 32), calldataTable)
 
         // callframe.rpi_ptr_call_data
@@ -264,14 +270,14 @@ contract InstanceVerifier {
           add(callframe, 96),
           mul(
             32,
-            add(mul(TX_FIELDS, MAX_TXS), MAX_CALLDATA)
+            add(1, add(mul(TX_FIELDS, MAX_TXS), MAX_CALLDATA))
           )
         )
 
         // MAX_CALLDATA padding
         {
           let head := calldataTable
-          let tail := add(head, mul(MAX_CALLDATA, 352))
+          let tail := add(head, mul(add(MAX_CALLDATA, 1), 384))
           head := add(head, 64)
 
           for {} lt(head, tail) {} {
@@ -279,7 +285,7 @@ contract InstanceVerifier {
             mstore(head, 1)
             // tx_table.tag
             mstore(add(head, 64), /*CONST_TX_TAG_CALL_DATA*/ 11)
-            head := add(head, 352)
+            head := add(head, 384)
           }
         }
       }
@@ -293,6 +299,8 @@ contract InstanceVerifier {
         let ptr, values, nItems, hash := decodeFlat(dataOffset)
         require(eq(nItems, 15), "BLOCK_ITEMS")
 
+        // initial zero
+        appendBlockRow(0)
         // coinbase
         appendBlockRow(loadValue(values, 2))
         // gas_limit
@@ -335,6 +343,10 @@ contract InstanceVerifier {
 
       // tx table
       {
+        // initial zero row
+        appendTxRow(0, 0, 0)
+        appendCallDataRow(0, 0, 0)
+
         let txId := 0
         for {} lt(dataOffset, dataOffsetTail) {} {
           txId := add(txId, 1)
@@ -455,8 +467,13 @@ contract InstanceVerifier {
       }
 
       // fix `row.q_end = 1`
-      // start of raw_public_inputs - 32
-      mstore(sub(mload(32), 32), 1)
+      {
+        let rpi := mload(32)
+        // q_end
+        mstore(sub(rpi, 64), 1)
+        // q_not_end
+        mstore(sub(rpi, 32), 0)
+      }
 
       let NUM_RAW_INPUTS := sub(mload(64), mload(32))
       // hash(raw_public_inputs)
@@ -486,7 +503,7 @@ contract InstanceVerifier {
         // rpi_rlc_acc_col = [raw_public_inputs[-1]]
         let rpi_rlc_acc := mload(raw_tail)
         // start offset = row.rand_rpi
-        let row_tail := sub(raw_head, 64)
+        let row_tail := sub(raw_head, 96)
         {
           // store row.rand_rpi
           mstore(row_tail, rand_rpi)
@@ -497,7 +514,7 @@ contract InstanceVerifier {
           // store row.raw_public_inputs
           mstore(sub(row_tail, 64), rpi_rlc_acc)
 
-          row_tail := sub(row_tail, 352)
+          row_tail := sub(row_tail, 384)
         }
 
         // for i in reversed(range(len(raw_public_inputs) - 1)):
@@ -519,7 +536,10 @@ contract InstanceVerifier {
           // store row.raw_public_inputs
           mstore(sub(row_tail, 64), raw_value)
 
-          row_tail := sub(row_tail, 352)
+          // store row.q_not_end
+          mstore(add(row_tail, 64), 1)
+
+          row_tail := sub(row_tail, 384)
         }
       }
 
