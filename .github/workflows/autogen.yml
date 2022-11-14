@@ -59,7 +59,7 @@ jobs:
 
       - name: Dummy and Pi circuit EVM & aggregation verifier
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'ONLY_EVM=0 ./scripts/autogen.sh autogen_verifier_dummy autogen_verifier_pi'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_dummy autogen_verifier_pi'
 
       - name: Super circuit EVM verifier
         run: |
