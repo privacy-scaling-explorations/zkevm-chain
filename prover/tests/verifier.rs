@@ -77,37 +77,8 @@ fn load_params(k: usize) -> ProverParams {
     params
 }
 
-fn gen_aggregation_evm_verifier(
-    params: &ProverParams,
-    vk: &VerifyingKey<G1Affine>,
-    instance: Vec<Vec<Fr>>,
-) -> Vec<u8> {
-    let num_instance = gen_num_instance(&instance);
-    let config = Config::kzg()
-        .with_num_instance(num_instance)
-        .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices()));
-
-    gen_verifier(params, vk, instance, config)
-}
-
-fn gen_evm_verifier(
-    params: &ProverParams,
-    vk: &VerifyingKey<G1Affine>,
-    instance: Vec<Vec<Fr>>,
-) -> Vec<u8> {
-    let num_instance = gen_num_instance(&instance);
-    let config = Config::kzg().with_num_instance(num_instance);
-
-    gen_verifier(params, vk, instance, config)
-}
-
-fn gen_verifier(
-    params: &ProverParams,
-    vk: &VerifyingKey<G1Affine>,
-    instance: Vec<Vec<Fr>>,
-    config: Config,
-) -> Vec<u8> {
-    let num_instance = gen_num_instance(&instance);
+fn gen_verifier(params: &ProverParams, vk: &VerifyingKey<G1Affine>, config: Config) -> Vec<u8> {
+    let num_instance = config.num_instance.clone();
     let svk = params.get_g()[0].into();
     let dk = (params.g2(), params.s_g2()).into();
     let protocol = compile(params, vk, config);
@@ -150,8 +121,12 @@ macro_rules! gen_match {
                         let mut data = Verifier::default();
                         data.label = format!("{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                         data.config = CIRCUIT_CONFIG;
-                        data.runtime_code =
-                            gen_evm_verifier(&params, &pk.get_vk(), circuit.instance()).into();
+                        data.runtime_code = gen_verifier(
+                            &params,
+                            &pk.get_vk(),
+                            Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
+                        )
+                        .into();
 
                         if var("ONLY_EVM").is_ok() {
                             log::info!("returning early");
@@ -160,22 +135,24 @@ macro_rules! gen_match {
                             return;
                         }
 
-                        let proof = gen_proof::<
-                            _,
-                            _,
-                            EvmTranscript<G1Affine, _, _, _>,
-                            EvmTranscript<G1Affine, _, _, _>,
-                            _,
-                        >(
-                            &params,
-                            &pk,
-                            circuit.clone(),
-                            circuit.instance(),
-                            fixed_rng(),
-                            true,
-                        );
-                        data.instance = collect_instance(&circuit.instance());
-                        data.proof = proof.into();
+                        if log::log_enabled!(log::Level::Debug) {
+                            let proof = gen_proof::<
+                                _,
+                                _,
+                                EvmTranscript<G1Affine, _, _, _>,
+                                EvmTranscript<G1Affine, _, _, _>,
+                                _,
+                            >(
+                                &params,
+                                &pk,
+                                circuit.clone(),
+                                circuit.instance(),
+                                fixed_rng(),
+                                true,
+                            );
+                            data.instance = collect_instance(&circuit.instance());
+                            data.proof = proof.into();
+                        }
 
                         let data = data.build();
                         write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
@@ -207,9 +184,14 @@ macro_rules! gen_match {
                 let mut data = Verifier::default();
                 data.label = format!("{}-{}-a", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                 data.config = CIRCUIT_CONFIG;
-                data.runtime_code =
-                    gen_aggregation_evm_verifier(&agg_params, &agg_vk, agg_circuit.instance())
-                        .into();
+                data.runtime_code = gen_verifier(
+                    &agg_params,
+                    &agg_vk,
+                    Config::kzg()
+                        .with_num_instance(AggregationCircuit::num_instance())
+                        .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices())),
+                )
+                .into();
 
                 if log::log_enabled!(log::Level::Debug) {
                     let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
