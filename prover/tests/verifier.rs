@@ -211,23 +211,25 @@ macro_rules! gen_match {
                     gen_aggregation_evm_verifier(&agg_params, &agg_vk, agg_circuit.instance())
                         .into();
 
-                let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
-                let proof = gen_proof::<
-                    _,
-                    _,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    _,
-                >(
-                    &agg_params,
-                    &agg_pk,
-                    agg_circuit.clone(),
-                    agg_circuit.instance(),
-                    fixed_rng(),
-                    true,
-                );
-                data.instance = collect_instance(&agg_circuit.instance());
-                data.proof = proof.into();
+                if log::log_enabled!(log::Level::Debug) {
+                    let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
+                    let proof = gen_proof::<
+                        _,
+                        _,
+                        EvmTranscript<G1Affine, _, _, _>,
+                        EvmTranscript<G1Affine, _, _, _>,
+                        _,
+                    >(
+                        &agg_params,
+                        &agg_pk,
+                        agg_circuit.clone(),
+                        agg_circuit.instance(),
+                        fixed_rng(),
+                        true,
+                    );
+                    data.instance = collect_instance(&agg_circuit.instance());
+                    data.proof = proof.into();
+                }
 
                 let data = data.build();
                 write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
