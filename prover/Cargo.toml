@@ -9,7 +9,7 @@ halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.gi
 bus-mapping = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "6bc581922807485cd9e89b4308fc08d679e5b6c2" }
 eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "6bc581922807485cd9e89b4308fc08d679e5b6c2" }
 zkevm-circuits = { git = "https://github.com/pinkiebell/zkevm-circuits.git", rev = "6bc581922807485cd9e89b4308fc08d679e5b6c2" }
-plonk_verifier = { git = "https://github.com/privacy-scaling-explorations/plonk-verifier.git", rev = "2cd8b9d1e57949979db1cbfa8506518e63d27e93" }
+plonk_verifier = { git = "https://github.com/privacy-scaling-explorations/plonk-verifier.git", rev = "ba167b73ca09d77ab08958d4a4b4e0433222e4db" }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"
 hyper = { version = "0.14.16", features = ["server"] }
