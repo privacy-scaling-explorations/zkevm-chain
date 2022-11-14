@@ -207,6 +207,8 @@ macro_rules! estimate {
             min_k: 0,
             pad_to: 0,
             min_k_aggregation: 0,
+            // TODO: proper worst-case estimate
+            keccak_padding: BLOCK_GAS_LIMIT / 63,
         };
         let circuit_witness;
 
@@ -247,6 +249,7 @@ macro_rules! estimate {
             let circuit_params = CircuitsParams {
                 max_rws: circuit_config.max_rws,
                 max_txs: circuit_config.max_txs,
+                keccak_padding: Some(circuit_config.keccak_padding),
             };
             let mut builder =
                 BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)
@@ -279,17 +282,17 @@ macro_rules! estimate {
         }
         // calculate circuit stats
         {
+            circuit_config.pad_to = MAX_RWS;
+
             let highest_row =
                 run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS>(circuit_witness)
                     .unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
-            let k = log2_ceil(highest_row);
-            // TODO: estimate aggregation circuit requirements
-            let agg_k = 20;
+            let k = log2_ceil(highest_row) as usize;
             let remaining_rows = (1 << k) - highest_row;
-            circuit_config.min_k = k as usize;
-            circuit_config.pad_to = MAX_RWS;
-            circuit_config.min_k_aggregation = agg_k;
+            circuit_config.min_k = k;
+            // TODO: estimate aggregation circuit requirements
+            circuit_config.min_k_aggregation = 21;
 
             $scope(circuit_config, highest_row, remaining_rows);
         }
