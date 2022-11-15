@@ -43,10 +43,7 @@ fn get_param_path(path: &String, k: usize) -> String {
     }
 }
 
-async fn get_or_gen_param(
-    task_options: &ProofRequestOptions,
-    k: usize,
-) -> (Arc<ProverParams>, String) {
+fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<ProverParams>, String) {
     match &task_options.param {
         Some(v) => {
             let path = get_param_path(v, k);
@@ -75,7 +72,7 @@ macro_rules! gen_proof {
 
         log::info!("Using circuit parameters: {:#?}", CIRCUIT_CONFIG);
 
-        let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k).await;
+        let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
         let mut circuit_proof = ProofResult::default();
         circuit_proof.label = format!(
             "{}-{}",
@@ -154,7 +151,7 @@ macro_rules! gen_proof {
                 let snark = Snark::new(protocol, circuit_instance, proof);
 
                 let (agg_params, agg_param_path) =
-                    get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k_aggregation).await;
+                    get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
                 aggregation_proof.k = agg_params.k() as u8;
                 let agg_circuit =
                     AggregationCircuit::new(agg_params.as_ref(), [snark], fixed_rng());
