@@ -59,7 +59,7 @@ jobs:
 
       - name: EVM & Aggregation circuit verifier
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_pi autogen_verifier_dummy'
 
       - name: Patch genesis templates
         run: docker run --rm -v $(pwd):/host -w /host node:lts-alpine scripts/patch_genesis.mjs
