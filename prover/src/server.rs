@@ -220,7 +220,6 @@ async fn handle_method(
 
             if options.cache {
                 rw_state.pk_cache.clear();
-                rw_state.params_cache.clear();
             }
             if options.pending {
                 rw_state.tasks.retain(|e| e.result.is_some());

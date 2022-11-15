@@ -7,7 +7,6 @@ use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
-use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsProver;
 use plonk_verifier::loader::evm::EvmLoader;
 use plonk_verifier::loader::native::NativeLoader;
@@ -68,15 +67,6 @@ fn write_bytes(name: &str, vec: &[u8]) {
         .unwrap_or_else(|_| panic!("write {}", &path));
 }
 
-fn load_params(k: usize) -> ProverParams {
-    let params_path = format!("/testnet/{}.bin", k);
-    let params_fs = fs::File::open(params_path).expect("couldn't open params");
-    let params: ProverParams = ProverParams::read::<_>(&mut std::io::BufReader::new(params_fs))
-        .expect("Failed to read params");
-
-    params
-}
-
 fn gen_verifier(params: &ProverParams, vk: &VerifyingKey<G1Affine>, config: Config) -> Vec<u8> {
     let num_instance = config.num_instance.clone();
     let svk = params.get_g()[0].into();
@@ -113,7 +103,7 @@ macro_rules! gen_match {
                     .expect("gen_static_circuit");
                     let instance = circuit.instance();
 
-                    let params = load_params(CIRCUIT_CONFIG.min_k);
+                    let params = ProverParams::setup(CIRCUIT_CONFIG.min_k as u32, fixed_rng());
                     let vk = keygen_vk(&params, &circuit).expect("vk");
                     let pk = keygen_pk(&params, vk, &circuit).expect("pk");
 
@@ -177,7 +167,8 @@ macro_rules! gen_match {
                     Snark::new(protocol, instance, proof)
                 };
 
-                let agg_params = load_params(CIRCUIT_CONFIG.min_k_aggregation);
+                let agg_params =
+                    ProverParams::setup(CIRCUIT_CONFIG.min_k_aggregation as u32, fixed_rng());
                 let agg_circuit = AggregationCircuit::new(&agg_params, [snark], fixed_rng());
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 

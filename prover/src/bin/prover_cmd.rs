@@ -31,7 +31,7 @@ async fn main() {
         block: block_num,
         rpc: rpc_url,
         retry: false,
-        param: params_path,
+        param: Some(params_path),
         mock: false,
         aggregate: false,
         ..Default::default()
