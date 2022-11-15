@@ -100,6 +100,7 @@ impl CircuitWitness {
     pub fn evm_witness(&self) -> (zkevm_circuits::witness::Block<Fr>, Vec<Vec<u8>>) {
         let mut block = evm_circuit::witness::block_convert(&self.block, &self.code_db);
         block.evm_circuit_pad_to = self.circuit_config.pad_to;
+        block.exp_circuit_pad_to = self.circuit_config.pad_to;
         let keccak_inputs = self.keccak_inputs.clone();
 
         (block, keccak_inputs)
