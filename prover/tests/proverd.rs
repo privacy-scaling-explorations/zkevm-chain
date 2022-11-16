@@ -27,7 +27,6 @@ async fn proverd_simple_signaling() {
     let proof_a = ProofRequestOptions {
         circuit: "super".to_string(),
         block: 1,
-        param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
         ..Default::default()
@@ -35,7 +34,6 @@ async fn proverd_simple_signaling() {
     let proof_b = ProofRequestOptions {
         circuit: "super".to_string(),
         block: 2,
-        param: "/none".to_string(),
         retry: false,
         rpc: "http://localhost:1111".to_string(),
         ..Default::default()

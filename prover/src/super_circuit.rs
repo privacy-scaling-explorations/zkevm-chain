@@ -35,7 +35,7 @@ pub fn gen_circuit<
     let aux_generator = <Secp256k1Affine as CurveAffine>::CurveExt::random(&mut rng).to_affine();
     let tx_circuit = TxCircuit::new(aux_generator, chain_id.as_u64(), witness.txs());
     let circuit = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS> {
-        block,
+        block: Some(block),
         fixed_table_tags: FixedTableTag::iter().collect(),
         tx_circuit,
         keccak_inputs,

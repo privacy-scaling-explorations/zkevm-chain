@@ -129,7 +129,6 @@ services:
       - COORDINATOR_PROVER_RPCD_URL=http://prover-rpcd:8545
       - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-true}
       - COORDINATOR_ENABLE_FAUCET=true
-      - COORDINATOR_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
       - COORDINATOR_CIRCUIT_NAME=super
       - COORDINATOR_UNSAFE_RPC=${COORDINATOR_UNSAFE_RPC:-false}
 
@@ -189,9 +188,6 @@ services:
       - COORDINATOR_L1_PRIV=$MINER_PRIV_KEY
       - COORDINATOR_DUMMY_PROVER=${COORDINATOR_DUMMY_PROVER:-true}
       - COORDINATOR_ENABLE_FAUCET=true
-      # enable automatic parameter selection based on block gas
-      - COORDINATOR_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
-      - PROVERD_PARAMS_PATH=${PARAMS_PATH:-/testnet/}
       # useful env vars if running the proverd inside the dev image
       - PROVERD_LOOKUP=dev:8001
       - COORDINATOR_PROVER_RPCD_URL=http://dev:8001

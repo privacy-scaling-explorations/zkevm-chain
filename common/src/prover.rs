@@ -52,8 +52,9 @@ pub struct ProofRequestOptions {
     pub rpc: String,
     /// retry proof computation if error
     pub retry: bool,
-    /// parameter file to use
-    pub param: String,
+    /// Parameters file or directory to use.
+    /// Otherwise generates them on the fly.
+    pub param: Option<String>,
     /// Only use MockProver if true.
     #[serde(default = "default_bool")]
     pub mock: bool,

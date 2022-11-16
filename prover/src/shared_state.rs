@@ -33,13 +33,32 @@ use tokio::sync::Mutex;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::*;
 
-fn get_param_path(task_options: &ProofRequestOptions, k: usize) -> String {
+fn get_param_path(path: &String, k: usize) -> String {
     // try to automatically choose a file if the path ends with a `/`.
-    match task_options.param.ends_with('/') {
+    match path.ends_with('/') {
         true => {
-            format!("{}{}.bin", task_options.param, k)
+            format!("{}{}.bin", path, k)
         }
-        false => task_options.param.clone(),
+        false => path.clone(),
+    }
+}
+
+fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<ProverParams>, String) {
+    match &task_options.param {
+        Some(v) => {
+            let path = get_param_path(v, k);
+            let file = File::open(&path).expect("couldn't open params");
+            let params = Arc::new(
+                ProverParams::read(&mut std::io::BufReader::new(file))
+                    .expect("Failed to read params"),
+            );
+
+            (params, path)
+        }
+        None => {
+            let param = Arc::new(ProverParams::setup(k as u32, fixed_rng()));
+            (param, format!("{}", k))
+        }
     }
 }
 
@@ -47,19 +66,13 @@ macro_rules! gen_proof {
     ($shared_state:expr, $task_options:expr, $witness:expr, $CIRCUIT:ident) => {{
         let witness = $witness;
         // uncomment for testing purposes
-        // Note: evm verifier doesn't work yet with different inputs
         //let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
         let task_options = $task_options;
         let shared_state = $shared_state;
 
         log::info!("Using circuit parameters: {:#?}", CIRCUIT_CONFIG);
 
-        // lazily load the file and cache it.
-        // Note: we are not validating it for `min_k`,
-        // this error will eventually bubble up later.
-        let param_path = get_param_path(&task_options, CIRCUIT_CONFIG.min_k);
-        let param = shared_state.load_param(&param_path).await;
-
+        let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
         let mut circuit_proof = ProofResult::default();
         circuit_proof.label = format!(
             "{}-{}",
@@ -100,7 +113,7 @@ macro_rules! gen_proof {
                     &task_options.circuit, &param_path, &CIRCUIT_CONFIG
                 );
                 shared_state
-                    .gen_pk(&cache_key, &param_path, &circuit)
+                    .gen_pk(&cache_key, &param, &circuit)
                     .await
                     .map_err(|e| e.to_string())?
             };
@@ -137,11 +150,9 @@ macro_rules! gen_proof {
                 );
                 let snark = Snark::new(protocol, circuit_instance, proof);
 
-                let agg_param_path =
-                    get_param_path(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
-                let agg_params = shared_state.load_param(&agg_param_path).await;
+                let (agg_params, agg_param_path) =
+                    get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
                 aggregation_proof.k = agg_params.k() as u8;
-
                 let agg_circuit =
                     AggregationCircuit::new(agg_params.as_ref(), [snark], fixed_rng());
                 let agg_pk = {
@@ -150,7 +161,7 @@ macro_rules! gen_proof {
                         &task_options.circuit, &agg_param_path, &CIRCUIT_CONFIG
                     );
                     shared_state
-                        .gen_pk(&cache_key, &agg_param_path, &agg_circuit)
+                        .gen_pk(&cache_key, &agg_params, &agg_circuit)
                         .await
                         .map_err(|e| e.to_string())?
                 };
@@ -211,7 +222,6 @@ pub struct RoState {
 
 pub struct RwState {
     pub tasks: Vec<ProofRequest>,
-    pub params_cache: HashMap<String, Arc<ProverParams>>,
     pub pk_cache: HashMap<String, Arc<ProverKey>>,
     /// The current active task this instance wants to obtain or is working on.
     pub pending: Option<ProofRequestOptions>,
@@ -234,7 +244,6 @@ impl SharedState {
             },
             rw: Arc::new(Mutex::new(RwState {
                 tasks: Vec::new(),
-                params_cache: HashMap::new(),
                 pk_cache: HashMap::new(),
                 pending: None,
                 obtained: false,
@@ -498,30 +507,6 @@ impl SharedState {
         Ok(true)
     }
 
-    async fn load_param(&self, params_path: &str) -> Arc<ProverParams> {
-        let mut rw = self.rw.lock().await;
-
-        if !rw.params_cache.contains_key(params_path) {
-            // drop, potentially long running
-            drop(rw);
-
-            // load polynomial commitment parameters
-            let params_fs = File::open(params_path).expect("couldn't open params");
-            let params: Arc<ProverParams> = Arc::new(
-                ProverParams::read(&mut std::io::BufReader::new(params_fs))
-                    .expect("Failed to read params"),
-            );
-
-            // acquire lock and update
-            rw = self.rw.lock().await;
-            rw.params_cache.insert(params_path.to_string(), params);
-
-            log::info!("params: initialized {}", params_path);
-        }
-
-        rw.params_cache.get(params_path).unwrap().clone()
-    }
-
     // TODO: can this be pre-generated to a file?
     // related
     // https://github.com/zcash/halo2/issues/443
@@ -530,7 +515,7 @@ impl SharedState {
     async fn gen_pk<C: Circuit<Fr>>(
         &self,
         cache_key: &str,
-        params_path: &str,
+        param: &Arc<ProverParams>,
         circuit: &C,
     ) -> Result<Arc<ProverKey>, Box<dyn std::error::Error>> {
         let mut rw = self.rw.lock().await;
@@ -538,7 +523,6 @@ impl SharedState {
             // drop, potentially long running
             drop(rw);
 
-            let param = self.load_param(params_path).await;
             let vk = keygen_vk(param.as_ref(), circuit)?;
             let pk = keygen_pk(param.as_ref(), vk, circuit)?;
             let pk = Arc::new(pk);

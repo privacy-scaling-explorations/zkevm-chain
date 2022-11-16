@@ -24,8 +24,6 @@ COPY . .
 RUN cargo build --locked --bin prover_rpcd --release --target-dir /target --target $(cat /tmp/target) && \
       mv /target/*-unknown-linux-musl/release/prover_rpcd / && rm -rf /target
 
-FROM ghcr.io/privacy-scaling-explorations/zkevm-chain/params@sha256:f5936391e1d67515f6625c9e49525adc4cd6ebd9caecedc5ce0fad5d7c4b1d65 AS params
 FROM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
 ENTRYPOINT ["/prover_rpcd"]
-COPY --from=params /testnet /testnet
 COPY --from=builder /prover_rpcd /
