@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::debug::test_public_commitment;
 use crate::structs::*;
 use crate::utils::*;
 use ethers_core::abi::Abi;
@@ -12,6 +13,7 @@ use ethers_core::types::{
     ValueOrArray, H256, U256, U64,
 };
 use ethers_core::utils::keccak256;
+use ethers_core::utils::rlp;
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
 use hyper::client::HttpConnector;
@@ -157,6 +159,23 @@ impl SharedState {
         chain_state.head_block_hash = h;
         chain_state.safe_block_hash = h;
         chain_state.finalized_block_hash = h;
+
+        // initialize l1 bridge if necessary
+        let bridge_state_root = self.state_root_l1().await.expect("l1.stateRoot");
+        if bridge_state_root == H256::zero() {
+            log::info!("init l1 bridge");
+            let block_hash = genesis.hash.unwrap();
+            let state_root = genesis.state_root;
+            let calldata = get_abi()
+                .function("initGenesis")
+                .unwrap()
+                .encode_input(&[block_hash.into_token(), state_root.into_token()])
+                .expect("calldata");
+            let l1_bridge_addr = self.config.lock().await.l1_bridge;
+            self.transaction_to_l1(Some(l1_bridge_addr), U256::zero(), calldata)
+                .await
+                .expect("init genesis");
+        }
     }
 
     pub async fn sync(&self) {
@@ -210,7 +229,10 @@ impl SharedState {
                     if end > tx_data.len() {
                         log::warn!("TODO: zeropad block data");
                     }
-                    let block_hash = H256::from(keccak256(&tx_data[start..end]));
+                    let rlp = rlp::Rlp::new(&tx_data[start..end]);
+                    let info = rlp.payload_info().expect("payload_info");
+                    let block_header = &rlp.as_raw()[0..info.header_len + info.value_len];
+                    let block_hash = H256::from(keccak256(block_header));
                     log::info!("BlockSubmitted: {:?} via {:?}", block_hash, tx_hash);
 
                     let resp: Result<serde_json::Value, String> =
@@ -502,11 +524,11 @@ impl SharedState {
             for block in blocks.iter().rev() {
                 log::info!("submit_block: {}", format_block(block));
                 {
-                    let block_data: Bytes = self
-                        .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
+                    let witness = self
+                        .request_witness(&block.number.unwrap())
                         .await
-                        .expect("block");
-
+                        .expect("witness");
+                    let block_data = witness.input;
                     let calldata = self
                         .ro
                         .bridge_abi
@@ -563,12 +585,6 @@ impl SharedState {
             Some(proof) => {
                 log::info!("{} found proof: {:#?} for {}", LOG_TAG, proof, block_num);
 
-                let block_hash = block.hash.unwrap();
-                let witness: Bytes = self
-                    .request_l2("debug_getHeaderRlp", [block.number.unwrap().as_u64()])
-                    .await
-                    .expect("debug_getHeaderRlp");
-
                 // choose the aggregation proof if not empty
                 let proof_result = {
                     if proof.aggregation.proof.len() != 0 {
@@ -577,6 +593,12 @@ impl SharedState {
                         proof.circuit
                     }
                 };
+
+                if !proof_result.instance.is_empty() && log::log_enabled!(log::Level::Debug) {
+                    let table = test_public_commitment(self, &block_num, &proof.config).await?;
+                    assert_eq!(proof_result.instance, table, "public inputs");
+                }
+
                 let mut verifier_calldata = vec![];
                 let mut tmp_buf = vec![0u8; 32];
 
@@ -587,6 +609,7 @@ impl SharedState {
                 verifier_calldata.extend_from_slice(proof_result.proof.as_ref());
 
                 let mut proof_data = vec![];
+                proof_data.extend_from_slice(block.hash.unwrap().as_ref());
                 // this is temporary until proper contract setup
                 let verifier_addr = U256::from(proof_result.label.as_bytes());
                 verifier_addr.to_big_endian(&mut tmp_buf);
@@ -595,17 +618,12 @@ impl SharedState {
 
                 let proof_data = Bytes::from(proof_data);
                 log::debug!("proof_data: {}", proof_data);
-
                 let calldata = self
                     .ro
                     .bridge_abi
                     .function("finalizeBlock")
                     .unwrap()
-                    .encode_input(&[
-                        block_hash.into_token(),
-                        witness.into_token(),
-                        proof_data.into_token(),
-                    ])
+                    .encode_input(&[proof_data.into_token()])
                     .expect("calldata");
 
                 let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
@@ -1003,18 +1021,18 @@ impl SharedState {
             .request_l2("eth_getBlockByNumber", (block_num, true))
             .await
             .expect("block");
-        let chain_id = self.ro.l2_wallet.chain_id();
+        let mut history_hashes = vec![H256::zero(); 256];
         let mut block_hash = block.parent_hash;
-        let mut history_hashes = Vec::with_capacity(256);
-        history_hashes.push(block_hash);
-        for _ in 0..255 {
+        history_hashes[255] = block_hash;
+        for i in 0..255 {
             if block_hash != H256::zero() {
                 let header: BlockHeader =
                     self.request_l2("eth_getHeaderByHash", [block_hash]).await?;
                 block_hash = header.parent_hash;
             }
-            history_hashes.push(block_hash);
+            history_hashes[254 - i] = block_hash;
         }
+        let chain_id = self.ro.l2_wallet.chain_id();
         let witness: Vec<u8> = encode_verifier_witness(&block, &history_hashes, &chain_id)?;
         let witness = Witness {
             randomness: U256::zero(),
@@ -1088,10 +1106,11 @@ fn get_abi() -> Abi {
             "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
             "event MessageDelivered(bytes32 id)",
             "function submitBlock(bytes)",
-            "function finalizeBlock(bytes32 blockHash, bytes witness, bytes proof)",
+            "function finalizeBlock(bytes proof)",
             "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
             "function stateRoot() returns (bytes32)",
             "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
+            "function initGenesis(bytes32 blockHash, bytes32 stateRoot)",
         ])
         .expect("parse abi")
 }

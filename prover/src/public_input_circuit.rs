@@ -1,5 +1,4 @@
 use crate::circuit_witness::CircuitWitness;
-use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::bn256::Fr;
 use rand::Rng;
 use zkevm_circuits::pi_circuit::PiCircuit;
@@ -12,16 +11,10 @@ pub fn gen_circuit<
     RNG: Rng,
 >(
     witness: &CircuitWitness,
-    mut rng: RNG,
+    mut _rng: RNG,
 ) -> Result<PiCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
     let public_data = witness.public_data();
-    let randomness = Fr::random(&mut rng);
-    let rand_rpi = Fr::random(&mut rng);
-    let circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
-        randomness,
-        rand_rpi,
-        public_data,
-    };
+    let circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA>::from_public_data(public_data);
 
     Ok(circuit)
 }

@@ -93,7 +93,7 @@ services:
       --password /dev/null
       --allow-insecure-unlock
       --nodiscover
-      --miner.gaslimit 100000000
+      --miner.gaslimit 100000000000
       --mine
       --http
       --http.addr "[::]"
@@ -101,6 +101,7 @@ services:
       --http.corsdomain=*
       --http.vhosts=*
       --http.api eth,net,web3,debug
+      --rpc.gascap 100000000000
 
   coordinator:
     init: true
