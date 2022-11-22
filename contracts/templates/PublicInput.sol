@@ -332,7 +332,7 @@ contract PublicInput {
 
       let NUM_RAW_INPUTS := sub(mload(64), mload(32))
       // hash(raw_public_inputs)
-      let rand_rpi := and(keccak256(mload(32), NUM_RAW_INPUTS), 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+      let rand_rpi := mod(keccak256(mload(32), NUM_RAW_INPUTS), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
       mstore(add(table, 0), rand_rpi)
 
       let rpi_rlc := 0
