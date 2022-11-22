@@ -26,6 +26,8 @@ jobs:
       cancel-in-progress: true
     needs: [wakeup]
     runs-on: heavy-worker
+    env:
+      COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}
     steps:
       - name: Cleanup
         run: |
