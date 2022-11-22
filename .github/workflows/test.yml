@@ -27,6 +27,12 @@ jobs:
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
+      - name: Cleanup
+        run: |
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+          sudo docker system prune -f
+
       - uses: actions/checkout@v2
         with:
           ref: ${{ (github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number)) || github.ref }}
