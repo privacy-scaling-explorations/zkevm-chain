@@ -716,7 +716,7 @@ impl SharedState {
         args: T,
     ) -> Result<R, String> {
         jsonrpc_request_client(
-            5000,
+            RPC_REQUEST_TIMEOUT,
             &self.ro.http_client,
             &self.config.lock().await.l1_rpc_url,
             method,
@@ -731,7 +731,7 @@ impl SharedState {
         args: T,
     ) -> Result<R, String> {
         jsonrpc_request_client(
-            5000,
+            RPC_REQUEST_TIMEOUT,
             &self.ro.http_client,
             &self.config.lock().await.l2_rpc_url,
             method,
@@ -1063,7 +1063,7 @@ impl SharedState {
         drop(config);
 
         let resp = jsonrpc_request_client(
-            5000,
+            RPC_REQUEST_TIMEOUT,
             &self.ro.http_client,
             &prover_rpcd_url,
             "proof",

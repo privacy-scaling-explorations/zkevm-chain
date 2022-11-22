@@ -13,7 +13,7 @@ use hyper::client::HttpConnector;
 use hyper::Uri;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 
-const RPC_REQUEST_TIMEOUT: u64 = 15000;
+pub const RPC_REQUEST_TIMEOUT: u64 = 15000;
 
 /// may override any pending transactions
 pub async fn send_transaction_to_l1(
