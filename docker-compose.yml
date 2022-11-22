@@ -1,9 +1,5 @@
 version: '3.9'
 
-networks:
-  default:
-    name: zkevm-chain
-
 services:
   leader-testnet-geth:
     build:
@@ -43,8 +39,6 @@ services:
     restart: unless-stopped
     volumes:
       - bootnode:/root
-    ports:
-      - 30303:30303
     environment:
       - MINER_ADDRESS
       - GENESIS=l2-testnet
@@ -194,8 +188,6 @@ services:
       - PROVERD_BIND=[::]:8001
       - COORDINATOR_CIRCUIT_NAME=pi
       - COORDINATOR_UNSAFE_RPC=true
-    ports:
-      - 8000:8000
     working_dir: /app
     entrypoint: /sbin/getty
     command: '-'
@@ -209,8 +201,6 @@ services:
     build:
       dockerfile: docker/web/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/web:latest
-    ports:
-      - 8000:8000
 
 volumes:
   dev-build-cache:
