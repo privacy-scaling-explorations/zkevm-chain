@@ -37,32 +37,21 @@ jobs:
         with:
           ref: ${{ (github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number)) || github.ref }}
 
-      - uses: actions/cache@v3
-        with:
-          path: ${{ runner.temp }}/docker-cache
-          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ github.run_id }}
-          restore-keys: |
-            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-
+      - name: Setup
+        run: cp .env.example .env
 
       - name: Build docker images
-        run: >
-          (docker buildx create --name mybuilder --use || true) &&
-          docker buildx bake --load
-          --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
-          --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
-          bootnode dev
+        run: |
+          docker compose down -v --remove-orphans
+          docker compose build bootnode dev
 
       - name: Compile Contracts
         run: |
-          cp .env.example .env && docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh'
+          docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh'
 
       - name: Run coordinator tests
         run: |
           docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/load_coverage.sh && cargo test && ./scripts/get_coverage.sh'
-
-      - name: Fix docker cache
-        if: success() && github.event_name == 'push'
-        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"
 
       - name: Upload Coverage
         if: success()
