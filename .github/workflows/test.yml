@@ -46,7 +46,7 @@ jobs:
 
       - name: Build docker images
         run: >
-          docker buildx create --name mybuilder --use &&
+          (docker buildx create --name mybuilder --use || true) &&
           docker buildx bake --load
           --set "*.cache-from=type=local,src=$RUNNER_TEMP/docker-cache"
           --set "*.cache-to=type=local,dest=$RUNNER_TEMP/docker-cache-new"
