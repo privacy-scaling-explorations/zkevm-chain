@@ -22,12 +22,12 @@ jobs:
 
   test:
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     needs: [wakeup]
     runs-on: heavy-worker
     env:
-      COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}
+      COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
     steps:
       - name: Cleanup
         run: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          docker compose down -v --remove-orphans
+          docker compose down -v --remove-orphans || true
           docker compose build bootnode dev
 
       - name: Compile Contracts
