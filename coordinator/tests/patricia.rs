@@ -105,7 +105,7 @@ async fn patricia_validator() {
     );
 
     const MAX_DIFF: u64 = 1000;
-    const KNOWN_AVG: u64 = 62569;
+    const KNOWN_AVG: u64 = 58764;
     if !((KNOWN_AVG - MAX_DIFF)..=(KNOWN_AVG + MAX_DIFF)).contains(&avg) {
         panic!(
             "patricia_validator: please update KNOWN_AVG ({}), new value: {}",
