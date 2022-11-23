@@ -21,7 +21,6 @@ $SOLC \
   --combined-json bin,bin-runtime,srcmap,srcmap-runtime,storage-layout \
   --optimize \
   --optimize-runs 4294967295 \
-  --via-ir \
   --overwrite \
   -o "$OUTPUT_PATH" \
   $(find "$ROOT"/contracts/ -iname '*.sol' | grep -v templates/)
