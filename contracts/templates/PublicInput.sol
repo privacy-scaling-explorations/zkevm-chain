@@ -19,10 +19,28 @@ contract PublicInput {
       //@INCLUDE:rlp.yul
       //@INCLUDE:utils.yul
 
-      // Only updates the `raw_public_inputs` array.
-      function appendRow (value) {
-        value := mod(value, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+      function rlc (v) -> acc {
+        for { let i := 0 } lt(i, 256) { i := add(i, 8) } {
+          let p := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+          let randomness := 0
+          acc := mulmod(acc, randomness, p)
+          let raw_value := and(shr(i, v), 0xff)
+          acc := addmod(acc, raw_value, p)
+        }
+      }
 
+      function rlc_le (v) -> acc {
+        let randomness := 0
+        for { let i := 0 } lt(i, 256) { i := add(i, 8) } {
+          let p := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+          acc := mulmod(acc, randomness, p)
+          let raw_value := and(v, shr(i, 0xff00000000000000000000000000000000000000000000000000000000000000))
+          acc := addmod(acc, raw_value, p)
+        }
+      }
+
+      // Only updates the `raw_public_inputs` array.
+      function append (value) {
         // increment index
         let rpi_ptr := mload(0)
         mstore(0, add(rpi_ptr, 32))
@@ -34,7 +52,6 @@ contract PublicInput {
       // Writes to the public input table and
       // the raw_public_inputs array.
       function appendTxRow (txId, tag, value) {
-        value := mod(value, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
         let callframe := mload(96)
 
         // update `raw_public_inputs` array
@@ -159,43 +176,46 @@ contract PublicInput {
         require(eq(nItems, 15), "BLOCK_ITEMS")
 
         // initial zero
-        appendRow(0)
+        append(0)
         // coinbase
-        appendRow(loadValue(values, 2))
+        append(loadValue(values, 2))
         // gas_limit
-        appendRow(loadValue(values, 9))
+        append(loadValue(values, 9))
         // number
-        appendRow(loadValue(values, 8))
+        append(loadValue(values, 8))
         // time
-        appendRow(loadValue(values, 11))
+        append(loadValue(values, 11))
         // difficulty
-        appendRow(loadValue(values, 7))
+        append(rlc_le(loadValue(values, 7)))
         // base fee
-        appendRow(0)
+        append(0)
         // chain id
-        appendRow(chainId)
+        append(chainId)
         mstore(add(table, 64), chainId)
 
         // history hashes
         {
           let tail := add(ptr, 8192)
           for {} lt(ptr, tail) { ptr := add(ptr, 32) } {
-            appendRow(calldataload(ptr))
+            append(rlc(calldataload(ptr)))
           }
         }
 
         // extra fields
         // block hash
-        appendRow(hash)
+        append(rlc(hash))
         // stateRoot
         {
-          let stateRoot := loadValue(values, 3)
-          appendRow(stateRoot)
-          mstore(add(table, 96), mod(stateRoot, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47))
+          let stateRoot := rlc(loadValue(values, 3))
+          append(stateRoot)
+          mstore(add(table, 96), stateRoot)
         }
         // parent stateRoot
-        appendRow(parentStateRoot)
-        mstore(add(table, 128), mod(parentStateRoot, 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47))
+        {
+          let v := rlc(parentStateRoot)
+          append(v)
+          mstore(add(table, 128), v)
+        }
 
         dataOffset := ptr
         require(or(eq(dataOffset, dataOffsetTail), lt(dataOffset, dataOffsetTail)), "DATA")
@@ -230,19 +250,19 @@ contract PublicInput {
           {
             let txNonce := loadValue(values, 0)
             let CONST_TX_TAG_NONCE := 1
-            appendTxRow(txId, CONST_TX_TAG_NONCE, txNonce)
+            appendTxRow(txId, CONST_TX_TAG_NONCE, rlc_le(txNonce))
           }
 
           {
             let gasLimit := loadValue(values, 2)
             let CONST_TX_TAG_GAS := 2
-            appendTxRow(txId, CONST_TX_TAG_GAS, gasLimit)
+            appendTxRow(txId, CONST_TX_TAG_GAS, rlc_le(gasLimit))
           }
 
           {
             let gasPrice := loadValue(values, 1)
             let CONST_TX_TAG_GAS_PRICE := 3
-            appendTxRow(txId, CONST_TX_TAG_GAS_PRICE, gasPrice)
+            appendTxRow(txId, CONST_TX_TAG_GAS_PRICE, rlc_le(gasPrice))
           }
 
           {
@@ -263,7 +283,7 @@ contract PublicInput {
           {
             let txValue := loadValue(values, 4)
             let CONST_TX_TAG_VALUE := 7
-            appendTxRow(txId, CONST_TX_TAG_VALUE, txValue)
+            appendTxRow(txId, CONST_TX_TAG_VALUE, rlc_le(txValue))
           }
 
           let txInputOffset, txInputLen := loadPair(values, 5)
@@ -298,8 +318,10 @@ contract PublicInput {
           }
 
           {
+            let SECP256K1_Q := 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
+            let msg_hash := mod(hash, SECP256K1_Q)
             let CONST_TX_TAG_SIGN_HASH := 10
-            appendTxRow(txId, CONST_TX_TAG_SIGN_HASH, hash)
+            appendTxRow(txId, CONST_TX_TAG_SIGN_HASH, rlc_le(msg_hash))
           }
         }
 
@@ -332,7 +354,7 @@ contract PublicInput {
 
       let NUM_RAW_INPUTS := sub(mload(64), mload(32))
       // hash(raw_public_inputs)
-      let rand_rpi := mod(keccak256(mload(32), NUM_RAW_INPUTS), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
+      let rand_rpi := mod(keccak256(mload(32), NUM_RAW_INPUTS), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001)
       mstore(add(table, 0), rand_rpi)
 
       let rpi_rlc := 0
@@ -344,7 +366,7 @@ contract PublicInput {
           raw_tail := sub(raw_tail, 32)
           let raw_value := mload(raw_tail)
 
-          let p := 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+          let p := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
           rpi_rlc := mulmod(rpi_rlc, rand_rpi, p)
           rpi_rlc := addmod(rpi_rlc, raw_value, p)
         }
