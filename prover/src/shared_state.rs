@@ -72,13 +72,11 @@ macro_rules! gen_proof {
 
         log::info!("Using circuit parameters: {:#?}", CIRCUIT_CONFIG);
 
-        let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
         let mut circuit_proof = ProofResult::default();
         circuit_proof.label = format!(
             "{}-{}",
             task_options.circuit, CIRCUIT_CONFIG.block_gas_limit
         );
-        circuit_proof.k = param.k() as u8;
         let mut aggregation_proof = ProofResult::default();
         aggregation_proof.label = format!(
             "{}-{}-a",
@@ -94,12 +92,15 @@ macro_rules! gen_proof {
                 { CIRCUIT_CONFIG.max_rws },
                 _,
             >(&witness, fixed_rng())?;
-            let prover =
-                MockProver::run(param.k(), &circuit, circuit.instance()).expect("MockProver::run");
-            let res = prover.verify_par();
-            log::info!("MockProver: {:#?}", res);
+            circuit_proof.k = CIRCUIT_CONFIG.min_k as u8;
+            circuit_proof.instance = collect_instance(&circuit.instance());
+            let prover = MockProver::run(CIRCUIT_CONFIG.min_k as u32, &circuit, circuit.instance())
+                .expect("MockProver::run");
+            prover.verify_par().expect("MockProver::verify_par");
             circuit_proof.duration = Instant::now().duration_since(time_started).as_millis() as u32;
         } else {
+            let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
+            circuit_proof.k = param.k() as u8;
             let circuit = $CIRCUIT::gen_circuit::<
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },

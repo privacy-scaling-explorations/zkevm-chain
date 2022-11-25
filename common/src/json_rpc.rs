@@ -68,9 +68,11 @@ pub async fn jsonrpc_request_client<T: Serialize + Send + Sync, R: DeserializeOw
     log::trace!("jsonrpc_request_client: {} {}", uri, method);
 
     let json = tokio::time::timeout(std::time::Duration::from_millis(timeout), async {
-        let resp = client.request(node_req).await.unwrap();
-        let body = hyper::body::aggregate(resp).await.unwrap();
-        let json: JsonRpcResponseInternal<R> = serde_json::from_reader(body.reader()).unwrap();
+        let err_str = &uri.to_string();
+        let resp = client.request(node_req).await.expect(err_str);
+        let body = hyper::body::aggregate(resp).await.expect(err_str);
+        let json: JsonRpcResponseInternal<R> =
+            serde_json::from_reader(body.reader()).expect(err_str);
 
         json
     })

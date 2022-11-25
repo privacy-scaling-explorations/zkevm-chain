@@ -44,6 +44,7 @@ async fn access_list_regression() {
         {
             "data": "0x3838543838553d3855383854303b3d193b343f3d3d3d3d38345af1",
             "value": "0xfafbfc",
+            "gas": "0x2faf080",
         },
         "latest",
         {

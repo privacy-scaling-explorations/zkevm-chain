@@ -477,7 +477,7 @@ async fn native_deposit_revert() {
         let mut tx_hashes = Vec::new();
         for raw_tx in &txs {
             let resp: Result<H256, String> = jsonrpc_request_client(
-                5000,
+                RPC_REQUEST_TIMEOUT,
                 &shared_state.ro.http_client,
                 &shared_state.config.lock().await.l1_rpc_url,
                 "eth_sendRawTransaction",

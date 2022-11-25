@@ -1,3 +1,4 @@
+use crate::circuit_witness::CircuitWitness;
 use crate::shared_state::SharedState;
 use hyper::body::Buf;
 use hyper::body::HttpBody;
@@ -178,6 +179,27 @@ async fn handle_method(
                 .map(|result| serde_json::to_value(result?).map_err(|e| e.to_string()))
                 .unwrap_or_else(|| Ok(serde_json::Value::Null))
         }
+
+        "circuit_config" => {
+            let options = params.get(0).ok_or("expected struct ProofRequestOptions")?;
+            let options: ProofRequestOptions =
+                serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+
+            let witness = CircuitWitness::from_rpc(&options.block, &options.rpc)
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let circuit_config =
+                crate::match_circuit_params!(witness.gas_used(), CIRCUIT_CONFIG, {
+                    return Err(format!(
+                        "No circuit parameters found for block with gas={}",
+                        witness.gas_used()
+                    ));
+                });
+
+            Ok(serde_json::to_value(circuit_config).unwrap())
+        }
+
         // TODO: Add the abilitity to abort the current task.
 
         // returns `NodeInformation`

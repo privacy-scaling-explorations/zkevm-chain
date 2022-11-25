@@ -504,7 +504,7 @@ fn autogen_circuit_config() {
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;
     let mut str = String::new();
-    for (_, config) in params {
+    for config in params.values() {
         write!(
             str,
             "{}..={} => {{
@@ -536,4 +536,36 @@ macro_rules! match_circuit_params {{
         .expect("create circuit_autogen.rs")
         .write_all(str.as_bytes())
         .expect("write circuit_autogen.rs");
+
+    let mut str = String::new();
+    for config in params.values() {
+        write!(
+            str,
+            "
+    if (blockGasLimit <= {}) {{
+      return ({}, {});
+    }}
+    ",
+            config.block_gas_limit, config.max_txs, config.max_calldata,
+        )
+        .expect("fmt write");
+    }
+
+    let str = format!(
+        "
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity <0.9.0;
+contract CircuitConfig {{
+  function _getCircuitConfig (uint256 blockGasLimit) internal pure returns (uint256, uint256) {{
+    {}
+    revert(\"CIRCUIT_CONFIG\");
+  }}
+}}",
+        str
+    );
+
+    File::create("../contracts/generated/CircuitConfig.sol")
+        .expect("CircuitConfig.sol")
+        .write_all(str.as_bytes())
+        .expect("CircuitConfig.sol");
 }
