@@ -48,7 +48,7 @@ pub(crate) async fn test_public_commitment(
         .expect("calldata");
 
     let path = "../build/contracts/combined.json";
-    let file = File::open(&path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
+    let file = File::open(path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
     let reader = BufReader::new(file);
     let combined: serde_json::Value = serde_json::from_reader(reader).unwrap();
     let bin_runtime = combined
