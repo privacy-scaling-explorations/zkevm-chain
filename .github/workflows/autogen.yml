@@ -77,7 +77,7 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker compose down -v --remove-orphans
+          docker compose down -v --remove-orphans || true
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
           sudo docker system prune --all --force --volumes || true
