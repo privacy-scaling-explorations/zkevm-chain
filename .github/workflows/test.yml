@@ -24,16 +24,17 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
-    needs: [wakeup]
-    runs-on: heavy-worker
     env:
       COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
+    needs: [wakeup]
+    runs-on: heavy-worker
     steps:
       - name: Cleanup
+        if: always()
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune -f
+          sudo docker system prune --all --force --volumes
 
       - uses: actions/checkout@v2
         with:
@@ -63,3 +64,10 @@ jobs:
           path-to-lcov: build/coverage-report.lcov
           git-branch: ${{ (github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number)) || github.ref }}
           git-commit: ${{ (github.event.pull_request && github.event.pull_request.head.sha) || github.sha }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+          sudo docker system prune --all --force --volumes

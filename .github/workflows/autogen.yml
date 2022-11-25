@@ -21,16 +21,19 @@ jobs:
 
   gen:
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    env:
+      COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
       - name: Cleanup
+        if: always()
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune -f
+          sudo docker system prune --all --force --volumes
 
       - uses: actions/checkout@v2
         with:
@@ -70,3 +73,10 @@ jobs:
 
       - name: Commit
         run: ./scripts/ci_autogen_commit.sh
+
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+          sudo docker system prune --all --force --volumes
