@@ -8,6 +8,9 @@ import './ZkEvmMessageDispatcher.sol';
 import './ZkEvmMessageDelivererBase.sol';
 import './interfaces/IZkEvmMessageDelivererWithProof.sol';
 import './generated/PatriciaValidator.sol';
+import './generated/PublicInput.sol';
+import './generated/HeaderUtil.sol';
+import './generated/CircuitConfig.sol';
 
 contract ZkEvmL1Bridge is
   ZkEvmUtils,
@@ -16,30 +19,72 @@ contract ZkEvmL1Bridge is
   ZkEvmMessageDispatcher,
   ZkEvmMessageDelivererBase,
   IZkEvmMessageDelivererWithProof,
-  PatriciaValidator
+  PatriciaValidator,
+  PublicInput,
+  HeaderUtil,
+  CircuitConfig
 {
-  bytes32 public safeBlockHash;
-  bytes32 public finalizedBlockHash;
+  // TODO: Move storage to static slots
   bytes32 public stateRoot;
+  mapping (bytes32 => bytes32) commitments;
+  mapping (bytes32 => bytes32) stateRoots;
 
-  function submitBlock (bytes calldata _data) external {
+  function submitBlock (bytes calldata witness) external {
     _onlyEOA();
-
-    safeBlockHash = keccak256(_data);
-
     emit BlockSubmitted();
+
+    (
+      bytes32 parentBlockHash,
+      bytes32 blockHash,
+      bytes32 blockStateRoot,
+      ,
+      uint256 blockGas
+    ) = _readHeaderParts(witness);
+    uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
+    uint256 chainId = 99;
+    (uint256 MAX_TXS, uint256 MAX_CALLDATA) = _getCircuitConfig(blockGas);
+
+    uint256[] memory publicInput =
+      _buildCommitment(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, true);
+
+    bytes32 hash;
+    assembly {
+      hash := keccak256(add(publicInput, 32), mul(mload(publicInput), 32))
+    }
+    commitments[bytes32(blockHash)] = hash;
+    stateRoots[blockHash] = blockStateRoot;
   }
 
-  function finalizeBlock (bytes32 blockHash, bytes calldata _witness, bytes calldata proof) external {
-    finalizedBlockHash = blockHash;
-    assembly {
-      let stateRootOffset := add(_witness.offset, 91)
-      let val := calldataload(stateRootOffset)
-      sstore(stateRoot.slot, val)
+  function finalizeBlock (bytes calldata proof) external {
+    require(proof.length > 32);
 
-      if gt(proof.length, 32) {
+    bytes32 blockHash;
+    assembly {
+      blockHash := calldataload(proof.offset)
+    }
+    bytes32 blockStateRoot = stateRoots[blockHash];
+    stateRoot = blockStateRoot;
+    bytes32 expectedCommitmentHash = commitments[blockHash];
+
+    assembly {
+      // verify commitment hash
+      // TODO: support aggregation circuit
+      if gt(proof.length, 64) {
+        // 5 * 32
+        let len := 160
+        let ptr := mload(64)
+        // skip `blockHash, address`
+        calldatacopy(ptr, add(proof.offset, 64), len)
+        let hash := keccak256(ptr, len)
+        if iszero(eq(hash, expectedCommitmentHash)) {
+          revert(0, 0)
+        }
+      }
+
+      // 32 + 32 + 5 * 32
+      if gt(proof.length, 224) {
         // call contract at `addr` for proof verification
-        let offset := proof.offset
+        let offset := add(proof.offset, 32)
         let addr := calldataload(offset)
         switch extcodesize(addr)
         case 0 {
@@ -47,7 +92,7 @@ contract ZkEvmL1Bridge is
           revert(0, 1)
         }
 
-        let len := sub(proof.length, 32)
+        let len := sub(proof.length, 64)
         offset := add(offset, 32)
         let memPtr := mload(64)
         calldatacopy(memPtr, offset, len)
@@ -87,5 +132,10 @@ contract ZkEvmL1Bridge is
     require(storageValue == bytes32(uint256(1)), "DMVAL");
 
     _deliverMessage(from, to, value, fee, deadline, nonce, data);
+  }
+
+  /// @dev For testing purposes
+  function initGenesis (bytes32 _blockHash, bytes32 _stateRoot) external {
+    stateRoots[_blockHash] = _stateRoot;
   }
 }

@@ -477,12 +477,11 @@ contract InstanceVerifier {
 
       let NUM_RAW_INPUTS := sub(mload(64), mload(32))
       // hash(raw_public_inputs)
-      let rand_rpi := keccak256(mload(32), NUM_RAW_INPUTS)
+      let rand_rpi := mod(keccak256(mload(32), NUM_RAW_INPUTS), 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47)
       let rpi_rlc := 0
       {
         let raw_head := mload(32)
         let raw_tail := add(raw_head, NUM_RAW_INPUTS)
-        let row_tail := sub(raw_head, 64)
 
         for {} gt(raw_tail, raw_head) {} {
           raw_tail := sub(raw_tail, 32)
