@@ -3,18 +3,23 @@
 use eth_types::Address;
 use eth_types::Bytes;
 use eth_types::U256;
+use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
+use plonk_verifier::cost::CostEstimation;
 use plonk_verifier::loader::evm::EvmLoader;
 use plonk_verifier::loader::native::NativeLoader;
+use plonk_verifier::util::transcript::TranscriptWrite;
+use plonk_verifier::verifier::PlonkProof;
 use plonk_verifier::{
     system::halo2::{compile, transcript::evm::EvmTranscript, Config},
     verifier::PlonkVerifier,
 };
 use prover::aggregation_circuit::AggregationCircuit;
+use prover::aggregation_circuit::Pcs;
 use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
@@ -27,6 +32,7 @@ use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
 use prover::utils::gen_proof;
 use prover::ProverParams;
+use rand::rngs::OsRng;
 use std::env::var;
 use std::fs;
 use std::io::Write;
@@ -148,21 +154,36 @@ macro_rules! gen_match {
                         write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                     }
 
-                    let proof = gen_proof::<
-                        _,
-                        _,
-                        PoseidonTranscript<NativeLoader, _>,
-                        PoseidonTranscript<NativeLoader, _>,
-                        _,
-                    >(
-                        &params, &pk, circuit, instance.clone(), fixed_rng(), true
-                    );
-
                     let protocol = compile(
                         &params,
                         pk.get_vk(),
                         Config::kzg().with_num_instance(gen_num_instance(&instance)),
                     );
+
+                    let proof = {
+                        let mut transcript = PoseidonTranscript::<NativeLoader, _>::new(Vec::new());
+
+                        for _ in 0..protocol
+                            .num_witness
+                            .iter()
+                            .chain(Some(&protocol.quotient.num_chunk()))
+                            .sum::<usize>()
+                        {
+                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                        }
+
+                        for _ in 0..protocol.evaluations.len() {
+                            transcript.write_scalar(Fr::random(OsRng)).unwrap();
+                        }
+
+                        let queries =
+                            PlonkProof::<G1Affine, NativeLoader, Pcs>::empty_queries(&protocol);
+                        for _ in 0..Pcs::estimate_cost(&queries).num_commitment {
+                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                        }
+
+                        transcript.finalize()
+                    };
 
                     Snark::new(protocol, instance, proof)
                 };

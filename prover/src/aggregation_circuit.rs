@@ -34,7 +34,7 @@ use std::rc::Rc;
 
 const LIMBS: usize = 4;
 const BITS: usize = 68;
-type Pcs = Kzg<Bn256, Gwc19>;
+pub type Pcs = Kzg<Bn256, Gwc19>;
 type As = KzgAs<Pcs>;
 pub type Plonk = verifier::Plonk<Pcs, LimbsEncoding<LIMBS, BITS>>;
 
