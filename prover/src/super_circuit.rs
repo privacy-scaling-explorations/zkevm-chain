@@ -22,11 +22,10 @@ pub fn gen_circuit<
     witness: &CircuitWitness,
     mut rng: RNG,
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>, String> {
-    let (mut block, keccak_inputs) = witness.evm_witness();
-    block.randomness = Fr::random(&mut rng);
+    let (block, keccak_inputs) = witness.evm_witness();
 
     let pi_circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
-        randomness: Fr::random(&mut rng),
+        randomness: block.randomness,
         rand_rpi: Fr::random(&mut rng),
         public_data: witness.public_data(),
     };
