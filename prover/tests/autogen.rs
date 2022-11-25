@@ -553,7 +553,7 @@ macro_rules! match_circuit_params {{
 
     let str = format!(
         "
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity <0.9.0;
 contract CircuitConfig {{
   function _getCircuitConfig (uint256 blockGasLimit) internal pure returns (uint256, uint256) {{

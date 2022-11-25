@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity <0.9.0;
 
 /// @notice Holds common functions for storage key calculations.
