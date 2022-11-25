@@ -140,7 +140,7 @@ pub async fn wait_for_tx(
     node_uri: &Uri,
     raw_tx: &Bytes,
 ) -> Result<TransactionReceipt, String> {
-    let tx_hash = H256::from_slice(&keccak256(&raw_tx));
+    let tx_hash = H256::from_slice(&keccak256(raw_tx));
 
     // ignore
     let resp: Result<H256, String> =

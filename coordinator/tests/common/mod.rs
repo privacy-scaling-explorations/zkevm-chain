@@ -43,7 +43,7 @@ pub struct Trace {
 impl ContractArtifact {
     pub fn load(name: &str) -> Self {
         let path = "../build/contracts/combined.json";
-        let file = File::open(&path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
+        let file = File::open(path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
         let reader = BufReader::new(file);
         let combined: CombinedJson = serde_json::from_reader(reader).unwrap();
 
