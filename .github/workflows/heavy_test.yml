@@ -21,16 +21,19 @@ jobs:
 
   test:
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
+    env:
+      COMPOSE_PROJECT_NAME: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
       - name: Cleanup
+        if: always()
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune -f
+          sudo docker system prune --all --force --volumes || true
 
       - uses: actions/checkout@v2
 
@@ -51,3 +54,11 @@ jobs:
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh super
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v --remove-orphans || true
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.* || true
+          sudo docker system prune --all --force --volumes || true
