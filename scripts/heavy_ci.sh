@@ -15,6 +15,10 @@ PID=$!
 # sleep a bit in case the geth nodes are not up yet
 sleep 3
 
+# finalize any leftover blocks
+COORDINATOR_DUMMY_PROVER=true cargo test -p coordinator -- finalize_chain --ignored
+
+# now run all default tests
 COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator
 status=$?
 

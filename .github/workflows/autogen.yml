@@ -60,13 +60,9 @@ jobs:
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'cargo fmt --all'
 
-      - name: EVM & Aggregation circuit verifier
+      - name: EVM & Aggregation verifier for Pi, Super
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_pi autogen_verifier_dummy'
-
-      - name: Super circuit EVM verifier
-        run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'ONLY_EVM=1 ./scripts/autogen.sh autogen_verifier_super'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_pi autogen_verifier_super'
 
       - name: Patch genesis templates
         run: docker run --rm -v $(pwd):/host -w /host node:lts-alpine scripts/patch_genesis.mjs

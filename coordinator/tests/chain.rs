@@ -648,3 +648,11 @@ async fn l1_l2_sync_test() {
 
     finalize_chain!(shared_state);
 }
+
+#[ignore]
+#[tokio::test]
+async fn finalize_chain() {
+    let shared_state = await_state!();
+    sync!(shared_state);
+    finalize_chain!(shared_state);
+}
