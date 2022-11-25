@@ -1,14 +1,13 @@
-use bus_mapping::circuit_input_builder::Block;
 use bus_mapping::circuit_input_builder::BuilderClient;
 use bus_mapping::circuit_input_builder::CircuitsParams;
+use bus_mapping::mock::BlockData;
 use bus_mapping::rpc::GethClient;
-use bus_mapping::state_db::CodeDB;
 use eth_types::geth_types;
+use eth_types::geth_types::GethData;
 use eth_types::Address;
 use eth_types::ToBigEndian;
 use eth_types::Word;
 use eth_types::H256;
-use eth_types::U256;
 use ethers_providers::Http;
 use halo2_proofs::halo2curves::bn256::Fr;
 use std::str::FromStr;
@@ -40,23 +39,25 @@ impl CircuitWitness {
             max_txs: circuit_config.max_txs,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
-        let keccak_inputs = Vec::new();
-        let code_db = CodeDB::new();
-        let chain_id = U256::from(99);
-        let block = Block::new(
-            chain_id,
-            history_hashes,
-            U256::default(),
-            &eth_block,
-            circuit_params,
-        )
-        .map_err(|e| e.to_string())?;
-
+        let empty_data = GethData {
+            chain_id: Word::from(99),
+            history_hashes: vec![Word::zero(); 256],
+            eth_block,
+            geth_traces: Vec::new(),
+            accounts: Vec::new(),
+        };
+        let mut builder =
+            BlockData::new_from_geth_data_with_params(empty_data.clone(), circuit_params)
+                .new_circuit_input_builder();
+        builder
+            .handle_block(&empty_data.eth_block, &empty_data.geth_traces)
+            .unwrap();
+        let keccak_inputs = builder.keccak_inputs().unwrap();
         Ok(Self {
             circuit_config,
-            eth_block,
-            block,
-            code_db,
+            eth_block: empty_data.eth_block,
+            block: builder.block,
+            code_db: builder.code_db,
             keccak_inputs,
         })
     }
