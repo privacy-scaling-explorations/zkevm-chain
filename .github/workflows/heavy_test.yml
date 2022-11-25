@@ -33,7 +33,7 @@ jobs:
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune --all --force --volumes
+          sudo docker system prune --all --force --volumes || true
 
       - uses: actions/checkout@v2
 
@@ -60,4 +60,4 @@ jobs:
         run: |
           sudo rm -rf ./* || true
           sudo rm -rf ./.* || true
-          sudo docker system prune --all --force --volumes
+          sudo docker system prune --all --force --volumes || true
