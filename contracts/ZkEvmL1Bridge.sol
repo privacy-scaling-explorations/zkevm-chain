@@ -69,20 +69,23 @@ contract ZkEvmL1Bridge is
     assembly {
       // verify commitment hash
       // TODO: support aggregation circuit
-      if gt(proof.length, 64) {
-        // 5 * 32
-        let len := 160
-        let ptr := mload(64)
-        // skip `blockHash, address`
-        calldatacopy(ptr, add(proof.offset, 64), len)
-        let hash := keccak256(ptr, len)
-        if iszero(eq(hash, expectedCommitmentHash)) {
-          revert(0, 0)
+      if gt(proof.length, 96) {
+        let is_aggregated := calldataload(add(proof.offset, 64))
+        if iszero(is_aggregated) {
+          // 5 * 32
+          let len := 160
+          let ptr := mload(64)
+          // skip `blockHash, address, is_aggregated`
+          calldatacopy(ptr, add(proof.offset, 96), len)
+          let hash := keccak256(ptr, len)
+          if iszero(eq(hash, expectedCommitmentHash)) {
+            revert(0, 0)
+          }
         }
       }
 
-      // 32 + 32 + 5 * 32
-      if gt(proof.length, 224) {
+      // 32 + 32 + 32 + 5 * 32
+      if gt(proof.length, 256) {
         // call contract at `addr` for proof verification
         let offset := add(proof.offset, 32)
         let addr := calldataload(offset)
@@ -92,8 +95,8 @@ contract ZkEvmL1Bridge is
           revert(0, 1)
         }
 
-        let len := sub(proof.length, 64)
-        offset := add(offset, 32)
+        let len := sub(proof.length, 96)
+        offset := add(offset, 64)
         let memPtr := mload(64)
         calldatacopy(memPtr, offset, len)
         let success := staticcall(gas(), addr, memPtr, len, 0, 0)

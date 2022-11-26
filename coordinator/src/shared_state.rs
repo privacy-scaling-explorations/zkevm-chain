@@ -1,5 +1,4 @@
 use crate::config::Config;
-use crate::debug::test_public_commitment;
 use crate::structs::*;
 use crate::utils::*;
 use ethers_core::abi::Abi;
@@ -586,18 +585,13 @@ impl SharedState {
                 log::info!("{} found proof: {:#?} for {}", LOG_TAG, proof, block_num);
 
                 // choose the aggregation proof if not empty
-                let proof_result = {
+                let (is_aggregated, proof_result) = {
                     if proof.aggregation.proof.len() != 0 {
-                        proof.aggregation
+                        (true, proof.aggregation)
                     } else {
-                        proof.circuit
+                        (false, proof.circuit)
                     }
                 };
-
-                if !proof_result.instance.is_empty() && log::log_enabled!(log::Level::Debug) {
-                    let table = test_public_commitment(self, &block_num, &proof.config).await?;
-                    assert_eq!(proof_result.instance, table, "public inputs");
-                }
 
                 let mut verifier_calldata = vec![];
                 let mut tmp_buf = vec![0u8; 32];
@@ -610,10 +604,19 @@ impl SharedState {
 
                 let mut proof_data = vec![];
                 proof_data.extend_from_slice(block.hash.unwrap().as_ref());
+
                 // this is temporary until proper contract setup
                 let verifier_addr = U256::from(proof_result.label.as_bytes());
                 verifier_addr.to_big_endian(&mut tmp_buf);
                 proof_data.extend_from_slice(&tmp_buf);
+
+                let is_aggregated = match is_aggregated {
+                    true => U256::one(),
+                    false => U256::zero(),
+                };
+                is_aggregated.to_big_endian(&mut tmp_buf);
+                proof_data.extend_from_slice(&tmp_buf);
+
                 proof_data.extend_from_slice(&verifier_calldata);
 
                 let proof_data = Bytes::from(proof_data);

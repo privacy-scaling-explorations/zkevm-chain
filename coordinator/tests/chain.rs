@@ -1,5 +1,7 @@
+mod commitment;
 mod common;
 
+use crate::commitment::test_public_commitment;
 use crate::common::get_shared_state;
 use crate::common::zkevm_abi;
 use coordinator::utils::*;
@@ -16,6 +18,7 @@ use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
 use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
+use zkevm_common::prover::Proofs;
 
 #[tokio::test]
 async fn native_deposit() {
@@ -654,5 +657,59 @@ async fn l1_l2_sync_test() {
 async fn finalize_chain() {
     let shared_state = await_state!();
     sync!(shared_state);
+    shared_state.mine().await;
+    finalize_chain!(shared_state);
+}
+
+// ./scripts/test_prover.sh --ignored test_pi_commitment
+#[ignore]
+#[tokio::test]
+async fn test_pi_commitment() {
+    let shared_state = await_state!();
+    sync!(shared_state);
+
+    let tx_hash = shared_state
+        .transaction_to_l2(
+            Some(shared_state.ro.l2_wallet.address()),
+            U256::zero(),
+            vec![],
+        )
+        .await
+        .expect("tx_hash");
+    shared_state.mine().await;
+    wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
+
+    let tx_receipt: TransactionReceipt = shared_state
+        .request_l2("eth_getTransactionReceipt", [tx_hash])
+        .await
+        .expect("receipt");
+    let block_num = tx_receipt.block_number.unwrap();
+    loop {
+        let proofs: Option<Proofs> = shared_state
+            .request_proof(&block_num)
+            .await
+            .expect("proofs");
+        match proofs {
+            None => continue,
+            Some(proof) => {
+                log::info!("{:#?}", &proof);
+                let (_is_aggregated, proof_result) = {
+                    if proof.aggregation.proof.len() != 0 {
+                        (true, proof.aggregation)
+                    } else {
+                        (false, proof.circuit)
+                    }
+                };
+
+                let table = test_public_commitment(&shared_state, &block_num, &proof.config)
+                    .await
+                    .expect("test_public_commitment");
+                assert_eq!(proof_result.instance, table, "public inputs");
+
+                break;
+            }
+        }
+    }
+
     finalize_chain!(shared_state);
 }
