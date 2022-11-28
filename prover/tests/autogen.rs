@@ -191,8 +191,11 @@ macro_rules! estimate {
         const MAX_TXS: usize = BLOCK_GAS_LIMIT / 21_000;
         const MAX_BYTECODE: usize = TX_GAS_LIMIT / LOWEST_GAS_STEP;
         const MAX_CALLDATA: usize = TX_GAS_LIMIT / TX_DATA_ZERO_GAS;
-        // TODO: add proper worst-case estimate
-        const MAX_RWS: usize = ((1 << 19) * (BLOCK_GAS_LIMIT / 63_000) - (1 << 15));
+        // TODO
+        // Right now, it only accounts for MLOAD step height.
+        // - Investigate other fixed sources of rw steps.
+        // - Add support for querying the most expensive opcode here.
+        const MAX_RWS: usize = (TX_GAS_LIMIT * 1133) / 100;
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::one(); 256];
@@ -292,7 +295,7 @@ macro_rules! estimate {
             let remaining_rows = (1 << k) - highest_row;
             circuit_config.min_k = k;
             // TODO: estimate aggregation circuit requirements
-            circuit_config.min_k_aggregation = k + 6;
+            circuit_config.min_k_aggregation = k + 7;
 
             $scope(circuit_config, highest_row, remaining_rows);
         }
