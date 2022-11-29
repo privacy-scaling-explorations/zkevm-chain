@@ -2,10 +2,8 @@
 
 use eth_types::Address;
 use eth_types::Bytes;
-use eth_types::U256;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
-use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
@@ -27,10 +25,8 @@ use prover::circuit_witness::CircuitWitness;
 use prover::dummy_circuit;
 use prover::public_input_circuit;
 use prover::super_circuit;
-use prover::utils::collect_instance;
 use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
-use prover::utils::gen_proof;
 use prover::ProverParams;
 use rand::rngs::OsRng;
 use std::env::var;
@@ -43,8 +39,6 @@ use zkevm_common::prover::*;
 struct Verifier {
     label: String,
     config: CircuitConfig,
-    instance: Vec<U256>,
-    proof: Bytes,
     runtime_code: Bytes,
     address: Address,
 }
@@ -107,11 +101,8 @@ macro_rules! gen_match {
                         _,
                     >(&witness, fixed_rng())
                     .expect("gen_static_circuit");
-                    let instance = circuit.instance();
-
                     let params = ProverParams::setup(CIRCUIT_CONFIG.min_k as u32, fixed_rng());
                     let vk = keygen_vk(&params, &circuit).expect("vk");
-                    let pk = keygen_pk(&params, vk, &circuit).expect("pk");
 
                     {
                         let mut data = Verifier::default();
@@ -119,7 +110,7 @@ macro_rules! gen_match {
                         data.config = CIRCUIT_CONFIG;
                         data.runtime_code = gen_verifier(
                             &params,
-                            &pk.get_vk(),
+                            &vk,
                             Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
                         )
                         .into();
@@ -131,33 +122,14 @@ macro_rules! gen_match {
                             return;
                         }
 
-                        if log::log_enabled!(log::Level::Debug) {
-                            let proof = gen_proof::<
-                                _,
-                                _,
-                                EvmTranscript<G1Affine, _, _, _>,
-                                EvmTranscript<G1Affine, _, _, _>,
-                                _,
-                            >(
-                                &params,
-                                &pk,
-                                circuit.clone(),
-                                circuit.instance(),
-                                fixed_rng(),
-                                true,
-                            );
-                            data.instance = collect_instance(&circuit.instance());
-                            data.proof = proof.into();
-                        }
-
                         let data = data.build();
                         write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                     }
 
                     let protocol = compile(
                         &params,
-                        pk.get_vk(),
-                        Config::kzg().with_num_instance(gen_num_instance(&instance)),
+                        &vk,
+                        Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
                     );
 
                     let proof = {
@@ -185,7 +157,7 @@ macro_rules! gen_match {
                         transcript.finalize()
                     };
 
-                    Snark::new(protocol, instance, proof)
+                    Snark::new(protocol, circuit.instance(), proof)
                 };
 
                 let agg_params =
@@ -204,26 +176,6 @@ macro_rules! gen_match {
                         .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices())),
                 )
                 .into();
-
-                if log::log_enabled!(log::Level::Debug) {
-                    let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
-                    let proof = gen_proof::<
-                        _,
-                        _,
-                        EvmTranscript<G1Affine, _, _, _>,
-                        EvmTranscript<G1Affine, _, _, _>,
-                        _,
-                    >(
-                        &agg_params,
-                        &agg_pk,
-                        agg_circuit.clone(),
-                        agg_circuit.instance(),
-                        fixed_rng(),
-                        true,
-                    );
-                    data.instance = collect_instance(&agg_circuit.instance());
-                    data.proof = proof.into();
-                }
 
                 let data = data.build();
                 write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
