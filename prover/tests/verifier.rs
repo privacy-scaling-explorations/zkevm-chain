@@ -150,9 +150,18 @@ macro_rules! gen_match {
 
                         let queries =
                             PlonkProof::<G1Affine, NativeLoader, Pcs>::empty_queries(&protocol);
-                        for _ in 0..Pcs::estimate_cost(&queries).num_commitment {
+                        let estimate = Pcs::estimate_cost(&queries);
+                        for _ in 0..estimate.num_commitment {
                             transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
                         }
+                        log::info!(
+                            "{} {:#?} num_witness={} evalutations={} estimate={:#?}",
+                            $LABEL,
+                            CIRCUIT_CONFIG,
+                            protocol.num_witness.len(),
+                            protocol.evaluations.len(),
+                            estimate
+                        );
 
                         transcript.finalize()
                     };

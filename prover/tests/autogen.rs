@@ -297,7 +297,7 @@ macro_rules! estimate {
             let remaining_rows = (1 << k) - highest_row;
             circuit_config.min_k = k;
             // TODO: estimate aggregation circuit requirements
-            circuit_config.min_k_aggregation = 25;
+            circuit_config.min_k_aggregation = 26;
 
             $scope(circuit_config, highest_row, remaining_rows);
         }
