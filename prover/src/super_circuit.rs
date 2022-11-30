@@ -24,7 +24,7 @@ pub fn gen_circuit<
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>, String> {
     let (block, keccak_inputs) = witness.evm_witness();
     let public_data = witness.public_data();
-    let rand_rpi = gen_rand_rpi::<Fr, MAX_TXS, MAX_CALLDATA>(&public_data);
+    let rand_rpi = gen_rand_rpi::<Fr, MAX_TXS, MAX_CALLDATA>(&public_data, block.randomness);
     let pi_circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA> {
         randomness: block.randomness,
         rand_rpi,

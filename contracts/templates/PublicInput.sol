@@ -22,7 +22,7 @@ contract PublicInput {
       function rlc (v) -> acc {
         for { let i := 0 } lt(i, 256) { i := add(i, 8) } {
           let p := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
-          let randomness := 0
+          let randomness := 0x100
           acc := mulmod(acc, randomness, p)
           let raw_value := and(shr(i, v), 0xff)
           acc := addmod(acc, raw_value, p)
@@ -30,7 +30,7 @@ contract PublicInput {
       }
 
       function rlc_le (v) -> acc {
-        let randomness := 0
+        let randomness := 0x001
         for { let i := 0 } lt(i, 256) { i := add(i, 8) } {
           let p := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
           acc := mulmod(acc, randomness, p)

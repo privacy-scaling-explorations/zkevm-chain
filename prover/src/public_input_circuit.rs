@@ -14,10 +14,11 @@ pub fn gen_circuit<
     witness: &CircuitWitness,
     mut _rng: RNG,
 ) -> Result<PiCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
+    let (block, _) = witness.evm_witness();
     let public_data = witness.public_data();
-    let rand_rpi = gen_rand_rpi::<Fr, MAX_TXS, MAX_CALLDATA>(&public_data);
-    let randomness = Fr::zero();
-    let circuit = PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA>::new(randomness, rand_rpi, public_data);
+    let rand_rpi = gen_rand_rpi::<Fr, MAX_TXS, MAX_CALLDATA>(&public_data, block.randomness);
+    let circuit =
+        PiCircuit::<Fr, MAX_TXS, MAX_CALLDATA>::new(block.randomness, rand_rpi, public_data);
 
     Ok(circuit)
 }
