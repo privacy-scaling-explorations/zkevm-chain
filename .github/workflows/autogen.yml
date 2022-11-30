@@ -28,13 +28,6 @@ jobs:
     needs: [wakeup]
     runs-on: heavy-worker
     steps:
-      - name: Cleanup
-        if: always()
-        run: |
-          sudo rm -rf ./* || true
-          sudo rm -rf ./.* || true
-          sudo docker system prune --all --force --volumes || true
-
       - uses: actions/checkout@v2
         with:
           ref: ${{ github.head_ref }}
@@ -69,11 +62,3 @@ jobs:
 
       - name: Commit
         run: ./scripts/ci_autogen_commit.sh
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose down -v --remove-orphans || true
-          sudo rm -rf ./* || true
-          sudo rm -rf ./.* || true
-          sudo docker system prune --all --force --volumes || true
