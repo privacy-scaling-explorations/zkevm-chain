@@ -102,6 +102,8 @@ impl CircuitWitness {
         let mut block = evm_circuit::witness::block_convert(&self.block, &self.code_db);
         block.evm_circuit_pad_to = self.circuit_config.pad_to;
         block.exp_circuit_pad_to = self.circuit_config.pad_to;
+        // expect mock randomness
+        assert_eq!(block.randomness, Fr::from(0x100));
         let keccak_inputs = self.keccak_inputs.clone();
 
         (block, keccak_inputs)
