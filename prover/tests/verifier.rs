@@ -2,19 +2,22 @@
 
 use eth_types::Address;
 use eth_types::Bytes;
-use eth_types::U256;
+use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
-use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
+use plonk_verifier::cost::CostEstimation;
 use plonk_verifier::loader::evm::EvmLoader;
 use plonk_verifier::loader::native::NativeLoader;
+use plonk_verifier::util::transcript::TranscriptWrite;
+use plonk_verifier::verifier::PlonkProof;
 use plonk_verifier::{
     system::halo2::{compile, transcript::evm::EvmTranscript, Config},
     verifier::PlonkVerifier,
 };
 use prover::aggregation_circuit::AggregationCircuit;
+use prover::aggregation_circuit::Pcs;
 use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
@@ -22,11 +25,10 @@ use prover::circuit_witness::CircuitWitness;
 use prover::dummy_circuit;
 use prover::public_input_circuit;
 use prover::super_circuit;
-use prover::utils::collect_instance;
 use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
-use prover::utils::gen_proof;
 use prover::ProverParams;
+use rand::rngs::OsRng;
 use std::env::var;
 use std::fs;
 use std::io::Write;
@@ -37,8 +39,6 @@ use zkevm_common::prover::*;
 struct Verifier {
     label: String,
     config: CircuitConfig,
-    instance: Vec<U256>,
-    proof: Bytes,
     runtime_code: Bytes,
     address: Address,
 }
@@ -101,11 +101,8 @@ macro_rules! gen_match {
                         _,
                     >(&witness, fixed_rng())
                     .expect("gen_static_circuit");
-                    let instance = circuit.instance();
-
                     let params = ProverParams::setup(CIRCUIT_CONFIG.min_k as u32, fixed_rng());
                     let vk = keygen_vk(&params, &circuit).expect("vk");
-                    let pk = keygen_pk(&params, vk, &circuit).expect("pk");
 
                     {
                         let mut data = Verifier::default();
@@ -113,7 +110,7 @@ macro_rules! gen_match {
                         data.config = CIRCUIT_CONFIG;
                         data.runtime_code = gen_verifier(
                             &params,
-                            &pk.get_vk(),
+                            &vk,
                             Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
                         )
                         .into();
@@ -125,46 +122,51 @@ macro_rules! gen_match {
                             return;
                         }
 
-                        if log::log_enabled!(log::Level::Debug) {
-                            let proof = gen_proof::<
-                                _,
-                                _,
-                                EvmTranscript<G1Affine, _, _, _>,
-                                EvmTranscript<G1Affine, _, _, _>,
-                                _,
-                            >(
-                                &params,
-                                &pk,
-                                circuit.clone(),
-                                circuit.instance(),
-                                fixed_rng(),
-                                true,
-                            );
-                            data.instance = collect_instance(&circuit.instance());
-                            data.proof = proof.into();
-                        }
-
                         let data = data.build();
                         write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                     }
 
-                    let proof = gen_proof::<
-                        _,
-                        _,
-                        PoseidonTranscript<NativeLoader, _>,
-                        PoseidonTranscript<NativeLoader, _>,
-                        _,
-                    >(
-                        &params, &pk, circuit, instance.clone(), fixed_rng(), true
-                    );
-
                     let protocol = compile(
                         &params,
-                        pk.get_vk(),
-                        Config::kzg().with_num_instance(gen_num_instance(&instance)),
+                        &vk,
+                        Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
                     );
 
-                    Snark::new(protocol, instance, proof)
+                    let proof = {
+                        let mut transcript = PoseidonTranscript::<NativeLoader, _>::new(Vec::new());
+
+                        for _ in 0..protocol
+                            .num_witness
+                            .iter()
+                            .chain(Some(&protocol.quotient.num_chunk()))
+                            .sum::<usize>()
+                        {
+                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                        }
+
+                        for _ in 0..protocol.evaluations.len() {
+                            transcript.write_scalar(Fr::random(OsRng)).unwrap();
+                        }
+
+                        let queries =
+                            PlonkProof::<G1Affine, NativeLoader, Pcs>::empty_queries(&protocol);
+                        let estimate = Pcs::estimate_cost(&queries);
+                        for _ in 0..estimate.num_commitment {
+                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                        }
+                        log::info!(
+                            "{} {:#?} num_witness={} evalutations={} estimate={:#?}",
+                            $LABEL,
+                            CIRCUIT_CONFIG,
+                            protocol.num_witness.len(),
+                            protocol.evaluations.len(),
+                            estimate
+                        );
+
+                        transcript.finalize()
+                    };
+
+                    Snark::new(protocol, circuit.instance(), proof)
                 };
 
                 let agg_params =
@@ -183,26 +185,6 @@ macro_rules! gen_match {
                         .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices())),
                 )
                 .into();
-
-                if log::log_enabled!(log::Level::Debug) {
-                    let agg_pk = keygen_pk(&agg_params, agg_vk, &agg_circuit).expect("pk");
-                    let proof = gen_proof::<
-                        _,
-                        _,
-                        EvmTranscript<G1Affine, _, _, _>,
-                        EvmTranscript<G1Affine, _, _, _>,
-                        _,
-                    >(
-                        &agg_params,
-                        &agg_pk,
-                        agg_circuit.clone(),
-                        agg_circuit.instance(),
-                        fixed_rng(),
-                        true,
-                    );
-                    data.instance = collect_instance(&agg_circuit.instance());
-                    data.proof = proof.into();
-                }
 
                 let data = data.build();
                 write_bytes(&data.label, &serde_json::to_vec(data).unwrap());

@@ -7,11 +7,11 @@ macro_rules! match_circuit_params {
                     block_gas_limit: 63000,
                     max_txs: 3,
                     max_calldata: 10500,
-                    max_bytecode: 21000,
-                    max_rws: 491520,
+                    max_bytecode: 24634,
+                    max_rws: 476052,
                     min_k: 19,
-                    pad_to: 491520,
-                    min_k_aggregation: 21,
+                    pad_to: 476052,
+                    min_k_aggregation: 26,
                     keccak_padding: 1000,
                 };
                 $on_match
@@ -22,10 +22,10 @@ macro_rules! match_circuit_params {
                     max_txs: 7,
                     max_calldata: 32250,
                     max_bytecode: 64500,
-                    max_rws: 1015808,
-                    min_k: 20,
-                    pad_to: 1015808,
-                    min_k_aggregation: 21,
+                    max_rws: 1462018,
+                    min_k: 21,
+                    pad_to: 1462018,
+                    min_k_aggregation: 26,
                     keccak_padding: 2380,
                 };
                 $on_match
@@ -36,10 +36,10 @@ macro_rules! match_circuit_params {
                     max_txs: 14,
                     max_calldata: 69750,
                     max_bytecode: 139500,
-                    max_rws: 2064384,
-                    min_k: 21,
-                    pad_to: 2064384,
-                    min_k_aggregation: 21,
+                    max_rws: 3161966,
+                    min_k: 22,
+                    pad_to: 3161966,
+                    min_k_aggregation: 26,
                     keccak_padding: 4761,
                 };
                 $on_match

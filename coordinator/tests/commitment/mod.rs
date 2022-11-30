@@ -1,5 +1,5 @@
-use crate::shared_state::SharedState;
-use crate::structs::BlockHeader;
+use coordinator::shared_state::SharedState;
+use coordinator::structs::BlockHeader;
 use ethers_core::abi::Abi;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::Token;
