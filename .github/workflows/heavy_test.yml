@@ -45,18 +45,6 @@ jobs:
           docker compose down -v --remove-orphans
           docker compose build bootnode dev
 
-      - name: Pi Circuit
-        if: always()
-        run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=false COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
-          ./scripts/ci_commit_errors.sh pi
-
-      - name: Pi Circuit aggregation
-        if: always()
-        run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
-          ./scripts/ci_commit_errors.sh pi-ag
-
       - name: Super Circuit
         if: always()
         run: |
@@ -68,6 +56,18 @@ jobs:
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh'
           ./scripts/ci_commit_errors.sh super-ag
+
+      - name: Pi Circuit
+        if: always()
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=false COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh pi
+
+      - name: Pi Circuit aggregation
+        if: always()
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh'
+          ./scripts/ci_commit_errors.sh pi-ag
 
       - name: Cleanup
         if: always()
