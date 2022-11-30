@@ -5,7 +5,17 @@ networks:
     name: zkevm-chain
 
 services:
+  leader-testnet-geth:
+    restart: unless-stopped
+
+  server-testnet-geth:
+    restart: unless-stopped
+
+  l1-testnet-geth:
+    restart: unless-stopped
+
   bootnode:
+    restart: unless-stopped
     ports:
       - 30303:30303
 
@@ -13,6 +23,13 @@ services:
     ports:
       - 8000:8000
 
+  coordinator:
+    restart: unless-stopped
+
+  prover-rpcd:
+    restart: unless-stopped
+
   web:
+    restart: unless-stopped
     ports:
       - 8000:8000

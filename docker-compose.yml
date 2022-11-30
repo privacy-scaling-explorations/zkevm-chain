@@ -5,7 +5,6 @@ services:
     build:
       dockerfile: docker/geth/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
-    restart: unless-stopped
     volumes:
       - leader-testnet-geth:/root
     environment:
@@ -36,7 +35,6 @@ services:
     build:
       dockerfile: docker/geth/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
-    restart: unless-stopped
     volumes:
       - bootnode:/root
     environment:
@@ -60,7 +58,6 @@ services:
     build:
       dockerfile: docker/geth/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
-    restart: unless-stopped
     environment:
       - MINER_ADDRESS
       - GENESIS=l2-testnet
@@ -80,7 +77,6 @@ services:
     build:
       dockerfile: docker/geth/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/geth:latest
-    restart: unless-stopped
     volumes:
       - l1-testnet-geth:/root
     environment:
@@ -113,7 +109,6 @@ services:
       - server-testnet-geth
       - l1-testnet-geth
       - prover-rpcd
-    restart: unless-stopped
     environment:
       - COORDINATOR_LISTEN=[::]:8545
       - COORDINATOR_RPC_SERVER_NODES=server-testnet-geth:8545
@@ -132,7 +127,6 @@ services:
     build:
       dockerfile: docker/prover/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
-    restart: unless-stopped
     environment:
       - PROVERD_BIND=[::]:8545
       - PROVERD_LOOKUP=prover-rpcd:8545
@@ -198,7 +192,6 @@ services:
   web:
     depends_on:
       - coordinator
-    restart: unless-stopped
     build:
       dockerfile: docker/web/Dockerfile
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/web:latest
