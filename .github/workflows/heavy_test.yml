@@ -20,6 +20,7 @@ jobs:
           AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
 
   test:
+    timeout-minutes: 7200
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true

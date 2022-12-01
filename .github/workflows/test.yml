@@ -1,4 +1,4 @@
-name: test
+name: Coverage
 on:
   workflow_dispatch:
   push:
@@ -20,7 +20,7 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
 
-  test:
+  main:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -47,7 +47,7 @@ jobs:
 
       - name: Run coordinator tests
         run: |
-          docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/load_coverage.sh && cargo test && ./scripts/get_coverage.sh'
+          docker compose run --no-TTY --rm --entrypoint bash dev -c './scripts/test_coverage.sh'
 
       - name: Upload Coverage
         if: success()
