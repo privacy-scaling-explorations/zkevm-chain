@@ -17,4 +17,5 @@ branch=prover-error-"$1"-$(git rev-parse HEAD)
 git checkout -b $branch && git add errors/ && git commit -m 'add prover errors' && git push origin $branch
 
 # exit with error to signal prover failure
+rm -rf errors
 exit 1

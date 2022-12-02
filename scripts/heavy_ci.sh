@@ -19,7 +19,7 @@ sleep 3
 COORDINATOR_DUMMY_PROVER=true cargo test -p coordinator -- finalize_chain --ignored || exit 1
 
 # now run all default tests
-COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator
+COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator -- $@
 status=$?
 
 pkill -9 prover_rpcd || true
