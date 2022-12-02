@@ -197,7 +197,7 @@ impl SharedState {
         while from <= latest_block {
             // TODO: increase or decrease request range depending on fetch success
             let to = cmp::min(from + 1u64, latest_block);
-            log::info!("fetching l1 logs from={} to={}", from, to);
+            log::trace!("fetching l1 logs from={} to={}", from, to);
             filter = filter.from_block(from).to_block(to);
 
             let logs: Vec<Log> = self
@@ -519,7 +519,7 @@ impl SharedState {
             .await;
             let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
 
-            log::info!("blocks to be submitted: {:?}", blocks.len());
+            log::trace!("blocks to be submitted: {:?}", blocks.len());
             for block in blocks.iter().rev() {
                 log::info!("submit_block: {}", format_block(block));
                 {
@@ -557,7 +557,7 @@ impl SharedState {
             )
             .await;
 
-            log::info!("blocks for finalization: {:?}", blocks.len());
+            log::trace!("blocks for finalization: {:?}", blocks.len());
             for block in blocks.iter().rev() {
                 self.finalize_block(block).await?;
             }
@@ -580,7 +580,7 @@ impl SharedState {
         }
 
         match proofs.unwrap() {
-            None => log::info!("{} proof not yet computed for: {}", LOG_TAG, block_num),
+            None => log::trace!("{} proof not yet computed for: {}", LOG_TAG, block_num),
             Some(proof) => {
                 log::info!("{} found proof: {:#?} for {}", LOG_TAG, proof, block_num);
 
@@ -830,7 +830,7 @@ impl SharedState {
         while from <= latest_block {
             // TODO: increase or decrease request range depending on fetch success
             let to = cmp::min(from + 1u64, latest_block);
-            log::info!("fetching logs from={} to={}", from, to);
+            log::trace!("fetching logs from={} to={}", from, to);
             filter = filter.from_block(from).to_block(to);
 
             let logs: Vec<Log> = self
@@ -868,7 +868,7 @@ impl SharedState {
             .await
             .expect("eth_getLogs");
 
-        log::info!("L2: {} relay events for {}", logs.len(), block_hash);
+        log::trace!("L2: {} relay events for {}", logs.len(), block_hash);
         let mut pending = vec![];
         for log in logs {
             let beacon = self._parse_message_beacon(log);
@@ -914,7 +914,7 @@ impl SharedState {
                 .iter()
                 .any(|&e| e == msg.id);
 
-            log::info!("{} skip={} {:?}", LOG_TAG, found, msg.id);
+            log::trace!("{} skip={} {:?}", LOG_TAG, found, msg.id);
             log::debug!("{:?}", msg);
             if found {
                 continue;
@@ -922,7 +922,7 @@ impl SharedState {
 
             // latest state root known on L1
             let state_root = self.state_root_l1().await.expect("l1.stateRoot");
-            log::info!("L1:stateRoot: {:?}", state_root);
+            log::trace!("L1:stateRoot: {:?}", state_root);
 
             // latest finalized block hash, should include `state_root`
             let block_hash = self.rw.lock().await.chain_state.finalized_block_hash;
