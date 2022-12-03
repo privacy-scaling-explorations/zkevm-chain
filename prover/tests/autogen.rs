@@ -343,7 +343,6 @@ macro_rules! bytecode_repeat {
 macro_rules! estimate_all {
     ($max_unused_gas:expr, $bytecode:expr, $callback:expr) => {{
         estimate!(63_000, $max_unused_gas, $bytecode, $callback);
-        estimate!(150_000, $max_unused_gas, $bytecode, $callback);
         estimate!(300_000, $max_unused_gas, $bytecode, $callback);
     }};
 }

@@ -39,14 +39,26 @@ jobs:
           docker compose down -v --remove-orphans
           docker compose build bootnode dev
 
-      - name: Super Circuit aggregation
+      - name: Super Circuit aggregation: eth_transfer
         if: always()
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh eth_transfer native_withdraw'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh eth_transfer'
           ./scripts/ci_commit_errors.sh super-ag
 
-      - name: Pi Circuit aggregation
+      - name: Super Circuit aggregation: native_withdraw
         if: always()
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh eth_transfer native_withdraw'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh native_withdraw'
+          ./scripts/ci_commit_errors.sh super-ag
+
+      - name: Pi Circuit aggregation: eth_transfer
+        if: always()
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh eth_transfer'
+          ./scripts/ci_commit_errors.sh pi-ag
+
+      - name: Pi Circuit aggregation: native_withdraw
+        if: always()
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=pi ./scripts/heavy_ci.sh native_withdraw'
           ./scripts/ci_commit_errors.sh pi-ag
