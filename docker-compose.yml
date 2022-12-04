@@ -183,6 +183,7 @@ services:
       - PROVERD_BIND=[::]:8001
       - COORDINATOR_CIRCUIT_NAME=pi
       - COORDINATOR_UNSAFE_RPC=true
+      - COORDINATOR_VERIFY_PROOF=true
     working_dir: /app
     entrypoint: /sbin/getty
     command: '-'

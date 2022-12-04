@@ -181,6 +181,7 @@ macro_rules! gen_match {
                             instance.clone(),
                             fixed_rng(),
                             true,
+                            true,
                         )
                     };
 

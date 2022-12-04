@@ -64,6 +64,9 @@ pub struct ProofRequestOptions {
     /// Runs the MockProver if proofing fails.
     #[serde(default = "default_bool")]
     pub mock_feedback: bool,
+    /// Verifies the proof after computation.
+    #[serde(default = "default_bool")]
+    pub verify_proof: bool,
 }
 
 impl PartialEq for ProofRequestOptions {

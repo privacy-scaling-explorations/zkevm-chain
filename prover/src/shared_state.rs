@@ -137,6 +137,7 @@ macro_rules! gen_proof {
                     circuit_instance.clone(),
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -181,6 +182,7 @@ macro_rules! gen_proof {
                     agg_instance,
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 aggregation_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -200,6 +202,7 @@ macro_rules! gen_proof {
                     circuit_instance.clone(),
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;

@@ -34,6 +34,10 @@ pub struct Config {
     /// Run the mock prover if a proof request fails.
     pub mock_prover_if_error: bool,
 
+    #[clap(long, env = "COORDINATOR_VERIFY_PROOF", default_value_t = false)]
+    /// Enable verification of the proof.
+    pub verify_proof: bool,
+
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
     #[serde_as(as = "DisplayFromStr")]
     /// L1 RPC node URL format.

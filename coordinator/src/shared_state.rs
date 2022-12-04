@@ -1062,6 +1062,7 @@ impl SharedState {
             mock: config.mock_prover,
             aggregate: config.aggregate_proof,
             mock_feedback: config.mock_prover_if_error,
+            verify_proof: config.verify_proof,
         };
         drop(config);
 
