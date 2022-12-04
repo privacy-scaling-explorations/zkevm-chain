@@ -2,6 +2,7 @@
 
 set -x
 
+rm -rf errors
 pkill -9 prover_rpcd || true
 
 trap 'pkill --parent $$' TERM EXIT INT
@@ -32,7 +33,6 @@ fi
 
 FAILED_BLOCKS=$(./scripts/rpc_prover.sh info | jq -cr '.result.tasks | map(select(.result.Err)) | map(.options.block) | .[]')
 
-rm -rf errors
 mkdir errors
 
 for block_num in $FAILED_BLOCKS; do
