@@ -568,7 +568,7 @@ impl SharedState {
 
     pub async fn finalize_block(&self, block: &Block<H256>) -> Result<(), String> {
         const LOG_TAG: &str = "L1:finalize_block:";
-        log::debug!("{} {}", LOG_TAG, format_block(block));
+        log::trace!("{} {}", LOG_TAG, format_block(block));
 
         let block_num = block.number.unwrap();
         let proofs: Result<Option<Proofs>, String> = self.request_proof(&block_num).await;
