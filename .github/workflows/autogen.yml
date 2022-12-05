@@ -56,11 +56,11 @@ jobs:
 
       - name: EVM & Aggregation verifier for Super
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_super'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'FAST=1 ./scripts/autogen.sh autogen_verifier_super'
 
       - name: EVM & Aggregation verifier for Pi
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_pi'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'FAST=1 ./scripts/autogen.sh autogen_verifier_pi'
 
       - name: Patch genesis templates
         run: docker run --rm -v $(pwd):/host -w /host node:lts-alpine scripts/patch_genesis.mjs
