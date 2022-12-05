@@ -197,6 +197,7 @@ macro_rules! estimate {
         // - Investigate other fixed sources of rw steps.
         // - Add support for querying the most expensive opcode here.
         const MAX_RWS: usize = (64 * MAX_TXS) + ((TX_GAS_LIMIT * 1133) / 100);
+        const KECCAK_WORD_GAS: usize = 6;
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::one(); 256];
@@ -212,7 +213,7 @@ macro_rules! estimate {
             pad_to: 0,
             min_k_aggregation: 0,
             // TODO: proper worst-case estimate
-            keccak_padding: BLOCK_GAS_LIMIT / 63,
+            keccak_padding: (BLOCK_GAS_LIMIT / KECCAK_WORD_GAS) * 32,
         };
         let circuit_witness;
 
