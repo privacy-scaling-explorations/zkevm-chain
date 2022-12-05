@@ -22,6 +22,7 @@ COORDINATOR_DUMMY_PROVER=true cargo test -p coordinator -- finalize_chain --igno
 # now run all default tests
 COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator -- $@
 status=$?
+FAILED_BLOCKS=$(./scripts/rpc_prover.sh info | jq -cr '.result.tasks | map(select(.result.Err)) | map(.options.block) | .[]')
 
 pkill -9 prover_rpcd || true
 wait $PID
@@ -31,8 +32,7 @@ if [ $status -eq 0 ]; then
   exit 0
 fi
 
-FAILED_BLOCKS=$(./scripts/rpc_prover.sh info | jq -cr '.result.tasks | map(select(.result.Err)) | map(.options.block) | .[]')
-
+# error collection
 mkdir errors
 
 for block_num in $FAILED_BLOCKS; do
