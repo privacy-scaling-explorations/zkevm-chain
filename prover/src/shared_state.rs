@@ -2,7 +2,6 @@ use crate::aggregation_circuit::AggregationCircuit;
 use crate::aggregation_circuit::PoseidonTranscript;
 use crate::aggregation_circuit::Snark;
 use crate::circuit_witness::CircuitWitness;
-use crate::dummy_circuit;
 use crate::public_input_circuit;
 use crate::super_circuit;
 use crate::utils::collect_instance;
@@ -391,9 +390,6 @@ impl SharedState {
                             ),
                             "super" => {
                                 gen_proof!(self_copy, task_options_copy, &witness, super_circuit)
-                            }
-                            "dummy" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, dummy_circuit)
                             }
                             _ => panic!("unknown circuit"),
                         }

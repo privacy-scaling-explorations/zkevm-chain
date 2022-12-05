@@ -23,7 +23,6 @@ use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
-use prover::dummy_circuit;
 use prover::public_input_circuit;
 use prover::super_circuit;
 use prover::utils::fixed_rng;
@@ -240,9 +239,4 @@ fn autogen_verifier_super() {
 #[test]
 fn autogen_verifier_pi() {
     for_each!("pi", public_input_circuit);
-}
-
-#[test]
-fn autogen_verifier_dummy() {
-    for_each!("dummy", dummy_circuit);
 }
