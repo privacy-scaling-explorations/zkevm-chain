@@ -27,7 +27,7 @@ use halo2_proofs::plonk::Instance;
 use halo2_proofs::plonk::Selector;
 use mock::TestContext;
 use prover::circuit_witness::CircuitWitness;
-use prover::super_circuit;
+use prover::circuits::gen_super_circuit;
 use prover::utils::fixed_rng;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -169,9 +169,8 @@ fn run_assembly<
 >(
     witness: CircuitWitness,
 ) -> Result<usize, String> {
-    let circuit =
-        super_circuit::gen_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
-            .expect("gen_static_circuit");
+    let circuit = gen_super_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
+        .expect("gen_static_circuit");
 
     let mut cs = ConstraintSystem::default();
     let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>::configure(&mut cs);
@@ -252,8 +251,10 @@ macro_rules! estimate {
             block.sign(&wallets);
 
             let circuit_params = CircuitsParams {
-                max_rws: circuit_config.max_rws,
                 max_txs: circuit_config.max_txs,
+                max_calldata: circuit_config.max_calldata,
+                max_bytecode: circuit_config.max_bytecode,
+                max_rws: circuit_config.max_rws,
                 keccak_padding: Some(circuit_config.keccak_padding),
             };
             let mut builder =
@@ -262,12 +263,12 @@ macro_rules! estimate {
             builder
                 .handle_block(&block.eth_block, &block.geth_traces)
                 .expect("could not handle block tx");
-            let keccak_inputs = builder.keccak_inputs().expect("keccak_inputs");
 
             // check gas used
             {
                 let mut cumulative_gas = Word::zero();
-                let input_block = block_convert(&builder.block, &builder.code_db);
+                let input_block =
+                    block_convert(&builder.block, &builder.code_db).expect("block_convert");
                 for tx in input_block.txs.iter() {
                     let gas_limit = tx.gas;
                     let gas_left = tx.steps.iter().last().unwrap().gas_left;
@@ -282,7 +283,6 @@ macro_rules! estimate {
                 eth_block: block.eth_block,
                 block: builder.block,
                 code_db: builder.code_db,
-                keccak_inputs,
             };
         }
         // calculate circuit stats

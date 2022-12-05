@@ -23,8 +23,7 @@ use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
-use prover::public_input_circuit;
-use prover::super_circuit;
+use prover::circuits::*;
 use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
 use prover::utils::gen_proof;
@@ -95,7 +94,7 @@ macro_rules! gen_match {
             {
                 let snark = {
                     let witness = CircuitWitness::dummy(CIRCUIT_CONFIG).unwrap();
-                    let circuit = $CIRCUIT::gen_circuit::<
+                    let circuit = $CIRCUIT::<
                         { CIRCUIT_CONFIG.max_txs },
                         { CIRCUIT_CONFIG.max_calldata },
                         { CIRCUIT_CONFIG.max_rws },
@@ -233,10 +232,10 @@ macro_rules! for_each {
 
 #[test]
 fn autogen_verifier_super() {
-    for_each!("super", super_circuit);
+    for_each!("super", gen_super_circuit);
 }
 
 #[test]
 fn autogen_verifier_pi() {
-    for_each!("pi", public_input_circuit);
+    for_each!("pi", gen_pi_circuit);
 }
