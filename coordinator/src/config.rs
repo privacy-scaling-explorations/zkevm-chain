@@ -34,6 +34,10 @@ pub struct Config {
     /// Run the mock prover if a proof request fails.
     pub mock_prover_if_error: bool,
 
+    #[clap(long, env = "COORDINATOR_VERIFY_PROOF", default_value_t = false)]
+    /// Enable verification of the proof.
+    pub verify_proof: bool,
+
     #[clap(long, env = "COORDINATOR_L1_RPC_URL")]
     #[serde_as(as = "DisplayFromStr")]
     /// L1 RPC node URL format.
@@ -64,7 +68,7 @@ pub struct Config {
 
     #[clap(long, env = "COORDINATOR_CIRCUIT_NAME")]
     /// The name of the circuit to use in proof requests.
-    /// Either "pi", "super" or "dummy".
+    /// Either "pi", "super", "evm", "state", "tx", "bytecode", "copy", "exp", "keccak"
     pub circuit_name: String,
 
     #[clap(long, env = "COORDINATOR_AGGREGATE_PROOF", default_value_t = false)]

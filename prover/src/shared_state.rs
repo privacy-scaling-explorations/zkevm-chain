@@ -2,9 +2,7 @@ use crate::aggregation_circuit::AggregationCircuit;
 use crate::aggregation_circuit::PoseidonTranscript;
 use crate::aggregation_circuit::Snark;
 use crate::circuit_witness::CircuitWitness;
-use crate::dummy_circuit;
-use crate::public_input_circuit;
-use crate::super_circuit;
+use crate::circuits::*;
 use crate::utils::collect_instance;
 use crate::utils::fixed_rng;
 use crate::utils::gen_num_instance;
@@ -30,6 +28,7 @@ use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
+use zkevm_circuits::util::SubCircuit;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::*;
 
@@ -86,7 +85,7 @@ macro_rules! gen_proof {
         if task_options.mock {
             // only run the mock prover
             let time_started = Instant::now();
-            let circuit = $CIRCUIT::gen_circuit::<
+            let circuit = $CIRCUIT::<
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
@@ -101,7 +100,7 @@ macro_rules! gen_proof {
         } else {
             let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
             circuit_proof.k = param.k() as u8;
-            let circuit = $CIRCUIT::gen_circuit::<
+            let circuit = $CIRCUIT::<
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
@@ -137,6 +136,7 @@ macro_rules! gen_proof {
                     circuit_instance.clone(),
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -181,6 +181,7 @@ macro_rules! gen_proof {
                     agg_instance,
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 aggregation_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -200,6 +201,7 @@ macro_rules! gen_proof {
                     circuit_instance.clone(),
                     fixed_rng(),
                     task_options.mock_feedback,
+                    task_options.verify_proof,
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
@@ -380,18 +382,47 @@ impl SharedState {
                     witness.gas_used(),
                     {
                         match task_options_copy.circuit.as_str() {
-                            "pi" => gen_proof!(
+                            "pi" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, gen_pi_circuit)
+                            }
+                            "super" => {
+                                gen_proof!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_super_circuit
+                                )
+                            }
+                            "evm" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, gen_evm_circuit)
+                            }
+                            "state" => gen_proof!(
                                 self_copy,
                                 task_options_copy,
                                 &witness,
-                                public_input_circuit
+                                gen_state_circuit
                             ),
-                            "super" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, super_circuit)
+                            "tx" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, gen_tx_circuit)
                             }
-                            "dummy" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, dummy_circuit)
+                            "bytecode" => gen_proof!(
+                                self_copy,
+                                task_options_copy,
+                                &witness,
+                                gen_bytecode_circuit
+                            ),
+                            "copy" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, gen_copy_circuit)
                             }
+                            "exp" => {
+                                gen_proof!(self_copy, task_options_copy, &witness, gen_exp_circuit)
+                            }
+                            "keccak" => gen_proof!(
+                                self_copy,
+                                task_options_copy,
+                                &witness,
+                                gen_keccak_circuit
+                            ),
                             _ => panic!("unknown circuit"),
                         }
                     },

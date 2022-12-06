@@ -4,6 +4,7 @@ use eth_types::Address;
 use eth_types::Bytes;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
+use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
@@ -22,11 +23,10 @@ use prover::aggregation_circuit::Plonk;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
-use prover::dummy_circuit;
-use prover::public_input_circuit;
-use prover::super_circuit;
+use prover::circuits::*;
 use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
+use prover::utils::gen_proof;
 use prover::ProverParams;
 use rand::rngs::OsRng;
 use std::env::var;
@@ -94,7 +94,7 @@ macro_rules! gen_match {
             {
                 let snark = {
                     let witness = CircuitWitness::dummy(CIRCUIT_CONFIG).unwrap();
-                    let circuit = $CIRCUIT::gen_circuit::<
+                    let circuit = $CIRCUIT::<
                         { CIRCUIT_CONFIG.max_txs },
                         { CIRCUIT_CONFIG.max_calldata },
                         { CIRCUIT_CONFIG.max_rws },
@@ -103,6 +103,7 @@ macro_rules! gen_match {
                     .expect("gen_static_circuit");
                     let params = ProverParams::setup(CIRCUIT_CONFIG.min_k as u32, fixed_rng());
                     let vk = keygen_vk(&params, &circuit).expect("vk");
+                    let instance = circuit.instance();
 
                     {
                         let mut data = Verifier::default();
@@ -111,7 +112,7 @@ macro_rules! gen_match {
                         data.runtime_code = gen_verifier(
                             &params,
                             &vk,
-                            Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
+                            Config::kzg().with_num_instance(gen_num_instance(&instance)),
                         )
                         .into();
 
@@ -129,10 +130,10 @@ macro_rules! gen_match {
                     let protocol = compile(
                         &params,
                         &vk,
-                        Config::kzg().with_num_instance(gen_num_instance(&circuit.instance())),
+                        Config::kzg().with_num_instance(gen_num_instance(&instance)),
                     );
 
-                    let proof = {
+                    let proof = if var("FAST").is_ok() {
                         let mut transcript = PoseidonTranscript::<NativeLoader, _>::new(Vec::new());
 
                         for _ in 0..protocol
@@ -164,9 +165,25 @@ macro_rules! gen_match {
                         );
 
                         transcript.finalize()
+                    } else {
+                        gen_proof::<
+                            _,
+                            _,
+                            PoseidonTranscript<NativeLoader, _>,
+                            PoseidonTranscript<NativeLoader, _>,
+                            _,
+                        >(
+                            &params,
+                            &keygen_pk(&params, vk, &circuit).expect("pk"),
+                            circuit,
+                            instance.clone(),
+                            fixed_rng(),
+                            true,
+                            true,
+                        )
                     };
 
-                    Snark::new(protocol, circuit.instance(), proof)
+                    Snark::new(protocol, instance, proof)
                 };
 
                 let agg_params =
@@ -209,22 +226,16 @@ macro_rules! gen {
 macro_rules! for_each {
     ($LABEL:expr, $CIRCUIT:ident) => {{
         gen!($LABEL, $CIRCUIT, 63_000);
-        gen!($LABEL, $CIRCUIT, 150_000);
         gen!($LABEL, $CIRCUIT, 300_000);
     }};
 }
 
 #[test]
 fn autogen_verifier_super() {
-    for_each!("super", super_circuit);
+    for_each!("super", gen_super_circuit);
 }
 
 #[test]
 fn autogen_verifier_pi() {
-    for_each!("pi", public_input_circuit);
-}
-
-#[test]
-fn autogen_verifier_dummy() {
-    for_each!("dummy", dummy_circuit);
+    for_each!("pi", gen_pi_circuit);
 }

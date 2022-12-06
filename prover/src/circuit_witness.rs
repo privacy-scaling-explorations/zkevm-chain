@@ -21,7 +21,6 @@ pub struct CircuitWitness {
     pub eth_block: eth_types::Block<eth_types::Transaction>,
     pub block: bus_mapping::circuit_input_builder::Block,
     pub code_db: bus_mapping::state_db::CodeDB,
-    pub keccak_inputs: Vec<Vec<u8>>,
 }
 
 impl CircuitWitness {
@@ -35,8 +34,10 @@ impl CircuitWitness {
         eth_block.gas_limit = circuit_config.block_gas_limit.into();
 
         let circuit_params = CircuitsParams {
-            max_rws: circuit_config.max_rws,
             max_txs: circuit_config.max_txs,
+            max_calldata: circuit_config.max_calldata,
+            max_bytecode: circuit_config.max_bytecode,
+            max_rws: circuit_config.max_rws,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let empty_data = GethData {
@@ -52,13 +53,11 @@ impl CircuitWitness {
         builder
             .handle_block(&empty_data.eth_block, &empty_data.geth_traces)
             .unwrap();
-        let keccak_inputs = builder.keccak_inputs().unwrap();
         Ok(Self {
             circuit_config,
             eth_block: empty_data.eth_block,
             block: builder.block,
             code_db: builder.code_db,
-            keccak_inputs,
         })
     }
 
@@ -81,32 +80,32 @@ impl CircuitWitness {
                 .into());
             });
         let circuit_params = CircuitsParams {
-            max_rws: circuit_config.max_rws,
             max_txs: circuit_config.max_txs,
+            max_calldata: circuit_config.max_calldata,
+            max_bytecode: circuit_config.max_bytecode,
+            max_rws: circuit_config.max_rws,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;
         let (builder, eth_block) = builder.gen_inputs(*block_num).await?;
-        let keccak_inputs = builder.keccak_inputs()?;
 
         Ok(Self {
             circuit_config,
             eth_block,
             block: builder.block,
             code_db: builder.code_db,
-            keccak_inputs,
         })
     }
 
-    pub fn evm_witness(&self) -> (zkevm_circuits::witness::Block<Fr>, Vec<Vec<u8>>) {
-        let mut block = evm_circuit::witness::block_convert(&self.block, &self.code_db);
+    pub fn evm_witness(&self) -> zkevm_circuits::witness::Block<Fr> {
+        let mut block =
+            evm_circuit::witness::block_convert(&self.block, &self.code_db).expect("block_convert");
         block.evm_circuit_pad_to = self.circuit_config.pad_to;
         block.exp_circuit_pad_to = self.circuit_config.pad_to;
         // expect mock randomness
         assert_eq!(block.randomness, Fr::from(0x100));
-        let keccak_inputs = self.keccak_inputs.clone();
 
-        (block, keccak_inputs)
+        block
     }
 
     pub fn gas_used(&self) -> u64 {
@@ -141,9 +140,11 @@ impl CircuitWitness {
         PublicData {
             chain_id,
             history_hashes,
-            eth_block,
             block_constants,
             prev_state_root,
+            transactions: eth_block.transactions.clone(),
+            block_hash: eth_block.hash.unwrap_or_default(),
+            state_root: eth_block.state_root,
         }
     }
 }

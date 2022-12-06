@@ -39,6 +39,8 @@ RUN set -eux; \
         git \
         xz-utils \
         time \
+        linux-perf \
+        libfontconfig-dev \
         ; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \

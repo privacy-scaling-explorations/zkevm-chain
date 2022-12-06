@@ -1,0 +1,6 @@
+version: '3.9'
+
+services:
+  dev:
+    cap_add:
+      - SYS_ADMIN

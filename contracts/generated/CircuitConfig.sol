@@ -8,10 +8,6 @@ contract CircuitConfig {
       return (3, 10500);
     }
     
-    if (blockGasLimit <= 150000) {
-      return (7, 32250);
-    }
-    
     if (blockGasLimit <= 300000) {
       return (14, 69750);
     }

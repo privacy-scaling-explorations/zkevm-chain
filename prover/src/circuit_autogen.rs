@@ -9,38 +9,24 @@ macro_rules! match_circuit_params {
                     max_calldata: 10500,
                     max_bytecode: 24634,
                     max_rws: 476052,
-                    min_k: 19,
+                    min_k: 20,
                     pad_to: 476052,
                     min_k_aggregation: 26,
-                    keccak_padding: 1000,
+                    keccak_padding: 336000,
                 };
                 $on_match
             }
-            63001..=150000 => {
-                const CIRCUIT_CONFIG: CircuitConfig = CircuitConfig {
-                    block_gas_limit: 150000,
-                    max_txs: 7,
-                    max_calldata: 32250,
-                    max_bytecode: 64500,
-                    max_rws: 1462018,
-                    min_k: 21,
-                    pad_to: 1462018,
-                    min_k_aggregation: 26,
-                    keccak_padding: 2380,
-                };
-                $on_match
-            }
-            150001..=300000 => {
+            63001..=300000 => {
                 const CIRCUIT_CONFIG: CircuitConfig = CircuitConfig {
                     block_gas_limit: 300000,
                     max_txs: 14,
                     max_calldata: 69750,
                     max_bytecode: 139500,
                     max_rws: 3161966,
-                    min_k: 22,
+                    min_k: 23,
                     pad_to: 3161966,
                     min_k_aggregation: 26,
-                    keccak_padding: 4761,
+                    keccak_padding: 1600000,
                 };
                 $on_match
             }

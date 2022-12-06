@@ -6,9 +6,13 @@ use eth_types::U256;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::create_proof;
+use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
+use halo2_proofs::poly::kzg::multiopen::VerifierGWC;
+use halo2_proofs::poly::kzg::strategy::AccumulatorStrategy;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::TranscriptReadBuffer;
 use halo2_proofs::transcript::TranscriptWriterBuffer;
@@ -40,6 +44,7 @@ pub fn gen_proof<
     instance: Vec<Vec<Fr>>,
     rng: RNG,
     mock_feedback: bool,
+    verify: bool,
 ) -> Vec<u8> {
     let mut transcript = TW::init(Vec::new());
     let inputs: Vec<&[Fr]> = instance.iter().map(|v| v.as_slice()).collect();
@@ -63,7 +68,23 @@ pub fn gen_proof<
         }
     }
 
-    transcript.finalize()
+    let proof = transcript.finalize();
+    if verify {
+        let mut transcript = TR::init(Cursor::new(proof.clone()));
+        let res = verify_proof::<_, VerifierGWC<_>, _, TR, _>(
+            params.verifier_params(),
+            pk.get_vk(),
+            AccumulatorStrategy::new(params.verifier_params()),
+            &[inputs.as_slice()],
+            &mut transcript,
+        );
+
+        if let Err(verify_err) = res {
+            panic!("verify_proof: {:#?}", verify_err);
+        }
+    }
+
+    proof
 }
 
 /// Fixed rng for testing purposes
