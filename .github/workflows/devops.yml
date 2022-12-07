@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
-      - run: curl -H "authorization: token ${GH_OPS_PAT}" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/dispatches' -d '{"event_type":"zkevm-chain"}'
+      - name: Ping runner workflow
         env:
           GH_OPS_PAT: ${{ secrets.GH_OPS_PAT }}
+        run: curl -H "authorization: token ${GH_OPS_PAT}" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/dispatches' -d '{"event_type":"zkevm-chain"}'
