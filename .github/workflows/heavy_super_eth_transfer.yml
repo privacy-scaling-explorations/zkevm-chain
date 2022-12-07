@@ -1,0 +1,30 @@
+name: Super Circuit aggregation eth_transfer
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [synchronize, opened, reopened, labeled]
+
+jobs:
+  test:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-heavy-tests')
+    timeout-minutes: 7200
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: [self-hosted, r6a.48xlarge]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup
+        run: cp .env.example .env
+
+      - name: Build docker images
+        run: |
+          docker compose down -v --remove-orphans || true
+          docker compose build bootnode dev
+
+      - name: Super Circuit aggregation eth_transfer
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh eth_transfer'
+          ./scripts/ci_commit_errors.sh super-ag-eth_transfer
