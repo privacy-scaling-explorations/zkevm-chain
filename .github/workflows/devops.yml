@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
   pull_request:
+    types: [synchronize, opened, reopened, labeled]
 
 jobs:
   ping:
