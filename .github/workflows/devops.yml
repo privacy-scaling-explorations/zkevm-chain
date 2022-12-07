@@ -2,6 +2,8 @@ name: devops
 on:
   workflow_dispatch:
   push:
+    branches:
+      - master
   pull_request:
     types: [synchronize, opened, reopened, labeled]
 
