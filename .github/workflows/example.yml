@@ -7,7 +7,7 @@ on:
 jobs:
   example:
     timeout-minutes: 30
-    runs-on: r6a.48xlarge
+    runs-on: [self-hosted, r6a.48xlarge]
     steps:
       - name: Example
         run: free -m
