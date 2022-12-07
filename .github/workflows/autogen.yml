@@ -5,29 +5,13 @@ on:
     types: [synchronize, opened, reopened, labeled]
 
 jobs:
-  wakeup:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-autogen')
-    name: Wake up self-hosted runner
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v2
-      - run: .github/workflows/wakeup_runner.sh
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-          AWS_INSTANCE_ID: ${{ secrets.AWS_INSTANCE_ID }}
-
   gen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-autogen')
     timeout-minutes: 7200
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
-    env:
-      COMPOSE_PROJECT_NAME: ${{ github.run_id }}
-    needs: [wakeup]
-    runs-on: heavy-worker
+    runs-on: [self-hosted, r6a.48xlarge]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -39,7 +23,6 @@ jobs:
 
       - name: Build docker images
         run: |
-          docker compose down -v --remove-orphans || true
           docker compose build dev
 
       - name: Contracts
