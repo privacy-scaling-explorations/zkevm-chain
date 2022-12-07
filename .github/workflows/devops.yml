@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Ping runner workflow
         env:
+          # only needs public repo scope
           GH_OPS_PAT: ${{ secrets.GH_OPS_PAT }}
         run: |
           curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/dispatches' -d '{"event_type":"zkevm-chain"}'
