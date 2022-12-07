@@ -1,0 +1,14 @@
+name: devops
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: curl -H "authorization: token ${GH_OPS_PAT}" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/dispatches' -d '{"event_type":"zkevm-chain"}'
+        env:
+          GH_OPS_PAT: ${{ secrets.GH_OPS_PAT }}
