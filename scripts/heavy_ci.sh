@@ -11,7 +11,7 @@ trap 'pkill --parent $$' TERM EXIT INT
 
 cargo build --release --bin prover_rpcd
 env time --output PROVER_STATS.txt --verbose -- \
-  perf stat \
+  perf stat -I 300000 \
   -o PROVER_PERF.txt \
   -e stalled-cycles-backend \
   -e stalled-cycles-frontend \
