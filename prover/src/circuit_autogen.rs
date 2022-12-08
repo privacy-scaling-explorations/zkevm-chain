@@ -9,10 +9,10 @@ macro_rules! match_circuit_params {
                     max_calldata: 10500,
                     max_bytecode: 24634,
                     max_rws: 476052,
-                    min_k: 20,
+                    min_k: 19,
                     pad_to: 476052,
                     min_k_aggregation: 26,
-                    keccak_padding: 336000,
+                    keccak_padding: 3000,
                 };
                 $on_match
             }

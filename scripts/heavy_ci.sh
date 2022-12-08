@@ -56,7 +56,7 @@ if [ $status -eq 0 ]; then
 fi
 
 # if there are not failed proof requests, then something else failed
-if [ "${FAILED_BLOCKS}" == "" ]; then
+if [ "${FAILED_BLOCKS}" = "" ]; then
   exit 1
 fi
 
