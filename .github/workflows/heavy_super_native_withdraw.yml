@@ -11,7 +11,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
       cancel-in-progress: true
-    runs-on: [self-hosted, r6a.48xlarge]
+    runs-on: ["${{github.run_id}}", self-hosted, r6a.48xlarge]
     steps:
       - uses: actions/checkout@v2
 
