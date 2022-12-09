@@ -20,9 +20,6 @@ jobs:
 
       - name: Build docker images
         run: |
-          # DEBUG
-          lsblk
-          df -m
           docker compose down -v --remove-orphans || true
           docker compose build bootnode dev
 
