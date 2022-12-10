@@ -11,8 +11,9 @@ trap 'pkill --parent $$' TERM EXIT INT
 
 cargo build --release --bin prover_rpcd
 env time --output PROVER_STATS.txt --verbose -- \
-  perf stat \
-  -o PROVER_PERF.txt \
+  cargo run --release --bin prover_rpcd 2>&1 | xz > PROVER_LOG.txt.xz &
+PID=$!
+perf stat --pid $PID -I 300000 -o PROVER_PERF.txt \
   -e stalled-cycles-backend \
   -e stalled-cycles-frontend \
   -e instructions \
@@ -30,10 +31,7 @@ env time --output PROVER_STATS.txt --verbose -- \
   -e l2_cache_accesses_from_ic_misses \
   -e ic_tag_hit_miss.all_instruction_cache_accesses \
   -e ic_tag_hit_miss.instruction_cache_hit \
-  -e ic_tag_hit_miss.instruction_cache_miss \
-  -- \
-  cargo run --release --bin prover_rpcd 2>&1 | xz > PROVER_LOG.txt.xz &
-PID=$!
+  -e ic_tag_hit_miss.instruction_cache_miss &
 
 # sleep a bit in case the geth nodes are not up yet
 sleep 3
@@ -53,6 +51,11 @@ cat PROVER_PERF.txt
 
 if [ $status -eq 0 ]; then
   exit 0
+fi
+
+# if there are not failed proof requests, then something else failed
+if [ "${FAILED_BLOCKS}" = "" ]; then
+  exit 1
 fi
 
 # error collection
