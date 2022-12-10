@@ -1,11 +1,15 @@
 name: devops
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [synchronize, opened, reopened, labeled]
+  workflow_run:
+    workflows: ["*"]
+    types:
+      - requested
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
   ping:
