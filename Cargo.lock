@@ -1356,7 +1356,7 @@ dependencies = [
 [[package]]
 name = "halo2_proofs"
 version = "0.2.0"
-source = "git+https://github.com/pinkiebell/halo2.git?rev=5fc8ce89ef3235d8eefeb8994173ac706e89e4ec#5fc8ce89ef3235d8eefeb8994173ac706e89e4ec"
+source = "git+https://github.com/pinkiebell/halo2.git?rev=dad47b2db116e12324ac46f9c1e85d3241234868#dad47b2db116e12324ac46f9c1e85d3241234868"
 dependencies = [
  "blake2b_simd",
  "ff",

@@ -9,4 +9,4 @@ opt-level = 3
 lto = "thin"
 
 [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
-halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", rev = "5fc8ce89ef3235d8eefeb8994173ac706e89e4ec", package = "halo2_proofs" }
+halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", rev = "dad47b2db116e12324ac46f9c1e85d3241234868", package = "halo2_proofs" }
