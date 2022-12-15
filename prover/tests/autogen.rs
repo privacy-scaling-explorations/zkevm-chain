@@ -446,6 +446,37 @@ fn autogen_circuit_config() {
         let max_unused_gas = 0;
         estimate_all!(max_unused_gas, gen_bytecode_mload, callback);
     }
+    {
+        print_table_header("worst-case keccak (invocations) circuit");
+        let gen_bytecode = |gas_limit| {
+            let max_contract_size = get_max_contract_size(gas_limit);
+            let fixed_bytes = 6;
+            let iteration_size = 4;
+            let iterations = (max_contract_size - fixed_bytes) / iteration_size;
+            let loop_offset: usize = 2;
+            bytecode_repeat!(
+                {
+                    1,
+                    PUSH1(32) // gas=3
+                    JUMPDEST // gas=1
+                },
+                {
+                    iterations,
+                    DUP1 // gas=3
+                    RETURNDATASIZE // gas=2
+                    SHA3 // gas=30 + 6 + (memory expansion once)
+                    POP // gas=2
+                },
+                {
+                    1,
+                    PUSH1(loop_offset) // gas=3
+                    JUMP // gas=8
+                },
+            )
+        };
+        let max_unused_gas = 0;
+        estimate_all!(max_unused_gas, gen_bytecode, callback);
+    }
 
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;
