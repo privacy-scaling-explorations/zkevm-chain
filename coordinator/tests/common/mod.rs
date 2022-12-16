@@ -167,6 +167,23 @@ macro_rules! wait_for_tx {
 }
 
 #[macro_export]
+macro_rules! wait_for_tx_no_panic {
+    ($tx_hash:expr, $url:expr) => {{
+        let mut resp: Option<TransactionReceipt> = None;
+
+        while (resp.is_none()) {
+            resp = match jsonrpc_request($url, "eth_getTransactionReceipt", [$tx_hash]).await {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            };
+        }
+
+        let receipt = resp.unwrap();
+        receipt
+    }};
+}
+
+#[macro_export]
 macro_rules! finalize_chain {
     ($shared_state:expr) => {
         loop {

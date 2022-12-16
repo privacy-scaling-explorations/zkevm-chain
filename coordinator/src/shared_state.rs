@@ -661,6 +661,7 @@ impl SharedState {
         to: Option<Address>,
         value: U256,
         calldata: Vec<u8>,
+        gas_limit: Option<U256>,
     ) -> Result<H256, String> {
         send_transaction_to_l2(
             &self.ro.http_client,
@@ -669,6 +670,7 @@ impl SharedState {
             to,
             value,
             calldata,
+            gas_limit,
         )
         .await
     }

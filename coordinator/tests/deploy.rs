@@ -59,7 +59,7 @@ macro_rules! deploy_l2 {
         let shared_state = await_state!();
 
         let tx_hash = shared_state
-            .transaction_to_l2(None, U256::zero(), $DEPLOY_CODE)
+            .transaction_to_l2(None, U256::zero(), $DEPLOY_CODE, None)
             .await
             .expect("tx_hash");
         shared_state.mine().await;
@@ -82,6 +82,7 @@ macro_rules! deploy_l2 {
                 Some(Address::from_str($ADDRESS).unwrap()),
                 U256::zero(),
                 calldata,
+                None,
             )
             .await
             .expect("tx_hash");

@@ -108,6 +108,7 @@ pub async fn send_transaction_to_l2(
     to: Option<Address>,
     value: U256,
     calldata: Vec<u8>,
+    gas_limit: Option<U256>,
 ) -> Result<H256, String> {
     let wallet_addr: Address = wallet.address();
     let nonce: U256 = jsonrpc_request_client(
@@ -137,15 +138,18 @@ pub async fn send_transaction_to_l2(
         tx = tx.to(to.unwrap())
     }
 
-    let estimate: U256 = jsonrpc_request_client(
-        RPC_REQUEST_TIMEOUT,
-        client,
-        node_uri,
-        "eth_estimateGas",
-        [&tx],
-    )
-    .await
-    .expect("estimateGas");
+    let estimate: U256 = match gas_limit {
+        Some(limit) => limit,
+        None => jsonrpc_request_client(
+            RPC_REQUEST_TIMEOUT,
+            client,
+            node_uri,
+            "eth_estimateGas",
+            [&tx],
+        )
+        .await
+        .expect("estimateGas"),
+    };
     let tx = tx.gas(estimate).into();
 
     let sig = wallet.sign_transaction(&tx).await.unwrap();
