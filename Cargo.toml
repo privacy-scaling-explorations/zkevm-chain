@@ -1,7 +1,8 @@
 [workspace]
 members = [
   "coordinator",
-  "prover"
+  "prover",
+  "dev"
 ]
 
 [profile.release]

@@ -27,7 +27,8 @@ clap = { version = "4.0.14", features = ["derive", "env"] }
 # autogen
 mock = { git = "https://github.com/pinkiebell/zkevm-circuits.git", branch = "zkevm-chain", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
+zkevm_dev = { path = "../dev", optional = true }
 
 [features]
 default = []
-autogen = ["mock", "ethers-signers"]
+autogen = ["mock", "ethers-signers", "zkevm_dev"]
