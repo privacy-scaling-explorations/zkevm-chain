@@ -350,7 +350,7 @@ async fn hop_cross_chain_message() {
             .expect("calldata");
 
         let tx_hash = shared_state
-            .transaction_to_l2(Some(hop), amount, calldata)
+            .transaction_to_l2(Some(hop), amount, calldata, None)
             .await
             .expect("tx_hash");
         shared_state.mine().await;
@@ -368,7 +368,7 @@ async fn hop_cross_chain_message() {
             .encode_input(&[chain_id.into_token()])
             .expect("calldata");
         let tx_hash_commit = shared_state
-            .transaction_to_l2(Some(hop), U256::zero(), calldata)
+            .transaction_to_l2(Some(hop), U256::zero(), calldata, None)
             .await
             .expect("tx_hash_commit");
         shared_state.mine().await;
@@ -535,6 +535,7 @@ async fn zero_eth_transfer() {
             Some(shared_state.ro.l2_wallet.address()),
             U256::zero(),
             vec![],
+            None,
         )
         .await
         .expect("tx_hash");
@@ -553,7 +554,7 @@ async fn keccak() {
         0x20, 0x00,
     ];
     let deploy_tx_hash = shared_state
-        .transaction_to_l2(None, U256::zero(), bytecode)
+        .transaction_to_l2(None, U256::zero(), bytecode, None)
         .await
         .expect("tx_hash");
     shared_state.mine().await;
@@ -563,7 +564,7 @@ async fn keccak() {
     let deploy_receipt = wait_for_tx!(deploy_tx_hash, &shared_state.config.lock().await.l2_rpc_url);
     let contract_addr = deploy_receipt.contract_address;
     let tx_hash = shared_state
-        .transaction_to_l2(contract_addr, U256::zero(), vec![])
+        .transaction_to_l2(contract_addr, U256::zero(), vec![], None)
         .await
         .expect("tx_hash");
     shared_state.mine().await;
@@ -673,6 +674,7 @@ async fn test_pi_commitment() {
             Some(shared_state.ro.l2_wallet.address()),
             U256::zero(),
             vec![],
+            None,
         )
         .await
         .expect("tx_hash");

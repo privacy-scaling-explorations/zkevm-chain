@@ -37,6 +37,7 @@ use std::io::Write as fwrite;
 use zkevm_circuits::evm_circuit::witness::block_convert;
 use zkevm_circuits::super_circuit::SuperCircuit;
 use zkevm_common::prover::*;
+use zkevm_dev::bytecode::*;
 
 #[derive(Debug, Default)]
 struct Assembly {
@@ -323,34 +324,11 @@ fn print_table_header(str: &str) {
     );
 }
 
-macro_rules! bytecode_repeat {
-    ($code:ident, $repeat:expr, $($args:tt)*) => {{
-        for _ in 0..$repeat {
-            eth_types::bytecode_internal!($code, $($args)*);
-        }
-    }};
-
-    ($({$repeat:expr, $($args:tt)*},)*) => {{
-        let mut code = eth_types::bytecode::Bytecode::default();
-
-        $(
-            bytecode_repeat!(code, $repeat, $($args)*);
-        )*
-
-        code
-    }};
-}
-
 macro_rules! estimate_all {
     ($max_unused_gas:expr, $bytecode:expr, $callback:expr) => {{
         estimate!(63_000, $max_unused_gas, $bytecode, $callback);
         estimate!(300_000, $max_unused_gas, $bytecode, $callback);
     }};
-}
-
-fn get_max_contract_size(gas_limit: usize) -> usize {
-    let max_deploy_opcodes = (gas_limit - 32_000) / 16;
-    std::cmp::max(24_576, max_deploy_opcodes)
 }
 
 /// Generates `circuit_autogen.rs` and prints a markdown table about
@@ -385,66 +363,18 @@ fn autogen_circuit_config() {
 
     {
         print_table_header("worst-case evm circuit");
-        let gen_bytecode_smod = |gas_limit| {
-            let max_contract_size = get_max_contract_size(gas_limit);
-            let fixed_bytes = 5;
-            let iteration_size = 2;
-            let iterations = (max_contract_size - fixed_bytes) / iteration_size;
-            let loop_offset: usize = 1;
-
-            bytecode_repeat!(
-                // prelude
-                {
-                    1,
-                    GAS // gas=2
-                    JUMPDEST // gas=1
-                },
-                // chain SMOD(gas, previous value)
-                {
-                    iterations,
-                    GAS // gas=2
-                    SMOD // gas=5
-                },
-                // loop with remaining gas
-                {
-                    1,
-                    PUSH1(loop_offset) // gas=3
-                    JUMP // gas=8
-                },
-            )
-        };
         let max_unused_gas = 0;
         estimate_all!(max_unused_gas, gen_bytecode_smod, callback);
     }
     {
         print_table_header("worst-case state circuit");
-        let gen_bytecode_mload = |gas_limit| {
-            let max_contract_size = get_max_contract_size(gas_limit);
-            let fixed_bytes = 5;
-            let iterations = max_contract_size - fixed_bytes;
-            let loop_offset: usize = 1;
-
-            bytecode_repeat!(
-                // prelude
-                {
-                    1,
-                    CALLDATASIZE // gas=2
-                    JUMPDEST // gas=1
-                },
-                // chain mload
-                {
-                    iterations,
-                    MLOAD // gas=3
-                },
-                {
-                    1,
-                    PUSH1(loop_offset) // gas=3
-                    JUMP // gas=8
-                },
-            )
-        };
         let max_unused_gas = 0;
         estimate_all!(max_unused_gas, gen_bytecode_mload, callback);
+    }
+    {
+        print_table_header("worst-case keccak (invocations) circuit");
+        let max_unused_gas = 0;
+        estimate_all!(max_unused_gas, gen_bytecode_keccak_0_32, callback);
     }
 
     // generate `circuit_autogen.rs`
