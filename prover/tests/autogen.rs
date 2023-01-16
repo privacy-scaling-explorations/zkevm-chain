@@ -270,7 +270,7 @@ macro_rules! estimate {
             {
                 let mut cumulative_gas = Word::zero();
                 let input_block =
-                    block_convert(&builder.block, &builder.code_db).expect("block_convert");
+                    block_convert::<Fr>(&builder.block, &builder.code_db).expect("block_convert");
                 for tx in input_block.txs.iter() {
                     let gas_limit = tx.gas;
                     let gas_left = tx.steps.iter().last().unwrap().gas_left;
