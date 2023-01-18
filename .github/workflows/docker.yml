@@ -2,7 +2,7 @@ name: Docker
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [test]
+    workflows: [coverage]
     types: [completed]
     branches:
       - master
