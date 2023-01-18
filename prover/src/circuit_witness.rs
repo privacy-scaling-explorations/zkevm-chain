@@ -102,8 +102,7 @@ impl CircuitWitness {
             evm_circuit::witness::block_convert(&self.block, &self.code_db).expect("block_convert");
         block.evm_circuit_pad_to = self.circuit_config.pad_to;
         block.exp_circuit_pad_to = self.circuit_config.pad_to;
-        // expect mock randomness
-        assert_eq!(block.randomness, Fr::from(0x100));
+        assert_eq!(block.randomness, Fr::from(0xcafe), "expect mock randomness");
 
         block
     }
