@@ -206,7 +206,7 @@ macro_rules! estimate {
         const KECCAK_WORD_GAS: usize = 6;
         const COPY_GAS: usize = 3;
         // TODO: doesn't account for instruction + memory expansion
-        const MAX_COPY_BYTES: usize = TX_GAS_LIMIT / COPY_GAS;
+        const MAX_COPY_BYTES: usize = (TX_GAS_LIMIT / COPY_GAS) * 32;
         const MAX_COPY_ROWS: usize = (MAX_COPY_BYTES * 2) + 2;
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
