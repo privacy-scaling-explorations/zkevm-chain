@@ -1,5 +1,6 @@
 name: Docker
 on:
+  push:
   workflow_dispatch:
   workflow_run:
     workflows: [coverage]
@@ -13,23 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile', 'docker/geth/Dockerfile']
+        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile', 'docker/geth/Dockerfile', 'docker/dev/Dockerfile']
     steps:
       - uses: actions/checkout@v2
-
-      - uses: actions/cache@v3
-        with:
-          path: ${{ runner.temp }}/docker-cache
-          key: docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ matrix.DOCKERFILE }}-${{ github.run_id }}
-          restore-keys: |
-            docker-cache-${{ runner.arch }}-${{ runner.os }}-${{ github.workflow }}-${{ matrix.DOCKERFILE }}-
-
-      - name: setup swap
-        run: |
-          sudo fallocate -l 8g /swapfile
-          sudo chmod 0600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
 
       - name: Login to ghcr.io
         env:
@@ -41,7 +28,3 @@ jobs:
           DOCKERFILE: ${{ matrix.DOCKERFILE }}
           PLATFORM: 'linux/amd64,linux/arm64'
         run: ./.github/workflows/docker.sh
-
-      - name: Fix docker cache
-        if: success()
-        run: rm -rf "$RUNNER_TEMP/docker-cache" && mv "$RUNNER_TEMP/docker-cache-new" "$RUNNER_TEMP/docker-cache"

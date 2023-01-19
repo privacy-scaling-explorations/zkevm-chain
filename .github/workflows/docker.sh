@@ -16,10 +16,9 @@ ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
 docker buildx build \
-  --cache-from "type=local,src=$RUNNER_TEMP/docker-cache" \
-  --cache-to "type=local,dest=$RUNNER_TEMP/docker-cache-new" \
+  --cache-from "$image:$tag" \
   --push \
-  --platform $PLATFORM \
-  -t $image:$tag \
+  --platform "$PLATFORM" \
+  -t "$image:$tag" \
   -f $DOCKERFILE .
-docker buildx imagetools inspect $image:$tag
+docker buildx imagetools inspect "$image:$tag"
