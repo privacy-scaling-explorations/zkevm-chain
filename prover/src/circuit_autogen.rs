@@ -11,6 +11,7 @@ macro_rules! match_circuit_params {
                     max_rws: 476052,
                     min_k: 19,
                     pad_to: 476052,
+                    max_copy_rows: 1,
                     min_k_aggregation: 26,
                     keccak_padding: 336000,
                 };
@@ -23,6 +24,7 @@ macro_rules! match_circuit_params {
                     max_calldata: 69750,
                     max_bytecode: 139500,
                     max_rws: 3161966,
+                    max_copy_rows: 1,
                     min_k: 22,
                     pad_to: 3161966,
                     min_k_aggregation: 26,

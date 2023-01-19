@@ -38,6 +38,7 @@ impl CircuitWitness {
             max_calldata: circuit_config.max_calldata,
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
+            max_copy_rows: circuit_config.max_copy_rows,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let empty_data = GethData {
@@ -84,6 +85,7 @@ impl CircuitWitness {
             max_calldata: circuit_config.max_calldata,
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
+            max_copy_rows: circuit_config.max_copy_rows,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;

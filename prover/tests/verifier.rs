@@ -98,6 +98,7 @@ macro_rules! gen_match {
                         { CIRCUIT_CONFIG.max_txs },
                         { CIRCUIT_CONFIG.max_calldata },
                         { CIRCUIT_CONFIG.max_rws },
+                        { CIRCUIT_CONFIG.max_copy_rows },
                         _,
                     >(&witness, fixed_rng())
                     .expect("gen_static_circuit");

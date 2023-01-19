@@ -89,6 +89,7 @@ macro_rules! gen_proof {
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
+                { CIRCUIT_CONFIG.max_copy_rows },
                 _,
             >(&witness, fixed_rng())?;
             circuit_proof.k = CIRCUIT_CONFIG.min_k as u8;
@@ -104,6 +105,7 @@ macro_rules! gen_proof {
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
+                { CIRCUIT_CONFIG.max_copy_rows },
                 _,
             >(&witness, fixed_rng())?;
             // generate and cache the prover key
