@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ["${{github.run_id}}", self-hosted, r6a.24xlarge]
     strategy:
       matrix:
         DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile', 'docker/geth/Dockerfile', 'docker/dev/Dockerfile']
