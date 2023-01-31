@@ -16,7 +16,8 @@ ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
 docker buildx build \
-  --cache-from "$image:$tag" \
+  --cache-from "$image:cache" \
+  --cache-to "$image:cache" \
   --push \
   --platform "$PLATFORM" \
   -t "$image:$tag" \
