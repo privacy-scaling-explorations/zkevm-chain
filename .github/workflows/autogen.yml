@@ -23,7 +23,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          docker compose build dev
+          docker compose build --pull dev
 
       - name: Contracts
         run: |

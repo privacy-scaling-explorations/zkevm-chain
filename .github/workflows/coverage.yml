@@ -24,7 +24,7 @@ jobs:
       - name: Build docker images
         run: |
           docker compose down -v --remove-orphans || true
-          docker compose build bootnode dev
+          docker compose build --pull bootnode dev
 
       - name: Compile Contracts
         run: |
