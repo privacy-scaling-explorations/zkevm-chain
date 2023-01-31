@@ -7,9 +7,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2022_10_22" }
 bus-mapping = { git = "https://github.com/pinkiebell/zkevm-circuits.git", branch = "zkevm-chain" }
-eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", branch = "zkevm-chain" }
+eth-types = { git = "https://github.com/pinkiebell/zkevm-circuits.git", branch = "zkevm-chain", features = ["warn-unimplemented"] }
 zkevm-circuits = { git = "https://github.com/pinkiebell/zkevm-circuits.git", branch = "zkevm-chain", features = ["test"] }
-plonk_verifier = { git = "https://github.com/privacy-scaling-explorations/plonk-verifier.git", rev = "ba167b73ca09d77ab08958d4a4b4e0433222e4db" }
+snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", branch = "main", default-features = false, features = ["loader_evm", "loader_halo2", "system_halo2"] }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"
 hyper = { version = "0.14.16", features = ["server"] }

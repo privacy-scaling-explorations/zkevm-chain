@@ -1,5 +1,6 @@
 use crate::circuit_witness::CircuitWitness;
-use halo2_proofs::halo2curves::bn256::Fr;
+use crate::Fr;
+use crate::MOCK_RANDOMNESS;
 use rand::Rng;
 use zkevm_circuits::bytecode_circuit::bytecode_unroller::BytecodeCircuit;
 use zkevm_circuits::copy_circuit::CopyCircuit;
@@ -23,7 +24,7 @@ pub fn gen_super_circuit<
 >(
     witness: &CircuitWitness,
     mut _rng: RNG,
-) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS>, String> {
+) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>, String> {
     let block = witness.evm_witness();
 
     let evm_circuit = EvmCircuit::new_from_block(&block);
@@ -34,7 +35,7 @@ pub fn gen_super_circuit<
     let copy_circuit = CopyCircuit::new_from_block(&block);
     let exp_circuit = ExpCircuit::new_from_block(&block);
     let keccak_circuit = KeccakCircuit::new_from_block(&block);
-    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS> {
+    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS> {
         evm_circuit,
         state_circuit,
         tx_circuit,

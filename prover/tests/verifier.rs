@@ -1,25 +1,14 @@
 #![cfg(feature = "autogen")]
 
 use eth_types::Address;
-use eth_types::Bytes;
 use halo2_proofs::arithmetic::Field;
-use halo2_proofs::halo2curves::bn256::{Fq, Fr, G1Affine};
 use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
-use plonk_verifier::cost::CostEstimation;
-use plonk_verifier::loader::evm::EvmLoader;
-use plonk_verifier::loader::native::NativeLoader;
-use plonk_verifier::util::transcript::TranscriptWrite;
-use plonk_verifier::verifier::PlonkProof;
-use plonk_verifier::{
-    system::halo2::{compile, transcript::evm::EvmTranscript, Config},
-    verifier::PlonkVerifier,
-};
 use prover::aggregation_circuit::AggregationCircuit;
-use prover::aggregation_circuit::Pcs;
-use prover::aggregation_circuit::Plonk;
+use prover::aggregation_circuit::PlonkSuccinctVerifier;
+use prover::aggregation_circuit::PlonkVerifier;
 use prover::aggregation_circuit::PoseidonTranscript;
 use prover::aggregation_circuit::Snark;
 use prover::circuit_witness::CircuitWitness;
@@ -28,18 +17,28 @@ use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
 use prover::utils::gen_proof;
 use prover::ProverParams;
+use prover::{Fq, Fr, G1Affine};
 use rand::rngs::OsRng;
+use snark_verifier::cost::CostEstimation;
+use snark_verifier::loader::evm::EvmLoader;
+use snark_verifier::loader::native::NativeLoader;
+use snark_verifier::util::transcript::TranscriptWrite;
+use snark_verifier::{
+    system::halo2::{compile, transcript::evm::EvmTranscript, Config},
+    verifier::SnarkVerifier,
+};
 use std::env::var;
 use std::fs;
 use std::io::Write;
 use std::rc::Rc;
+use zkevm_circuits::util::SubCircuit;
 use zkevm_common::prover::*;
 
 #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 struct Verifier {
     label: String,
     config: CircuitConfig,
-    runtime_code: Bytes,
+    code: String,
     address: Address,
 }
 
@@ -55,10 +54,23 @@ impl Verifier {
 
         self
     }
+
+    fn write_yul(&mut self) -> &Self {
+        self.build();
+        let file_name = format!("verifier-{}-{:?}.yul", self.label, self.address);
+        // only keep the runtime section
+        let yul_code = format!("object \"{}\" ", self.label)
+            + self.code.split("object \"Runtime\"").last().unwrap();
+        // strip of the dangling `}`
+        let yul_code = &yul_code[0..yul_code.len() - 1];
+        write_bytes(&file_name, yul_code.as_bytes());
+
+        self
+    }
 }
 
 fn write_bytes(name: &str, vec: &[u8]) {
-    let dir = "./../build/plonk-verifier";
+    let dir = "./../contracts/generated/";
     fs::create_dir_all(dir).unwrap_or_else(|_| panic!("create {}", dir));
     let path = format!("{}/{}", dir, name);
     fs::File::create(&path)
@@ -67,21 +79,24 @@ fn write_bytes(name: &str, vec: &[u8]) {
         .unwrap_or_else(|_| panic!("write {}", &path));
 }
 
-fn gen_verifier(params: &ProverParams, vk: &VerifyingKey<G1Affine>, config: Config) -> Vec<u8> {
-    let num_instance = config.num_instance.clone();
-    let svk = params.get_g()[0].into();
-    let dk = (params.g2(), params.s_g2()).into();
+fn gen_verifier(
+    params: &ProverParams,
+    vk: &VerifyingKey<G1Affine>,
+    config: Config,
+    num_instance: Vec<usize>,
+) -> String {
     let protocol = compile(params, vk, config);
+    let svk = (params.get_g()[0], params.g2(), params.s_g2()).into();
 
     let loader = EvmLoader::new::<Fq, Fr>();
     let protocol = protocol.loaded(&loader);
     let mut transcript = EvmTranscript::<_, Rc<EvmLoader>, _, _>::new(&loader);
 
     let instances = transcript.load_instances(num_instance);
-    let proof = Plonk::read_proof(&svk, &protocol, &instances, &mut transcript).unwrap();
-    Plonk::verify(&svk, &dk, &protocol, &instances, &proof).unwrap();
+    let proof = PlonkVerifier::read_proof(&svk, &protocol, &instances, &mut transcript).unwrap();
+    PlonkVerifier::verify(&svk, &protocol, &instances, &proof).unwrap();
 
-    loader.runtime_code()
+    loader.yul_code()
 }
 
 macro_rules! gen_match {
@@ -110,22 +125,19 @@ macro_rules! gen_match {
                         let mut data = Verifier::default();
                         data.label = format!("{}-{}", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                         data.config = CIRCUIT_CONFIG;
-                        data.runtime_code = gen_verifier(
+                        data.code = gen_verifier(
                             &params,
                             &vk,
                             Config::kzg().with_num_instance(gen_num_instance(&instance)),
+                            gen_num_instance(&instance),
                         )
                         .into();
+                        data.write_yul();
 
                         if var("ONLY_EVM").is_ok() {
                             log::info!("returning early");
-                            let data = data.build();
-                            write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                             return;
                         }
-
-                        let data = data.build();
-                        write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
                     }
 
                     let protocol = compile(
@@ -150,9 +162,7 @@ macro_rules! gen_match {
                             transcript.write_scalar(Fr::random(OsRng)).unwrap();
                         }
 
-                        let queries =
-                            PlonkProof::<G1Affine, NativeLoader, Pcs>::empty_queries(&protocol);
-                        let estimate = Pcs::estimate_cost(&queries);
+                        let estimate = PlonkSuccinctVerifier::estimate_cost(&protocol);
                         for _ in 0..estimate.num_commitment {
                             transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
                         }
@@ -195,17 +205,16 @@ macro_rules! gen_match {
                 let mut data = Verifier::default();
                 data.label = format!("{}-{}-a", $LABEL, CIRCUIT_CONFIG.block_gas_limit);
                 data.config = CIRCUIT_CONFIG;
-                data.runtime_code = gen_verifier(
+                data.code = gen_verifier(
                     &agg_params,
                     &agg_vk,
                     Config::kzg()
                         .with_num_instance(AggregationCircuit::num_instance())
                         .with_accumulator_indices(Some(AggregationCircuit::accumulator_indices())),
+                    AggregationCircuit::num_instance(),
                 )
                 .into();
-
-                let data = data.build();
-                write_bytes(&data.label, &serde_json::to_vec(data).unwrap());
+                data.write_yul();
             },
             {
                 panic!("no circuit parameters found");

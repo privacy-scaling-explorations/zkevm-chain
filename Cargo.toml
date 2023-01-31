@@ -10,4 +10,12 @@ opt-level = 3
 lto = "thin"
 
 [patch."https://github.com/privacy-scaling-explorations/halo2.git"]
-halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", rev = "2f530b040fc6297a40af6cc8f374cceeb87a628a", package = "halo2_proofs" }
+halo2_proofs = { git = "https://github.com/pinkiebell/halo2.git", tag = "v2023_01_20", package = "halo2_proofs" }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2curves.git"]
+halo2_curves = { git = "https://github.com/pinkiebell/halo2curves.git", tag = "0.3.1", package = "halo2curves" }
+
+[patch."https://github.com/privacy-scaling-explorations/halo2wrong.git"]
+halo2_wrong_ecc = { git = "https://github.com/pinkiebell/halo2wrong.git", tag = "v2023_01_18", package = "ecc" }
+halo2_wrong_integer = { git = "https://github.com/pinkiebell/halo2wrong.git", tag = "v2023_01_18", package = "integer" }
+halo2_wrong_maingate = { git = "https://github.com/pinkiebell/halo2wrong.git", tag = "v2023_01_18", package = "maingate" }

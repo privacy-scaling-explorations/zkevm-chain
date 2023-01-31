@@ -11,7 +11,6 @@ use ethers_signers::Signer;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Any;
 use halo2_proofs::plonk::Assigned;
@@ -29,6 +28,8 @@ use mock::TestContext;
 use prover::circuit_witness::CircuitWitness;
 use prover::circuits::gen_super_circuit;
 use prover::utils::fixed_rng;
+use prover::Fr;
+use prover::MOCK_RANDOMNESS;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -160,6 +161,14 @@ impl<F: Field> Assignment<F> for Assembly {
     fn get_challenge(&self, _: Challenge) -> Value<F> {
         Value::unknown()
     }
+
+    fn annotate_column<A, AR>(&mut self, _annotation: A, _column: Column<Any>)
+    where
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+    {
+        // Do nothing.
+    }
 }
 
 fn run_assembly<
@@ -178,8 +187,7 @@ fn run_assembly<
     .expect("gen_static_circuit");
 
     let mut cs = ConstraintSystem::default();
-    let config =
-        SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS>::configure(&mut cs);
+    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::configure(&mut cs);
     let mut assembly = Assembly::default();
     let constants = cs.constants();
     SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())

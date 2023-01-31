@@ -1,10 +1,10 @@
+use crate::Fr;
 use crate::G1Affine;
 use crate::ProverCommitmentScheme;
 use crate::ProverKey;
 use crate::ProverParams;
 use eth_types::U256;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::create_proof;
 use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::Circuit;
