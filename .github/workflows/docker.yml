@@ -11,10 +11,10 @@ on:
 jobs:
   build:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    runs-on: ["${{github.run_id}}", self-hosted, r6a.xlarge, "${{matrix.DOCKERFILE}}"]
+    runs-on: ["${{github.run_id}}", self-hosted, r6a.xlarge, "${{matrix.TARGET}}"]
     strategy:
       matrix:
-        DOCKERFILE: ['docker/coordinator/Dockerfile', 'docker/web/Dockerfile', 'docker/prover/Dockerfile', 'docker/geth/Dockerfile', 'docker/dev/Dockerfile']
+        TARGET: ['coordinator', 'web', 'prover', 'geth', 'dev']
     steps:
       - uses: actions/checkout@v2
 
@@ -25,6 +25,6 @@ jobs:
 
       - name: Build and push Docker images
         env:
-          DOCKERFILE: ${{ matrix.DOCKERFILE }}
+          TARGET: ${{ matrix.TARGET }}
           PLATFORM: 'linux/amd64,linux/arm64'
         run: ./.github/workflows/docker.sh

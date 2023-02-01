@@ -11,15 +11,16 @@ fi
 docker buildx create --name mybuilder --use || echo 'skip'
 docker buildx inspect --bootstrap
 
-path=$(dirname $DOCKERFILE)
+dockerfile="docker/${TARGET}/Dockerfile"
+path=$(dirname "${dockerfile}")
 ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
 docker buildx build \
-  --cache-from "${image}-ci-cache:latest" \
-  --cache-to "${image}-ci-cache:latest" \
+  --cache-from "type=registry,ref=${image}-ci-cache:latest" \
+  --cache-to "type=registry,ref=${image}-ci-cache:latest,mode=max" \
   --push \
   --platform "$PLATFORM" \
   -t "$image:$tag" \
-  -f $DOCKERFILE .
+  -f "${dockerfile}" .
 docker buildx imagetools inspect "$image:$tag"
