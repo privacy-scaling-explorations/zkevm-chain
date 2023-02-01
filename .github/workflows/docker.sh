@@ -24,3 +24,11 @@ docker buildx build \
   -t "$image:$tag" \
   -f "${dockerfile}" .
 docker buildx imagetools inspect "$image:$tag"
+
+docker buildx build \
+  --cache-from "type=registry,ref=${image}-ci-cache:latest" \
+  --cache-from "type=registry,ref=${image}-ci-cache-secondary:latest" \
+  --cache-to "type=registry,ref=${image}-ci-cache-secondary:latest,mode=max" \
+  --push \
+  -t "$image-ci:$tag" \
+  -f "${dockerfile}" .
