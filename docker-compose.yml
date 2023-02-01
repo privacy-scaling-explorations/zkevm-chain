@@ -136,7 +136,7 @@ services:
   coverage-l1:
     profiles:
       - dev
-    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.6
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.7
     volumes:
       - .:/host:ro
     working_dir: /host
@@ -146,7 +146,7 @@ services:
   coverage-l2:
     profiles:
       - dev
-    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.6
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.7
     volumes:
       - .:/host:ro
     working_dir: /host
