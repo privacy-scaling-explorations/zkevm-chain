@@ -24,7 +24,7 @@ jobs:
       - name: Build docker images
         run: |
           docker compose down -v --remove-orphans || true
-          COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose build bootnode dev
+          docker compose build bootnode dev
 
       - name: Compile Contracts
         run: |
