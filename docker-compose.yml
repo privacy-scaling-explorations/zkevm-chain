@@ -103,6 +103,8 @@ services:
     init: true
     build:
       dockerfile: docker/coordinator/Dockerfile
+      cache_from:
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/coordinator-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/coordinator:latest
     depends_on:
       - leader-testnet-geth
@@ -126,6 +128,8 @@ services:
     init: true
     build:
       dockerfile: docker/prover/Dockerfile
+      cache_from:
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/prover-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
     environment:
       - PROVERD_BIND=[::]:8545
