@@ -5,6 +5,7 @@ on:
     branches:
       - master
   pull_request:
+    types: [synchronize, opened, reopened, ready_for_review]
 
 jobs:
   main:
@@ -24,6 +25,7 @@ jobs:
       - name: Build docker images
         run: |
           docker compose down -v --remove-orphans || true
+          docker buildx create --name mybuilder --use || echo 'skip'
           docker compose build bootnode dev
 
       - name: Compile Contracts

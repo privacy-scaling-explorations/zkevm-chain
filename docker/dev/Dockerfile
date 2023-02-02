@@ -21,7 +21,7 @@ COPY --from=solc /solc /usr/bin/solc
 ENV CARGO_TARGET_DIR=/target
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=$CARGO_HOME/bin:$PATH
-COPY rust-toolchain /tmp/rust-toolchain
+COPY --chmod=444 rust-toolchain /tmp/rust-toolchain
 # adapted from official docker-rust
 RUN set -eux; \
     apt-get update; \

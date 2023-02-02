@@ -103,6 +103,8 @@ services:
     init: true
     build:
       dockerfile: docker/coordinator/Dockerfile
+      cache_from:
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/coordinator-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/coordinator:latest
     depends_on:
       - leader-testnet-geth
@@ -126,6 +128,8 @@ services:
     init: true
     build:
       dockerfile: docker/prover/Dockerfile
+      cache_from:
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/prover-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/prover:latest
     environment:
       - PROVERD_BIND=[::]:8545
@@ -136,7 +140,7 @@ services:
   coverage-l1:
     profiles:
       - dev
-    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.6
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.7
     volumes:
       - .:/host:ro
     working_dir: /host
@@ -146,7 +150,7 @@ services:
   coverage-l2:
     profiles:
       - dev
-    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.6
+    image: ghcr.io/pinkiebell/develatus-apparatus:v0.4.7
     volumes:
       - .:/host:ro
     working_dir: /host
@@ -164,6 +168,8 @@ services:
       - coverage-l2
     build:
       dockerfile: docker/dev/Dockerfile
+      cache_from:
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/dev-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
     volumes:
       - .:/app
