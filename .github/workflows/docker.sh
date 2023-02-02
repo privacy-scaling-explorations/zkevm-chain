@@ -25,7 +25,7 @@ docker buildx build \
   -f "${dockerfile}" .
 docker buildx imagetools inspect "$image:$tag"
 
-docker buildx build \
+docker build \
   --cache-from "type=registry,ref=${image}-ci-cache:latest" \
   --cache-from "type=registry,ref=${image}-ci-cache-secondary:latest" \
   --cache-to "type=registry,ref=${image}-ci-cache-secondary:latest,mode=max" \
