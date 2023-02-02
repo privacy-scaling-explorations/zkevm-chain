@@ -28,7 +28,7 @@ $SOLC \
 # generated yul
 mkdir -p "${OUTPUT_PATH}/plonk-verifier"
 for file in $(find "$ROOT"/contracts/generated/ -iname '*.yul'); do
-  name=$(basename "${file}" | tr -d '.yul')
+  name=$(basename "${file}" | head -c -5)
   $SOLC \
     --yul \
     --bin \
