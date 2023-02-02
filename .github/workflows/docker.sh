@@ -27,4 +27,4 @@ docker buildx build \
   -f "${dockerfile}" .
 docker buildx imagetools inspect "$image:$tag"
 
-docker compose build dev
+docker compose build --progress plain dev
