@@ -19,3 +19,4 @@ pub mod circuits;
 pub mod server;
 pub mod shared_state;
 pub mod utils;
+pub mod version;
