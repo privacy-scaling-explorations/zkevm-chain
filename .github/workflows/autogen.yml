@@ -23,6 +23,7 @@ jobs:
 
       - name: Build docker images
         run: |
+          docker buildx create --name mybuilder --use || echo 'skip'
           docker compose build dev
 
       - name: Contracts

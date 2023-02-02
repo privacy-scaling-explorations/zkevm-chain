@@ -8,8 +8,6 @@ if [ -z "$tag" ]; then
   tag='latest'
 fi
 
-docker compose build --progress plain dev
-exit
 docker buildx create --name mybuilder --use || echo 'skip'
 docker buildx inspect --bootstrap
 
@@ -28,5 +26,3 @@ docker buildx build \
   -t "$image:$tag" \
   -f "${dockerfile}" .
 docker buildx imagetools inspect "$image:$tag"
-
-docker compose build --progress plain dev
