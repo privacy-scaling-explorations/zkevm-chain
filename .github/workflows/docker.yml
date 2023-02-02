@@ -14,7 +14,8 @@ jobs:
     runs-on: ["${{github.run_id}}", self-hosted, r6a.xlarge, "${{matrix.TARGET}}"]
     strategy:
       matrix:
-        TARGET: ['coordinator', 'web', 'prover', 'geth', 'dev']
+        #TARGET: ['coordinator', 'web', 'prover', 'geth', 'dev']
+        TARGET: ['dev']
     steps:
       - uses: actions/checkout@v2
 
