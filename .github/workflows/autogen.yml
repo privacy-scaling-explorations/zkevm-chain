@@ -26,10 +26,6 @@ jobs:
           docker buildx create --name mybuilder --use || echo 'skip'
           docker compose build dev
 
-      - name: Contracts
-        run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh'
-
       - name: Circuit config
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_circuit_config'
@@ -45,6 +41,10 @@ jobs:
       - name: EVM & Aggregation verifier for Pi
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'FAST=1 ./scripts/autogen.sh autogen_verifier_pi'
+
+      - name: Contracts
+        run: |
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/compile_contracts.sh'
 
       - name: Patch genesis templates
         run: docker run --rm -v $(pwd):/host -w /host node:lts-alpine scripts/patch_genesis.mjs
