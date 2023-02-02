@@ -27,7 +27,7 @@ fn get_crate_version(pkg: &str) -> String {
 fn main() {
     let pkg_version = var("CARGO_PKG_VERSION").expect("CARGO_PKG_VERSION");
     let version = format!(
-        "pub const VERSION: &str = \"{}\n{}\";",
+        "pub const VERSION: &str = \"{}\n{}\";\n",
         pkg_version,
         get_crate_version("zkevm-circuits"),
     );
