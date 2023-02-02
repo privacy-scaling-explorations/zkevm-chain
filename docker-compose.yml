@@ -169,7 +169,7 @@ services:
     build:
       dockerfile: docker/dev/Dockerfile
       cache_from:
-        - ghcr.io/privacy-scaling-explorations/zkevm-chain/dev-ci-cache-secondary:latest
+        - ghcr.io/privacy-scaling-explorations/zkevm-chain/dev-ci-cache:latest
     image: ghcr.io/privacy-scaling-explorations/zkevm-chain/dev:latest
     volumes:
       - .:/app

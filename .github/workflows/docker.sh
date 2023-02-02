@@ -7,10 +7,11 @@ tag=$(git tag --points-at HEAD)
 if [ -z "$tag" ]; then
   tag='latest'
 fi
-docker compose build dev
-exit
+
 docker buildx create --name mybuilder --use || echo 'skip'
 docker buildx inspect --bootstrap
+docker compose build dev
+exit
 
 dockerfile="docker/${TARGET}/Dockerfile"
 path=$(dirname "${dockerfile}")
