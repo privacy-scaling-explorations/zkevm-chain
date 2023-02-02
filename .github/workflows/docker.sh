@@ -17,6 +17,7 @@ ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
 docker buildx build \
+  --progress plain \
   --cache-from "type=registry,ref=${image}-ci-cache:latest" \
   --cache-to "type=registry,ref=${image}-ci-cache:latest,mode=max" \
   --compress \
