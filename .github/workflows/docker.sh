@@ -16,6 +16,8 @@ path=$(dirname "${dockerfile}")
 ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
+docker compose build dev
+exit
 docker buildx build \
   --cache-from "type=registry,ref=${image}-ci-cache:latest" \
   --cache-to "type=registry,ref=${image}-ci-cache:latest,mode=max" \
@@ -33,4 +35,3 @@ docker buildx build \
   -t "$image-ci:$tag" \
   -f "${dockerfile}" .
 
-docker compose build dev
