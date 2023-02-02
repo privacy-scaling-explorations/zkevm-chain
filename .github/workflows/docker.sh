@@ -7,7 +7,8 @@ tag=$(git tag --points-at HEAD)
 if [ -z "$tag" ]; then
   tag='latest'
 fi
-
+docker compose build dev
+exit
 docker buildx create --name mybuilder --use || echo 'skip'
 docker buildx inspect --bootstrap
 
@@ -16,8 +17,6 @@ path=$(dirname "${dockerfile}")
 ext=${path##*/}
 image="ghcr.io/$GITHUB_REPOSITORY/$ext"
 
-docker compose build dev
-exit
 docker buildx build \
   --cache-from "type=registry,ref=${image}-ci-cache:latest" \
   --cache-to "type=registry,ref=${image}-ci-cache:latest,mode=max" \
