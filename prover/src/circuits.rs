@@ -2,7 +2,7 @@ use crate::circuit_witness::CircuitWitness;
 use crate::Fr;
 use crate::MOCK_RANDOMNESS;
 use rand::Rng;
-use zkevm_circuits::bytecode_circuit::bytecode_unroller::BytecodeCircuit;
+use zkevm_circuits::bytecode_circuit::circuit::BytecodeCircuit;
 use zkevm_circuits::copy_circuit::CopyCircuit;
 use zkevm_circuits::evm_circuit::EvmCircuit;
 use zkevm_circuits::exp_circuit::ExpCircuit;
