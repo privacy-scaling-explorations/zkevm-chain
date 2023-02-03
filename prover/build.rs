@@ -35,7 +35,17 @@ fn main() {
     let version = format!(
         "pub const VERSION: &str = \"{}\n{}{}\";\n",
         pkg_version,
-        run("git", vec!["describe", "--all", "--long", "--dirty"]),
+        run(
+            "git",
+            vec![
+                "-c",
+                "safe.directory=*",
+                "describe",
+                "--all",
+                "--long",
+                "--dirty"
+            ]
+        ),
         get_crate_version("zkevm-circuits"),
     );
 
