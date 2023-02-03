@@ -145,7 +145,7 @@ impl CircuitWitness {
             block_constants,
             prev_state_root,
             transactions: eth_block.transactions.clone(),
-            block_hash: eth_block.hash.unwrap_or_default(),
+            // block_hash: eth_block.hash.unwrap_or_default(),
             state_root: eth_block.state_root,
         }
     }

@@ -713,5 +713,5 @@ async fn test_pi_commitment() {
         }
     }
 
-    finalize_chain!(shared_state);
+    finalize_chain!(shared_state, true);
 }

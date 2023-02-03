@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 ROOT="$(dirname $0)/.."
 

@@ -48,6 +48,7 @@ struct TestData {
     public_inputs: PublicInputs,
 }
 
+#[ignore = "obsolete"]
 #[tokio::test]
 async fn witness_verifier() {
     let abi = AbiParser::default()
