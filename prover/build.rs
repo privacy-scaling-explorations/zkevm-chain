@@ -1,7 +1,4 @@
 use std::env::var;
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
 use std::process::Command;
 
 fn run(cmd: &str, args: Vec<&str>) -> String {
@@ -33,7 +30,7 @@ fn get_crate_version(pkg: &str) -> String {
 fn main() {
     let pkg_version = var("CARGO_PKG_VERSION").expect("CARGO_PKG_VERSION");
     let version = format!(
-        "pub const VERSION: &str = \"{}\n{}{}\";\n",
+        "{} {} {}",
         pkg_version,
         run(
             "git",
@@ -48,20 +45,8 @@ fn main() {
         ),
         get_crate_version("zkevm-circuits"),
     );
-
-    let path = "src/version.rs";
-    let update = match File::open(path) {
-        Ok(mut file) => {
-            let mut buffer = String::new();
-            file.read_to_string(&mut buffer).expect("read version.rs");
-            buffer != version
-        }
-        Err(_) => true,
-    };
-
-    if update {
-        let mut file = File::create(path).expect("create version.rs");
-        file.write_all(version.as_bytes())
-            .expect("write version.rs");
-    }
+    println!(
+        "cargo:rustc-env=PROVER_VERSION={}",
+        version.replace('\n', "")
+    );
 }

@@ -3,7 +3,7 @@ use env_logger::Env;
 
 use prover::server::serve;
 use prover::shared_state::SharedState;
-use prover::version::VERSION;
+use prover::VERSION;
 
 #[derive(Parser, Debug)]
 #[clap(version = VERSION, about)]
