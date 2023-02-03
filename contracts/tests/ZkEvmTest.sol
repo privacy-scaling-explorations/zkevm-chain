@@ -4,7 +4,7 @@ pragma solidity <0.9.0;
 import '../generated/PatriciaValidator.sol';
 import '../generated/PublicInput.sol';
 
-contract ZkEvmTest is PatriciaValidator, InstanceVerifier, PublicInput {
+contract ZkEvmTest is PatriciaValidator, PublicInput {
   function testPatricia (
     address account,
     bytes32 storageKey,
