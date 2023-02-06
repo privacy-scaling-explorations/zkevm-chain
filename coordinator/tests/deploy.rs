@@ -9,10 +9,9 @@ use ethers_core::types::Bytes;
 use ethers_core::types::TransactionReceipt;
 use ethers_core::types::U256;
 use ethers_core::types::U64;
-use serde::Deserialize;
 use std::fs::read_dir;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::Read;
 use std::str::FromStr;
 
 macro_rules! deploy_l1 {
@@ -144,25 +143,19 @@ async fn deploy_l2_optimism() {
 
 #[tokio::test]
 async fn deploy_l1_evm_verifier() {
-    #[derive(Deserialize)]
-    struct Data {
-        runtime_code: Bytes,
-        address: String,
-    }
-
-    let items = read_dir("../build/plonk-verifier/");
+    let items = read_dir("../build/contracts/plonk-verifier/");
     if items.is_err() {
         return;
     }
     for item in items.unwrap() {
-        let path = item.expect("path").path();
-        let file = File::open(&path).expect("open");
-        let data: Data = serde_json::from_reader(BufReader::new(file)).expect("json");
-        let mut deploy_code = vec![
-            0x60, 0x0b, 0x38, 0x03, 0x80, 0x60, 0x0b, 0x3d, 0x39, 0x3d, 0xf3,
-        ];
-        deploy_code.extend_from_slice(data.runtime_code.as_ref());
-        println!("{:?} {}", path, data.address);
-        deploy_l1!(deploy_code, &data.address);
+        let item = item.unwrap();
+        let path = item.path();
+        let file_name = item.file_name().into_string().unwrap();
+        let address = file_name.split('-').last().unwrap();
+        let mut file = File::open(&path).expect("open");
+        let mut deploy_code = String::from("0x600b380380600b3d393df3");
+        file.read_to_string(&mut deploy_code).expect("read");
+        println!("{:?} {}", path, address);
+        deploy_l1!(Bytes::from_str(&deploy_code).unwrap().to_vec(), address);
     }
 }

@@ -22,7 +22,7 @@ jobs:
         run: |
           docker compose down -v --remove-orphans || true
           docker buildx create --name mybuilder --use || echo 'skip'
-          docker compose build bootnode dev
+          docker compose build --progress plain bootnode dev
 
       - name: Pi Circuit aggregation native_withdraw
         if: always()

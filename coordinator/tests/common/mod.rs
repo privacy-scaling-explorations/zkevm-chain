@@ -185,7 +185,7 @@ macro_rules! wait_for_tx_no_panic {
 
 #[macro_export]
 macro_rules! finalize_chain {
-    ($shared_state:expr) => {
+    ($shared_state:expr, $use_dummy:expr) => {
         loop {
             let rw = $shared_state.rw.lock().await;
             if rw.chain_state.head_block_hash == rw.chain_state.finalized_block_hash {
@@ -195,16 +195,26 @@ macro_rules! finalize_chain {
 
             sync!($shared_state);
             $shared_state.submit_blocks().await;
+            let dummy_prover = $shared_state.config.lock().await.dummy_prover;
+            if $use_dummy {
+                $shared_state.config.lock().await.dummy_prover = true;
+            }
             $shared_state
                 .finalize_blocks()
                 .await
                 .expect("finalize_blocks");
+            if $use_dummy {
+                $shared_state.config.lock().await.dummy_prover = dummy_prover;
+            }
             sync!($shared_state);
             while $shared_state.rw.lock().await.l2_message_queue.len() != 0 {
                 $shared_state.relay_to_l1().await;
                 sync!($shared_state);
             }
         }
+    };
+    ($shared_state:expr) => {
+        finalize_chain!($shared_state, false)
     };
 }
 

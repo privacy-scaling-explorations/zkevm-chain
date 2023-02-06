@@ -3,9 +3,10 @@ use env_logger::Env;
 
 use prover::server::serve;
 use prover::shared_state::SharedState;
+use prover::VERSION;
 
 #[derive(Parser, Debug)]
-#[clap(version, about)]
+#[clap(version = VERSION, about)]
 /// This command starts a http/json-rpc server and serves proof oriented methods.
 pub(crate) struct ProverdConfig {
     #[clap(long, env = "PROVERD_BIND")]

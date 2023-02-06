@@ -1,7 +1,8 @@
 use crate::circuit_witness::CircuitWitness;
-use halo2_proofs::halo2curves::bn256::Fr;
+use crate::Fr;
+use crate::MOCK_RANDOMNESS;
 use rand::Rng;
-use zkevm_circuits::bytecode_circuit::bytecode_unroller::BytecodeCircuit;
+use zkevm_circuits::bytecode_circuit::circuit::BytecodeCircuit;
 use zkevm_circuits::copy_circuit::CopyCircuit;
 use zkevm_circuits::evm_circuit::EvmCircuit;
 use zkevm_circuits::exp_circuit::ExpCircuit;
@@ -18,11 +19,12 @@ pub fn gen_super_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
     mut _rng: RNG,
-) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>, String> {
+) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>, String> {
     let block = witness.evm_witness();
 
     let evm_circuit = EvmCircuit::new_from_block(&block);
@@ -33,7 +35,7 @@ pub fn gen_super_circuit<
     let copy_circuit = CopyCircuit::new_from_block(&block);
     let exp_circuit = ExpCircuit::new_from_block(&block);
     let keccak_circuit = KeccakCircuit::new_from_block(&block);
-    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MAX_RWS> {
+    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS> {
         evm_circuit,
         state_circuit,
         tx_circuit,
@@ -52,6 +54,7 @@ pub fn gen_pi_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -68,6 +71,7 @@ pub fn gen_evm_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -82,6 +86,7 @@ pub fn gen_state_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -96,6 +101,7 @@ pub fn gen_tx_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -110,6 +116,7 @@ pub fn gen_bytecode_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -124,6 +131,7 @@ pub fn gen_copy_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -138,6 +146,7 @@ pub fn gen_exp_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,
@@ -152,6 +161,7 @@ pub fn gen_keccak_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
     RNG: Rng,
 >(
     witness: &CircuitWitness,

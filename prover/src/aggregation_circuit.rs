@@ -6,7 +6,8 @@ use halo2_proofs::{
     poly::commitment::ParamsProver,
 };
 use itertools::Itertools;
-use plonk_verifier::loader::halo2::halo2_wrong_ecc::{
+use rand::Rng;
+use snark_verifier::loader::halo2::halo2_wrong_ecc::{
     self,
     integer::rns::Rns,
     maingate::{
@@ -15,48 +16,45 @@ use plonk_verifier::loader::halo2::halo2_wrong_ecc::{
     },
     EccConfig,
 };
-use plonk_verifier::{
+use snark_verifier::pcs::kzg::KzgAccumulator;
+use snark_verifier::pcs::kzg::LimbsEncodingInstructions;
+use snark_verifier::{
     loader::{self, native::NativeLoader},
-    pcs::{
-        kzg::{
-            Gwc19, Kzg, KzgAccumulator, KzgAs, KzgSuccinctVerifyingKey, LimbsEncoding,
-            LimbsEncodingInstructions,
-        },
-        AccumulationScheme, AccumulationSchemeProver,
-    },
+    pcs::{kzg, AccumulationScheme, AccumulationSchemeProver},
     system,
     util::arithmetic::{fe_to_limbs, FieldExt},
-    verifier::{self, PlonkVerifier},
-    Protocol,
+    verifier::plonk::PlonkProtocol,
+    verifier::{self, SnarkVerifier},
 };
-use rand::Rng;
 use std::rc::Rc;
 
 const LIMBS: usize = 4;
 const BITS: usize = 68;
-pub type Pcs = Kzg<Bn256, Gwc19>;
-type As = KzgAs<Pcs>;
-pub type Plonk = verifier::Plonk<Pcs, LimbsEncoding<LIMBS, BITS>>;
+
+type As = kzg::KzgAs<Bn256, kzg::Gwc19>;
+pub type PlonkSuccinctVerifier =
+    verifier::plonk::PlonkSuccinctVerifier<As, kzg::LimbsEncoding<LIMBS, BITS>>;
+pub type PlonkVerifier = verifier::plonk::PlonkVerifier<As, kzg::LimbsEncoding<LIMBS, BITS>>;
 
 const T: usize = 5;
 const RATE: usize = 4;
 const R_F: usize = 8;
 const R_P: usize = 60;
 
-type Svk = KzgSuccinctVerifyingKey<G1Affine>;
+type Svk = kzg::KzgSuccinctVerifyingKey<G1Affine>;
 type BaseFieldEccChip = halo2_wrong_ecc::BaseFieldEccChip<G1Affine, LIMBS, BITS>;
 type Halo2Loader<'a> = loader::halo2::Halo2Loader<'a, G1Affine, BaseFieldEccChip>;
 pub type PoseidonTranscript<L, S> =
     system::halo2::transcript::halo2::PoseidonTranscript<G1Affine, L, S, T, RATE, R_F, R_P>;
 
 pub struct Snark {
-    pub protocol: Protocol<G1Affine>,
+    pub protocol: PlonkProtocol<G1Affine>,
     pub instances: Vec<Vec<Fr>>,
     pub proof: Vec<u8>,
 }
 
 impl Snark {
-    pub fn new(protocol: Protocol<G1Affine>, instances: Vec<Vec<Fr>>, proof: Vec<u8>) -> Self {
+    pub fn new(protocol: PlonkProtocol<G1Affine>, instances: Vec<Vec<Fr>>, proof: Vec<u8>) -> Self {
         Self {
             protocol,
             instances,
@@ -81,7 +79,7 @@ impl From<Snark> for SnarkWitness {
 
 #[derive(Clone)]
 pub struct SnarkWitness {
-    protocol: Protocol<G1Affine>,
+    protocol: PlonkProtocol<G1Affine>,
     instances: Vec<Vec<Value<Fr>>>,
     proof: Value<Vec<u8>>,
 }
@@ -129,8 +127,10 @@ pub fn aggregate<'a>(
             let instances = assign_instances(&snark.instances);
             let mut transcript =
                 PoseidonTranscript::<Rc<Halo2Loader>, _>::new(loader, snark.proof());
-            let proof = Plonk::read_proof(svk, &protocol, &instances, &mut transcript).unwrap();
-            Plonk::succinct_verify(svk, &protocol, &instances, &proof).unwrap()
+            let proof =
+                PlonkSuccinctVerifier::read_proof(svk, &protocol, &instances, &mut transcript)
+                    .unwrap();
+            PlonkSuccinctVerifier::verify(svk, &protocol, &instances, &proof).unwrap()
         })
         .collect_vec();
 
@@ -202,10 +202,15 @@ impl AggregationCircuit {
             .flat_map(|snark| {
                 let mut transcript =
                     PoseidonTranscript::<NativeLoader, _>::new(snark.proof.as_slice());
-                let proof =
-                    Plonk::read_proof(&svk, &snark.protocol, &snark.instances, &mut transcript)
-                        .unwrap();
-                Plonk::succinct_verify(&svk, &snark.protocol, &snark.instances, &proof).unwrap()
+                let proof = PlonkSuccinctVerifier::read_proof(
+                    &svk,
+                    &snark.protocol,
+                    &snark.instances,
+                    &mut transcript,
+                )
+                .unwrap();
+                PlonkSuccinctVerifier::verify(&svk, &snark.protocol, &snark.instances, &proof)
+                    .unwrap()
             })
             .collect_vec();
 
