@@ -25,6 +25,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
 use std::net::ToSocketAddrs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
@@ -32,13 +33,13 @@ use zkevm_circuits::util::SubCircuit;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::*;
 
-fn get_param_path(path: &String, k: usize) -> String {
-    // try to automatically choose a file if the path ends with a `/`.
-    match path.ends_with('/') {
-        true => {
-            format!("{}{}.bin", path, k)
-        }
-        false => path.clone(),
+fn get_param_path(path: &String, k: usize) -> PathBuf {
+    // try to automatically choose a file if the path is a folder.
+    if Path::new(path).is_dir() {
+        Path::new(path)
+            .join(format!("{}.bin", k))
+    } else {
+        Path::new(path).to_path_buf()
     }
 }
 
@@ -52,7 +53,7 @@ fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<Prover
                     .expect("Failed to read params"),
             );
 
-            (params, path)
+            (params, path.to_str().unwrap().into())
         }
         None => {
             let param = Arc::new(ProverParams::setup(k as u32, fixed_rng()));

@@ -14,7 +14,7 @@ pub(crate) struct ProverdConfig {
     bind: String,
     #[clap(long, env = "PROVERD_LOOKUP")]
     /// A `HOSTNAME:PORT` conformant string that will be used for DNS service discovery of other nodes.
-    lookup: String,
+    lookup: Option<String>,
 }
 
 #[tokio::main]
@@ -22,7 +22,7 @@ async fn main() {
     let config = ProverdConfig::parse();
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let shared_state = SharedState::new(SharedState::random_worker_id(), Some(config.lookup));
+    let shared_state = SharedState::new(SharedState::random_worker_id(), config.lookup);
     {
         // start the http server
         let h1 = serve(&shared_state, &config.bind);
