@@ -794,7 +794,7 @@ impl SharedState {
         let res: bool = self.request_l2("miner_setHead", [block_hash]).await?;
 
         if !res {
-            return Err(format!("unable to set chain head to {:?}", block_hash));
+            return Err(format!("unable to set chain head to {block_hash:?}"));
         }
 
         self.rw.lock().await.chain_state.head_block_hash = block_hash;

@@ -71,8 +71,8 @@ impl Verifier {
 
 fn write_bytes(name: &str, vec: &[u8]) {
     let dir = "./../contracts/generated/";
-    fs::create_dir_all(dir).unwrap_or_else(|_| panic!("create {}", dir));
-    let path = format!("{}/{}", dir, name);
+    fs::create_dir_all(dir).unwrap_or_else(|_| panic!("create {dir}"));
+    let path = format!("{dir}/{name}");
     fs::File::create(&path)
         .unwrap_or_else(|_| panic!("create {}", &path))
         .write_all(vec)

@@ -10,6 +10,7 @@ fn init_logger() {
 }
 
 #[tokio::test]
+#[allow(clippy::let_underscore_future)]
 async fn proverd_simple_signaling() {
     init_logger();
 

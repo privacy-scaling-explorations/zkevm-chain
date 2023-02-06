@@ -155,7 +155,7 @@ async fn deploy_l1_evm_verifier() {
         let mut file = File::open(&path).expect("open");
         let mut deploy_code = String::from("0x600b380380600b3d393df3");
         file.read_to_string(&mut deploy_code).expect("read");
-        println!("{:?} {}", path, address);
+        println!("{path:?} {address}");
         deploy_l1!(Bytes::from_str(&deploy_code).unwrap().to_vec(), address);
     }
 }

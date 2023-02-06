@@ -67,10 +67,7 @@ async fn patricia_validator() {
             assert_eq!(
                 result.is_err(),
                 error_expected,
-                "{:?} {:?} {:?}",
-                result,
-                storage_proof,
-                path
+                "{result:?} {storage_proof:?} {path:?}"
             );
             if !error_expected {
                 let trace = result.unwrap();
@@ -107,9 +104,6 @@ async fn patricia_validator() {
     const MAX_DIFF: u64 = 1000;
     const KNOWN_AVG: u64 = 63028;
     if !((KNOWN_AVG - MAX_DIFF)..=(KNOWN_AVG + MAX_DIFF)).contains(&avg) {
-        panic!(
-            "patricia_validator: please update KNOWN_AVG ({}), new value: {}",
-            KNOWN_AVG, avg
-        );
+        panic!("patricia_validator: please update KNOWN_AVG ({KNOWN_AVG}), new value: {avg}");
     }
 }

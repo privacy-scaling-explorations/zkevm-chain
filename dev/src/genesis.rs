@@ -8,7 +8,7 @@ pub fn patch_genesis_l2(name: &str, address: usize, bytecode: Bytes) {
     let file = File::open(path).unwrap_or_else(|err| panic!("{}: {}", &path, err));
     let reader = BufReader::new(&file);
     let mut genesis: serde_json::Value = serde_json::from_reader(reader).unwrap();
-    let addr = format!("{:040x}", address);
+    let addr = format!("{address:040x}");
     genesis["alloc"][addr] = json!({
         "comment": name,
         "balance": "0",
