@@ -24,7 +24,7 @@ jobs:
       - name: Build docker images
         run: |
           docker buildx create --name mybuilder --use || echo 'skip'
-          docker compose build dev
+          docker compose build --progress plain dev
 
       - name: Circuit config
         run: |
