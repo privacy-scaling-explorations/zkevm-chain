@@ -7,3 +7,4 @@
 !Cargo.lock
 !Cargo.toml
 !rust-toolchain
+!.git/
