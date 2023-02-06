@@ -1,0 +1,31 @@
+name: Super Circuit aggregation worst_case_keccak_0_32
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [synchronize, opened, reopened, labeled]
+
+jobs:
+  test:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci-super-worst-case-keccak-0-32')
+    timeout-minutes: 7200
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ["${{github.run_id}}", self-hosted, r6a.48xlarge]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup
+        run: cp .env.example .env
+
+      - name: Build docker images
+        run: |
+          docker compose down -v --remove-orphans || true
+          docker buildx create --name mybuilder --use || echo 'skip'
+          docker compose build bootnode dev
+
+      - name: Super Circuit aggregation worst_case_keccak_0_32
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=super ./scripts/heavy_ci.sh worst_case_keccak_0_32'
+          ./scripts/ci_commit_errors.sh super-ag-worst_case_keccak_0_32
