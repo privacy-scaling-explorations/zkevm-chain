@@ -1,6 +1,5 @@
 FROM alpine:3.15 AS solc
 RUN apk update && apk add boost-dev boost-static build-base cmake git
-
 ARG SOLC_VERSION="0.8.16"
 RUN git clone --depth 1 -b v"${SOLC_VERSION}" https://github.com/ethereum/solidity.git
 WORKDIR solidity/
@@ -17,12 +16,6 @@ RUN \
 # linkage bug(segfaults of test binaries w/ linked golang code) in rust.
 # Use debian until this is resolved.
 FROM debian:bookworm-slim
-COPY --from=solc /solc /usr/bin/solc
-ENV CARGO_TARGET_DIR=/target
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH=$CARGO_HOME/bin:$PATH
-COPY --chmod=444 rust-toolchain /tmp/rust-toolchain
-# adapted from official docker-rust
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
@@ -40,8 +33,13 @@ RUN set -eux; \
         xz-utils \
         time \
         linux-perf \
-        libfontconfig-dev \
-        ; \
+        libfontconfig-dev
+ENV CARGO_TARGET_DIR=/target
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=$CARGO_HOME/bin:$PATH
+COPY --chmod=444 rust-toolchain /tmp/rust-toolchain
+# adapted from official docker-rust
+RUN set -eux; \
     dpkgArch="$(dpkg --print-architecture)"; \
     case "${dpkgArch##*-}" in \
         amd64) rustArch='x86_64-unknown-linux-gnu'; rustupSha256='bb31eaf643926b2ee9f4d8d6fc0e2835e03c0a60f34d324048aa194f0b29a71c' ;; \
@@ -58,3 +56,4 @@ RUN set -eux; \
     rm rustup-init;
 # set default home to global cache directory
 ENV CARGO_HOME=/target/cargo
+COPY --from=solc /solc /usr/bin/solc
