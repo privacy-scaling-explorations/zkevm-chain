@@ -26,26 +26,7 @@ pub fn gen_super_circuit<
     mut _rng: RNG,
 ) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>, String> {
     let block = witness.evm_witness();
-
-    let evm_circuit = EvmCircuit::new_from_block(&block);
-    let state_circuit = StateCircuit::new_from_block(&block);
-    let tx_circuit = TxCircuit::new_from_block(&block);
-    let pi_circuit = PiCircuit::new_from_block(&block);
-    let bytecode_circuit = BytecodeCircuit::new_from_block(&block);
-    let copy_circuit = CopyCircuit::new_from_block(&block);
-    let exp_circuit = ExpCircuit::new_from_block(&block);
-    let keccak_circuit = KeccakCircuit::new_from_block(&block);
-    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS> {
-        evm_circuit,
-        state_circuit,
-        tx_circuit,
-        pi_circuit,
-        bytecode_circuit,
-        copy_circuit,
-        exp_circuit,
-        keccak_circuit,
-    };
-
+    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::new_from_block(&block);
     Ok(circuit)
 }
 
