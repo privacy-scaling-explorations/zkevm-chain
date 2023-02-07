@@ -36,8 +36,7 @@ use zkevm_common::prover::*;
 fn get_param_path(path: &String, k: usize) -> PathBuf {
     // try to automatically choose a file if the path is a folder.
     if Path::new(path).is_dir() {
-        Path::new(path)
-            .join(format!("{}.bin", k))
+        Path::new(path).join(format!("{}.bin", k))
     } else {
         Path::new(path).to_path_buf()
     }
