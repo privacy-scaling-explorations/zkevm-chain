@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_01_20" }
 bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main" }
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["warn-unimplemented"] }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = [] }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["test-circuits"] }
 snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", branch = "main", default-features = false, features = ["loader_evm", "loader_halo2", "system_halo2"] }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"

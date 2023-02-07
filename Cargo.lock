@@ -286,7 +286,7 @@ checksum = "572f695136211188308f16ad2ca5c851a712c464060ae6974944458eb83880ba"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -891,7 +891,7 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "ethers-core",
  "ethers-signers",
@@ -1045,7 +1045,7 @@ dependencies = [
 [[package]]
 name = "external-tracer"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "eth-types",
  "geth-utils",
@@ -1247,7 +1247,7 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "digest 0.7.6",
  "eth-types",
@@ -1287,7 +1287,7 @@ dependencies = [
 [[package]]
 name = "geth-utils"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "env_logger",
  "gobuild",
@@ -1723,7 +1723,7 @@ checksum = "f9b7d56ba4a8344d6be9729995e6b06f928af29998cdf79fe390cbf6b1fee838"
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "env_logger",
  "eth-types",
@@ -1876,7 +1876,7 @@ dependencies = [
 [[package]]
 name = "mock"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -3627,7 +3627,7 @@ checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#2e4b8dddcd998b14faaede9a21d9e5d5571586b7"
+source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#ca391a7c2ca1d3b74df01b71e49c03ba0eac0536"
 dependencies = [
  "array-init",
  "bus-mapping",
