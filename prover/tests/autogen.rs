@@ -11,7 +11,6 @@ use ethers_signers::Signer;
 use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::SimpleFloorPlanner;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Any;
 use halo2_proofs::plonk::Assigned;
@@ -29,6 +28,8 @@ use mock::TestContext;
 use prover::circuit_witness::CircuitWitness;
 use prover::circuits::gen_super_circuit;
 use prover::utils::fixed_rng;
+use prover::Fr;
+use prover::MOCK_RANDOMNESS;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -160,6 +161,14 @@ impl<F: Field> Assignment<F> for Assembly {
     fn get_challenge(&self, _: Challenge) -> Value<F> {
         Value::unknown()
     }
+
+    fn annotate_column<A, AR>(&mut self, _annotation: A, _column: Column<Any>)
+    where
+        A: FnOnce() -> AR,
+        AR: Into<String>,
+    {
+        // Do nothing.
+    }
 }
 
 fn run_assembly<
@@ -167,14 +176,18 @@ fn run_assembly<
     const MAX_CALLDATA: usize,
     const MAX_BYTECODE: usize,
     const MAX_RWS: usize,
+    const MAX_COPY_ROWS: usize,
 >(
     witness: CircuitWitness,
 ) -> Result<usize, String> {
-    let circuit = gen_super_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, _>(&witness, fixed_rng())
-        .expect("gen_static_circuit");
+    let circuit = gen_super_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS, _>(
+        &witness,
+        fixed_rng(),
+    )
+    .expect("gen_static_circuit");
 
     let mut cs = ConstraintSystem::default();
-    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MAX_RWS>::configure(&mut cs);
+    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::configure(&mut cs);
     let mut assembly = Assembly::default();
     let constants = cs.constants();
     SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())
@@ -199,6 +212,10 @@ macro_rules! estimate {
         // - Add support for querying the most expensive opcode here.
         const MAX_RWS: usize = (64 * MAX_TXS) + ((TX_GAS_LIMIT * 1133) / 100);
         const KECCAK_WORD_GAS: usize = 6;
+        const COPY_GAS: usize = 3;
+        // TODO: doesn't account for instruction + memory expansion
+        const MAX_COPY_BYTES: usize = (TX_GAS_LIMIT / COPY_GAS) * 32;
+        const MAX_COPY_ROWS: usize = (MAX_COPY_BYTES * 2) + 2;
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::one(); 256];
@@ -210,6 +227,7 @@ macro_rules! estimate {
             max_calldata: MAX_CALLDATA,
             max_bytecode: MAX_BYTECODE,
             max_rws: MAX_RWS,
+            max_copy_rows: MAX_COPY_ROWS,
             min_k: 0,
             pad_to: 0,
             min_k_aggregation: 0,
@@ -257,6 +275,7 @@ macro_rules! estimate {
                 max_calldata: circuit_config.max_calldata,
                 max_bytecode: circuit_config.max_bytecode,
                 max_rws: circuit_config.max_rws,
+                max_copy_rows: circuit_config.max_copy_rows,
                 keccak_padding: Some(circuit_config.keccak_padding),
             };
             let mut builder =
@@ -270,7 +289,7 @@ macro_rules! estimate {
             {
                 let mut cumulative_gas = Word::zero();
                 let input_block =
-                    block_convert(&builder.block, &builder.code_db).expect("block_convert");
+                    block_convert::<Fr>(&builder.block, &builder.code_db).expect("block_convert");
                 for tx in input_block.txs.iter() {
                     let gas_limit = tx.gas;
                     let gas_left = tx.steps.iter().last().unwrap().gas_left;
@@ -292,8 +311,10 @@ macro_rules! estimate {
             circuit_config.pad_to = MAX_RWS;
 
             let highest_row =
-                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS>(circuit_witness)
-                    .unwrap();
+                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS, MAX_COPY_ROWS>(
+                    circuit_witness,
+                )
+                .unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row) as usize;
             let remaining_rows = (1 << k) - highest_row;

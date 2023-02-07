@@ -1,3 +1,4 @@
+use crate::Fr;
 use bus_mapping::circuit_input_builder::BuilderClient;
 use bus_mapping::circuit_input_builder::CircuitsParams;
 use bus_mapping::mock::BlockData;
@@ -9,7 +10,6 @@ use eth_types::ToBigEndian;
 use eth_types::Word;
 use eth_types::H256;
 use ethers_providers::Http;
-use halo2_proofs::halo2curves::bn256::Fr;
 use std::str::FromStr;
 use zkevm_circuits::evm_circuit;
 use zkevm_circuits::pi_circuit::PublicData;
@@ -38,6 +38,7 @@ impl CircuitWitness {
             max_calldata: circuit_config.max_calldata,
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
+            max_copy_rows: circuit_config.max_copy_rows,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let empty_data = GethData {
@@ -84,6 +85,7 @@ impl CircuitWitness {
             max_calldata: circuit_config.max_calldata,
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
+            max_copy_rows: circuit_config.max_copy_rows,
             keccak_padding: Some(circuit_config.keccak_padding),
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;
@@ -102,8 +104,8 @@ impl CircuitWitness {
             evm_circuit::witness::block_convert(&self.block, &self.code_db).expect("block_convert");
         block.evm_circuit_pad_to = self.circuit_config.pad_to;
         block.exp_circuit_pad_to = self.circuit_config.pad_to;
-        // expect mock randomness
-        assert_eq!(block.randomness, Fr::from(0x100));
+        // fixed randomness used in PublicInput contract and SuperCircuit
+        block.randomness = Fr::from(0x100);
 
         block
     }
@@ -143,7 +145,7 @@ impl CircuitWitness {
             block_constants,
             prev_state_root,
             transactions: eth_block.transactions.clone(),
-            block_hash: eth_block.hash.unwrap_or_default(),
+            // block_hash: eth_block.hash.unwrap_or_default(),
             state_root: eth_block.state_root,
         }
     }

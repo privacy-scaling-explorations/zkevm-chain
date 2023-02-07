@@ -7,20 +7,20 @@ use crate::utils::collect_instance;
 use crate::utils::fixed_rng;
 use crate::utils::gen_num_instance;
 use crate::utils::gen_proof;
+use crate::Fr;
 use crate::G1Affine;
 use crate::ProverKey;
 use crate::ProverParams;
 use halo2_proofs::dev::MockProver;
-use halo2_proofs::halo2curves::bn256::Fr;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::{keygen_pk, keygen_vk};
 use halo2_proofs::poly::commitment::Params;
 use hyper::Uri;
-use plonk_verifier::loader::native::NativeLoader;
-use plonk_verifier::system::halo2::compile;
-use plonk_verifier::system::halo2::transcript::evm::EvmTranscript;
-use plonk_verifier::system::halo2::Config as PlonkConfig;
 use rand::{thread_rng, Rng};
+use snark_verifier::loader::native::NativeLoader;
+use snark_verifier::system::halo2::compile;
+use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
+use snark_verifier::system::halo2::Config as PlonkConfig;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
@@ -89,6 +89,7 @@ macro_rules! gen_proof {
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
+                { CIRCUIT_CONFIG.max_copy_rows },
                 _,
             >(&witness, fixed_rng())?;
             circuit_proof.k = CIRCUIT_CONFIG.min_k as u8;
@@ -104,6 +105,7 @@ macro_rules! gen_proof {
                 { CIRCUIT_CONFIG.max_txs },
                 { CIRCUIT_CONFIG.max_calldata },
                 { CIRCUIT_CONFIG.max_rws },
+                { CIRCUIT_CONFIG.max_copy_rows },
                 _,
             >(&witness, fixed_rng())?;
             // generate and cache the prover key
