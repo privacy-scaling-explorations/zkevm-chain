@@ -278,7 +278,7 @@ async fn check_nodes(ctx: SharedState, client: hyper::Client<HttpConnector>) {
         .collect::<Vec<SocketAddr>>();
     addrs.sort_unstable();
     for addr in addrs {
-        let uri = Uri::try_from(format!("http://{}", addr)).unwrap();
+        let uri = Uri::try_from(format!("http://{addr}")).unwrap();
         let header = get_chain_head(&client, &uri).await;
 
         // use the most advanced node as fallback

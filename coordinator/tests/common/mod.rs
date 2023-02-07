@@ -14,7 +14,7 @@ use tokio::sync::OnceCell;
 
 fn deserialize_bytes<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Bytes, D::Error> {
     let str = String::deserialize(deserializer).expect("String");
-    let val: serde_json::Value = format!("0x{}", str).into();
+    let val: serde_json::Value = format!("0x{str}").into();
     let res = Bytes::deserialize(val.into_deserializer());
 
     Ok(res.unwrap())
@@ -53,7 +53,7 @@ impl ContractArtifact {
             }
         }
 
-        panic!("{} not found", name);
+        panic!("{name} not found");
     }
 
     pub async fn l1_trace(
@@ -84,7 +84,7 @@ impl ContractArtifact {
         if trace.failed {
             let revert_reason = decode(&[ParamType::String], &trace.return_value.as_ref()[4..]);
             if revert_reason.is_ok() {
-                return Err(format!("{:?}", revert_reason));
+                return Err(format!("{revert_reason:?}"));
             }
 
             return Err("execution reverted".to_string());

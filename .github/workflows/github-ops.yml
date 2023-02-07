@@ -19,7 +19,9 @@ jobs:
     steps:
       - name: Ping runner workflow
         env:
-          # only needs public repo scope
+          # only needs github actions (write) `workflow_dispatch`
           GH_OPS_PAT: ${{ secrets.GH_OPS_PAT }}
+          # change `zkevm-chain.yml` to the desired workflow
         run: |
-          curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/dispatches' -d '{"event_type":"zkevm-chain"}'
+          curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/zkevm-chain.yml/dispatches' -d '{"ref": "master"}'
+

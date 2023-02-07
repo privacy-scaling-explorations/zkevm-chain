@@ -328,7 +328,7 @@ macro_rules! estimate {
 }
 
 fn print_table_header(str: &str) {
-    println!("##### {}", str);
+    println!("##### {str}");
     println!(
         "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
         "BLOCK_GAS_LIMIT",
@@ -421,12 +421,11 @@ fn autogen_circuit_config() {
 macro_rules! match_circuit_params {{
     ($gas_used:expr, $on_match:expr, $on_error:expr) => {{
         match $gas_used {{
-            {}
+            {str}
             _ => $on_error,
         }}
     }};
-}}",
-        str
+}}"
     );
 
     File::create("./src/circuit_autogen.rs")
@@ -454,11 +453,10 @@ macro_rules! match_circuit_params {{
 pragma solidity <0.9.0;
 contract CircuitConfig {{
   function _getCircuitConfig (uint256 blockGasLimit) internal pure returns (uint256, uint256) {{
-    {}
+    {str}
     revert(\"CIRCUIT_CONFIG\");
   }}
-}}",
-        str
+}}"
     );
 
     File::create("../contracts/generated/CircuitConfig.sol")

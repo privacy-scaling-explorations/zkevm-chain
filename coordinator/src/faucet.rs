@@ -15,13 +15,15 @@ pub struct Faucet {
     pub queue: Arc<Mutex<VecDeque<Address>>>,
 }
 
-impl Faucet {
-    pub fn default() -> Faucet {
+impl Default for Faucet {
+    fn default() -> Faucet {
         Faucet {
             queue: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
+}
 
+impl Faucet {
     /// Iterates over `queue` and sends ETH with the `shared_state.ro.l1_wallet`.
     /// To avoid replacing transactions or invoking other race conditions,
     /// this function should not be run in parallel with any other `SharedState` tasks.

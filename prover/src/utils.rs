@@ -62,9 +62,9 @@ pub fn gen_proof<
             let res = MockProver::run(params.k(), &circuit, instance)
                 .expect("MockProver::run")
                 .verify_par();
-            panic!("gen_proof: {:#?}\nMockProver: {:#?}", proof_err, res);
+            panic!("gen_proof: {proof_err:#?}\nMockProver: {res:#?}");
         } else {
-            panic!("gen_proof: {:#?}", proof_err);
+            panic!("gen_proof: {proof_err:#?}");
         }
     }
 
@@ -80,7 +80,7 @@ pub fn gen_proof<
         );
 
         if let Err(verify_err) = res {
-            panic!("verify_proof: {:#?}", verify_err);
+            panic!("verify_proof: {verify_err:#?}");
         }
     }
 

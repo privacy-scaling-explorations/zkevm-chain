@@ -36,7 +36,7 @@ use zkevm_common::prover::*;
 fn get_param_path(path: &String, k: usize) -> PathBuf {
     // try to automatically choose a file if the path is a folder.
     if Path::new(path).is_dir() {
-        Path::new(path).join(format!("{}.bin", k))
+        Path::new(path).join(format!("{k}.bin"))
     } else {
         Path::new(path).to_path_buf()
     }
@@ -56,7 +56,7 @@ fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<Prover
         }
         None => {
             let param = Arc::new(ProverParams::setup(k as u32, fixed_rng()));
-            (param, format!("{}", k))
+            (param, format!("{k}"))
         }
     }
 }
@@ -524,7 +524,7 @@ impl SharedState {
             .map_err(|e| e.to_string())?;
 
         for addr in addrs_iter {
-            let uri = Uri::try_from(format!("http://{}", addr)).map_err(|e| e.to_string())?;
+            let uri = Uri::try_from(format!("http://{addr}")).map_err(|e| e.to_string())?;
             let peer: NodeInformation =
                 jsonrpc_request_client(5000, &hyper_client, &uri, "info", serde_json::json!([]))
                     .await?;
@@ -628,7 +628,7 @@ impl SharedState {
             .to_socket_addrs()
             .map_err(|e| e.to_string())?;
         for addr in addrs_iter {
-            let uri = Uri::try_from(format!("http://{}", addr)).map_err(|e| e.to_string())?;
+            let uri = Uri::try_from(format!("http://{addr}")).map_err(|e| e.to_string())?;
             let peer: NodeStatus =
                 jsonrpc_request_client(5000, &hyper_client, &uri, "status", serde_json::json!([]))
                     .await?;
@@ -665,7 +665,7 @@ impl SharedState {
         thread_rng().fill(&mut arr[..]);
         let mut node_id = String::with_capacity(N * 2);
         for byte in arr {
-            write!(node_id, "{:02x}", byte).unwrap();
+            write!(node_id, "{byte:02x}").unwrap();
         }
 
         node_id
