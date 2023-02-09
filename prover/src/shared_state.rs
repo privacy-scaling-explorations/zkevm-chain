@@ -1,6 +1,3 @@
-use crate::aggregation_circuit::AggregationCircuit;
-use crate::aggregation_circuit::PoseidonTranscript;
-use crate::aggregation_circuit::Snark;
 use crate::circuit_witness::CircuitWitness;
 use crate::circuits::*;
 use crate::utils::collect_instance;
@@ -11,16 +8,14 @@ use crate::Fr;
 use crate::G1Affine;
 use crate::ProverKey;
 use crate::ProverParams;
+use halo2_proofs::circuit::Value;
 use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::{keygen_pk, keygen_vk};
 use halo2_proofs::poly::commitment::Params;
 use hyper::Uri;
 use rand::{thread_rng, Rng};
-use snark_verifier::loader::native::NativeLoader;
-use snark_verifier::system::halo2::compile;
 use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
-use snark_verifier::system::halo2::Config as PlonkConfig;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
@@ -29,6 +24,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Mutex;
+use zkevm_circuits::root_circuit::compile;
+use zkevm_circuits::root_circuit::Config as PlonkConfig;
+use zkevm_circuits::root_circuit::PoseidonTranscript;
+use zkevm_circuits::root_circuit::RootCircuit;
 use zkevm_circuits::util::SubCircuit;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::*;
@@ -128,8 +127,8 @@ macro_rules! gen_proof {
                 let proof = gen_proof::<
                     _,
                     _,
-                    PoseidonTranscript<NativeLoader, _>,
-                    PoseidonTranscript<NativeLoader, _>,
+                    PoseidonTranscript<_, _>,
+                    PoseidonTranscript<_, _>,
                     _,
                 >(
                     &param,
@@ -151,13 +150,19 @@ macro_rules! gen_proof {
                     pk.get_vk(),
                     PlonkConfig::kzg().with_num_instance(gen_num_instance(&circuit_instance)),
                 );
-                let snark = Snark::new(protocol, circuit_instance, proof);
 
                 let (agg_params, agg_param_path) =
                     get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
                 aggregation_proof.k = agg_params.k() as u8;
-                let agg_circuit =
-                    AggregationCircuit::new(agg_params.as_ref(), [snark], fixed_rng());
+
+                let agg_circuit = RootCircuit::new(
+                    &agg_params,
+                    &protocol,
+                    Value::known(&circuit_instance),
+                    Value::known(&proof),
+                )
+                .unwrap();
+
                 let agg_pk = {
                     let cache_key = format!(
                         "{}{}{:?}ag",
@@ -168,7 +173,7 @@ macro_rules! gen_proof {
                         .await
                         .map_err(|e| e.to_string())?
                 };
-                let agg_instance = agg_circuit.instance();
+                let agg_instance = agg_circuit.instance().to_vec();
                 aggregation_proof.instance = collect_instance(&agg_instance);
                 let proof = gen_proof::<
                     _,
