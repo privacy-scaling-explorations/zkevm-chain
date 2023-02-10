@@ -15,7 +15,6 @@ use prover::utils::gen_proof;
 use prover::Bn256;
 use prover::ProverParams;
 use prover::{Fq, Fr, G1Affine};
-use rand::rngs::OsRng;
 use snark_verifier::cost::CostEstimation;
 use snark_verifier::loader::evm::EvmLoader;
 use snark_verifier::util::transcript::TranscriptWrite;
@@ -158,16 +157,20 @@ macro_rules! gen_match {
                             .chain(Some(&protocol.quotient.num_chunk()))
                             .sum::<usize>()
                         {
-                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                            transcript
+                                .write_ec_point(G1Affine::random(fixed_rng()))
+                                .unwrap();
                         }
 
                         for _ in 0..protocol.evaluations.len() {
-                            transcript.write_scalar(Fr::random(OsRng)).unwrap();
+                            transcript.write_scalar(Fr::random(fixed_rng())).unwrap();
                         }
 
                         let estimate = PlonkSuccinctVerifier::<Bn256>::estimate_cost(&protocol);
                         for _ in 0..estimate.num_commitment {
-                            transcript.write_ec_point(G1Affine::random(OsRng)).unwrap();
+                            transcript
+                                .write_ec_point(G1Affine::random(fixed_rng()))
+                                .unwrap();
                         }
                         log::info!(
                             "{} {:#?} num_witness={} evalutations={} estimate={:#?}",
