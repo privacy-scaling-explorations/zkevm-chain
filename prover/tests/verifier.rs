@@ -201,8 +201,9 @@ macro_rules! gen_match {
                     &protocol,
                     Value::known(&instance),
                     Value::known(&proof),
+                    false,
                 )
-                .unwrap();
+                .expect("RootCircuit::new");
 
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 

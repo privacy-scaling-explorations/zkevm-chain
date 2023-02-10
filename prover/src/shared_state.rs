@@ -160,8 +160,9 @@ macro_rules! gen_proof {
                     &protocol,
                     Value::known(&circuit_instance),
                     Value::known(&proof),
+                    true,
                 )
-                .unwrap();
+                .expect("RootCircuit::new");
 
                 let agg_pk = {
                     let cache_key = format!(
