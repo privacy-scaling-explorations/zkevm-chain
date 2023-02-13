@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [synchronize, opened, reopened, labeled, ready_for_review]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   cache:
     if: github.event.pull_request.draft == false
@@ -27,9 +31,6 @@ jobs:
       || contains(github.event.pull_request.labels.*.name, 'allow-autogen')
       || needs.cache.outputs.cache-hit != 'true'
     timeout-minutes: 7200
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     runs-on: ["${{github.run_id}}", self-hosted, r6a.24xlarge]
     steps:
       - uses: actions/checkout@v2
