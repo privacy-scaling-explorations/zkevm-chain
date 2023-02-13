@@ -22,6 +22,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: Cargo.lock
+          restore-keys: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
           key: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
 
   gen:
