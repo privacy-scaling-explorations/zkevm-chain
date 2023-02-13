@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          ref: ${{ (github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number)) || github.ref }}
+          ref: ${{ (github.event.pull_request && format('refs/pull/{0}/merge', github.event.pull_request.number)) || github.ref }}
 
       - name: Setup
         run: cp .env.example .env
@@ -42,5 +42,5 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: build/coverage-report.lcov
-          git-branch: ${{ (github.event.pull_request && format('refs/pull/{0}/head', github.event.pull_request.number)) || github.ref }}
-          git-commit: ${{ (github.event.pull_request && github.event.pull_request.head.sha) || github.sha }}
+          git-branch: ${{ (github.event.pull_request && format('refs/pull/{0}/merge', github.event.pull_request.number)) || github.ref }}
+          git-commit: ${{ (github.event.pull_request && github.event.pull_request.merge.sha) || github.sha }}
