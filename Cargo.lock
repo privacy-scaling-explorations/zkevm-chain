@@ -2490,7 +2490,7 @@ dependencies = [
  "rand_xorshift",
  "serde",
  "serde_json",
- "snark-verifier 0.1.0 (git+https://github.com/privacy-scaling-explorations/snark-verifier.git?branch=main)",
+ "snark-verifier",
  "strum",
  "tokio",
  "zkevm-circuits",
@@ -3176,25 +3176,7 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 [[package]]
 name = "snark-verifier"
 version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/snark-verifier?tag=v2023_02_02#df03d898b841f71cbc36c2fb9fa07b8196f9623e"
-dependencies = [
- "ecc",
- "halo2_proofs 0.2.0",
- "halo2curves",
- "hex",
- "itertools",
- "lazy_static",
- "num-bigint",
- "num-integer",
- "num-traits",
- "poseidon",
- "rand",
-]
-
-[[package]]
-name = "snark-verifier"
-version = "0.1.0"
-source = "git+https://github.com/privacy-scaling-explorations/snark-verifier.git?branch=main#df03d898b841f71cbc36c2fb9fa07b8196f9623e"
+source = "git+https://github.com/privacy-scaling-explorations/snark-verifier.git?tag=v2023_02_02#df03d898b841f71cbc36c2fb9fa07b8196f9623e"
 dependencies = [
  "bytes",
  "ecc",
@@ -3960,7 +3942,7 @@ dependencies = [
  "rand_chacha",
  "rand_xorshift",
  "sha3 0.10.6",
- "snark-verifier 0.1.0 (git+https://github.com/privacy-scaling-explorations/snark-verifier?tag=v2023_02_02)",
+ "snark-verifier",
  "strum",
  "strum_macros",
  "subtle",

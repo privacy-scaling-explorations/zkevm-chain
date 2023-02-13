@@ -29,6 +29,21 @@ contract ZkEvmL1Bridge is
   mapping (bytes32 => bytes32) commitments;
   mapping (bytes32 => bytes32) stateRoots;
 
+  function buildCommitment(bytes calldata witness) public view returns (uint256[] memory result) {
+    (
+      bytes32 parentBlockHash,
+      bytes32 blockHash,
+      bytes32 blockStateRoot,
+      ,
+      uint256 blockGas
+    ) = _readHeaderParts(witness);
+    uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
+    uint256 chainId = 99;
+    (uint256 MAX_TXS, uint256 MAX_CALLDATA) = _getCircuitConfig(blockGas);
+
+    result = _buildCommitment(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, true);
+  }
+
   function submitBlock (bytes calldata witness) external {
     _onlyEOA();
     emit BlockSubmitted();
@@ -55,8 +70,14 @@ contract ZkEvmL1Bridge is
     stateRoots[blockHash] = blockStateRoot;
   }
 
+  /// @dev
+  /// proof layout (bytes)
+  /// - block hash
+  /// - verifier address (TODO: should be checked against allowed verifier addresses)
+  /// - proof instance - first 5 elements commitment
+  /// - proof transcript
   function finalizeBlock (bytes calldata proof) external {
-    require(proof.length > 32);
+    require(proof.length > 511, "PROOF_LEN");
 
     bytes32 blockHash;
     assembly {
@@ -82,10 +103,7 @@ contract ZkEvmL1Bridge is
       }
 
       // verify commitment hash
-      // TODO: support aggregation circuit
-      if gt(proof.length, 96) {
-        let is_aggregated := calldataload(add(proof.offset, 64))
-        if iszero(is_aggregated) {
+      {
           // 5 * 32
           let len := 160
           let ptr := mload(64)
@@ -95,11 +113,9 @@ contract ZkEvmL1Bridge is
           if iszero(eq(hash, expectedCommitmentHash)) {
             revertWith("commitment hash")
           }
-        }
       }
 
-      // 32 + 32 + 32 + 5 * 32
-      if gt(proof.length, 256) {
+      {
         // call contract at `addr` for proof verification
         let offset := add(proof.offset, 32)
         let addr := calldataload(offset)

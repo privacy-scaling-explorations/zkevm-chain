@@ -1050,7 +1050,46 @@ impl SharedState {
     pub async fn request_proof(&self, block_num: &U64) -> Result<Option<Proofs>, String> {
         if self.config.lock().await.dummy_prover {
             log::warn!("COORDINATOR_DUMMY_PROVER");
-            return Ok(Some(Proofs::default()));
+            let instance: Vec<U256> = {
+                let block_data = self
+                    .request_witness(block_num)
+                    .await
+                    .expect("witness")
+                    .input;
+                let func = self.ro.bridge_abi.function("buildCommitment").unwrap();
+                let calldata = Bytes::from(
+                    func.encode_input(&[block_data.into_token()])
+                        .expect("calldata"),
+                );
+                let l1_bridge_addr = self.config.lock().await.l1_bridge;
+                let result: Bytes = self
+                    .request_l1(
+                        "eth_call",
+                        serde_json::json!([{ "to": l1_bridge_addr, "data": calldata }, "latest"]),
+                    )
+                    .await
+                    .expect("eth_call buildCommitment");
+                let result: Vec<Token> = func
+                    .decode_output(&result)
+                    .expect("decode_output")
+                    .get(0)
+                    .unwrap()
+                    .to_owned()
+                    .into_array()
+                    .expect("into_array");
+                let result: Vec<U256> = result
+                    .iter()
+                    .map(|item| item.to_owned().into_uint().expect("into_uint"))
+                    .collect();
+
+                result
+            };
+            let mut proofs = Proofs::default();
+            proofs.circuit.proof = vec![0u8; 256].into();
+            proofs.circuit.instance = instance;
+            proofs.circuit.label = "DUMMY_VERIFIER".into();
+
+            return Ok(Some(proofs));
         }
 
         let config = self.config.lock().await;
@@ -1117,6 +1156,7 @@ fn get_abi() -> Abi {
             "function stateRoot() returns (bytes32)",
             "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
             "function initGenesis(bytes32 blockHash, bytes32 stateRoot)",
+            "function buildCommitment(bytes) returns (uint256[])",
         ])
         .expect("parse abi")
 }

@@ -2,15 +2,40 @@ name: Autogen
 on:
   workflow_dispatch:
   pull_request:
-    types: [synchronize, opened, reopened, labeled]
+    types: [synchronize, opened, reopened, labeled, ready_for_review]
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  cache:
+    if: github.event.pull_request.draft == false
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.cache-restore.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: Cargo.lock
+          key: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
+          enableCrossOsArchive: true
+
   gen:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'allow-autogen')
+    needs: [cache]
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'allow-autogen')
+      || needs.cache.outputs.cache-hit != 'true'
     timeout-minutes: 7200
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
     runs-on: ["${{github.run_id}}", self-hosted, r6a.24xlarge]
     steps:
       - uses: actions/checkout@v2
@@ -51,3 +76,10 @@ jobs:
 
       - name: Commit
         run: ./scripts/ci_autogen_commit.sh
+
+      - id: cache-save
+        uses: actions/cache/save@v3
+        with:
+          path: Cargo.lock
+          key: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
+          enableCrossOsArchive: true
