@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM alpine:3.15 AS solc
 RUN apk update && apk add boost-dev boost-static build-base cmake git
 ARG SOLC_VERSION="0.8.16"
@@ -37,7 +39,7 @@ RUN set -eux; \
 ENV CARGO_TARGET_DIR=/target
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=$CARGO_HOME/bin:$PATH
-COPY --chmod=444 rust-toolchain /tmp/rust-toolchain
+COPY --link --chmod=444 rust-toolchain /tmp/rust-toolchain
 # adapted from official docker-rust
 RUN set -eux; \
     dpkgArch="$(dpkg --print-architecture)"; \
