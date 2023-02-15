@@ -6,7 +6,7 @@ use zkevm_circuits::bytecode_circuit::circuit::BytecodeCircuit;
 use zkevm_circuits::copy_circuit::CopyCircuit;
 use zkevm_circuits::evm_circuit::EvmCircuit;
 use zkevm_circuits::exp_circuit::ExpCircuit;
-use zkevm_circuits::keccak_circuit::keccak_packed_multi::KeccakCircuit;
+use zkevm_circuits::keccak_circuit::KeccakCircuit;
 use zkevm_circuits::pi_circuit::PiCircuit;
 use zkevm_circuits::pi_circuit::PiTestCircuit;
 use zkevm_circuits::state_circuit::StateCircuit;
