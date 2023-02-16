@@ -141,7 +141,8 @@ macro_rules! gen_proof {
                 );
                 circuit_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
-                circuit_proof.proof = proof.clone().into();
+                // XXX
+                //circuit_proof.proof = proof.clone().into();
 
                 // aggregate the circuit proof
                 let time_started = Instant::now();
