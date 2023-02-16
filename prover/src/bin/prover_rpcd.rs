@@ -33,6 +33,7 @@ async fn main() {
         // use a dedicated runtime for mixed async / heavy (blocking) compute
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
+            .worker_threads(1)
             .build()
             .unwrap();
         let h2 = rt.spawn(async move {

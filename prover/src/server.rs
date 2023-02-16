@@ -19,7 +19,13 @@ pub fn serve(ctx: &SharedState, addr: &str) -> tokio::task::JoinHandle<()> {
         .parse::<std::net::SocketAddr>()
         .expect("valid socket address");
     let ctx = ctx.clone();
-    tokio::spawn(async move {
+    // avoid long running blocking tasks and use a dedicated pool
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(1)
+        .build()
+        .unwrap();
+    rt.spawn(async move {
         let service = make_service_fn(move |_| {
             let ctx = ctx.clone();
             let service = service_fn(move |req| handle_request(ctx.clone(), req));
