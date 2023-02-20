@@ -1109,7 +1109,7 @@ impl SharedState {
 
         let resp = jsonrpc_request_client(
             RPC_REQUEST_TIMEOUT,
-            &hyper::Client::new(),
+            &self.ro.http_client,
             &prover_rpcd_url,
             "proof",
             [proof_options],
