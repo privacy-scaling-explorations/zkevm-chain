@@ -185,7 +185,9 @@ macro_rules! wait_for_tx_no_panic {
 
 #[macro_export]
 macro_rules! finalize_chain {
-    ($shared_state:expr, $use_dummy:expr) => {
+    ($shared_state:expr, $use_dummy:expr) => {{
+        const MAX_DEADLINE_ERRORS: usize = 3;
+        let mut deadline_count = 0;
         loop {
             let rw = $shared_state.rw.lock().await;
             if rw.chain_state.head_block_hash == rw.chain_state.finalized_block_hash {
@@ -199,10 +201,18 @@ macro_rules! finalize_chain {
             if $use_dummy {
                 $shared_state.config.lock().await.dummy_prover = true;
             }
-            $shared_state
-                .finalize_blocks()
-                .await
-                .expect("finalize_blocks");
+            let result = $shared_state.finalize_blocks().await;
+            if result.is_err() {
+                let msg = result.err().unwrap();
+                if msg.find("deadline has elapsed").is_some() {
+                    deadline_count += 1;
+                    if deadline_count > MAX_DEADLINE_ERRORS {
+                        panic!("finalize_chain: exceeded MAX_DEADLINE_ERRORS in finalize_blocks");
+                    }
+                } else {
+                    panic!("{msg}");
+                }
+            }
             if $use_dummy {
                 $shared_state.config.lock().await.dummy_prover = dummy_prover;
             }
@@ -212,7 +222,7 @@ macro_rules! finalize_chain {
                 sync!($shared_state);
             }
         }
-    };
+    }};
     ($shared_state:expr) => {
         finalize_chain!($shared_state, false)
     };
