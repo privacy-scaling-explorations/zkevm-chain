@@ -279,6 +279,7 @@ macro_rules! estimate {
                 max_rws: circuit_config.max_rws,
                 max_copy_rows: circuit_config.max_copy_rows,
                 max_exp_steps: circuit_config.max_exp_steps,
+                max_evm_rows: circuit_config.pad_to,
                 keccak_padding: Some(circuit_config.keccak_padding),
             };
             let mut builder =
