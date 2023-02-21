@@ -210,7 +210,7 @@ macro_rules! finalize_chain {
                         panic!("finalize_chain: exceeded MAX_DEADLINE_ERRORS in finalize_blocks");
                     }
                 } else {
-                    panic!("{msg}");
+                    panic!("finalize_chain: {msg}");
                 }
             }
             if $use_dummy {
