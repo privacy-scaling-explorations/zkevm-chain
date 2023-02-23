@@ -19,6 +19,8 @@ mkdir -p "$OUTPUT_PATH"
 SOLC=$(which solc || printf '%s' "docker run --rm -w /app -v $(pwd):/app ethereum/solc:0.8.16")
 # solidity
 $SOLC \
+  --evm-version berlin \
+  --no-cbor-metadata \
   --metadata-hash none \
   --combined-json bin,bin-runtime,srcmap,srcmap-runtime,storage-layout \
   --optimize \

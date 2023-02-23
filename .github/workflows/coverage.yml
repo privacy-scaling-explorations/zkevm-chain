@@ -1,5 +1,6 @@
 name: Coverage
 on:
+  merge_group:
   workflow_dispatch:
   push:
     branches:
