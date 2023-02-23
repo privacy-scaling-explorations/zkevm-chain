@@ -13,12 +13,14 @@ use halo2_proofs::dev::MockProver;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::{keygen_pk, keygen_vk};
 use halo2_proofs::poly::commitment::Params;
+use halo2_proofs::SerdeFormat;
 use hyper::Uri;
 use rand::{thread_rng, Rng};
 use snark_verifier::system::halo2::transcript::evm::EvmTranscript;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
+use std::io::Write as IoWrite;
 use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -54,7 +56,16 @@ fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<Prover
             (params, path.to_str().unwrap().into())
         }
         None => {
-            let param = Arc::new(ProverParams::setup(k as u32, fixed_rng()));
+            let param = ProverParams::setup(k as u32, fixed_rng());
+            if std::env::var("PROVERD_DUMP").is_ok() {
+                param
+                    .write_custom(
+                        &mut File::create(format!("params-{k}")).unwrap(),
+                        SerdeFormat::RawBytesUnchecked,
+                    )
+                    .unwrap();
+            }
+            let param = Arc::new(param);
             (param, format!("{k}"))
         }
     }
@@ -143,6 +154,13 @@ macro_rules! gen_proof {
                     Instant::now().duration_since(time_started).as_millis() as u32;
                 circuit_proof.proof = proof.clone().into();
 
+                if std::env::var("PROVERD_DUMP").is_ok() {
+                    File::create(format!("proof-{}-{:?}", task_options.circuit, &CIRCUIT_CONFIG))
+                        .unwrap()
+                        .write_all(&proof)
+                        .unwrap();
+                }
+
                 // aggregate the circuit proof
                 let time_started = Instant::now();
                 let protocol = compile(
@@ -160,7 +178,6 @@ macro_rules! gen_proof {
                     &protocol,
                     Value::known(&circuit_instance),
                     Value::known(&proof),
-                    true,
                 )
                 .expect("RootCircuit::new");
 
@@ -193,6 +210,12 @@ macro_rules! gen_proof {
                 );
                 aggregation_proof.duration =
                     Instant::now().duration_since(time_started).as_millis() as u32;
+                if std::env::var("PROVERD_DUMP").is_ok() {
+                    File::create(format!("proof-{}-agg--{:?}", task_options.circuit, &CIRCUIT_CONFIG))
+                        .unwrap()
+                        .write_all(&proof)
+                        .unwrap();
+                }
                 aggregation_proof.proof = proof.into();
             } else {
                 let time_started = Instant::now();
@@ -565,6 +588,14 @@ impl SharedState {
 
             let vk = keygen_vk(param.as_ref(), circuit)?;
             let pk = keygen_pk(param.as_ref(), vk, circuit)?;
+            if std::env::var("PROVERD_DUMP").is_ok() {
+                pk.write(
+                    &mut File::create(cache_key).unwrap(),
+                    SerdeFormat::RawBytesUnchecked,
+                )
+                .unwrap();
+            }
+
             let pk = Arc::new(pk);
 
             // acquire lock and update

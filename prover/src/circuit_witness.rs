@@ -39,7 +39,9 @@ impl CircuitWitness {
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
             max_copy_rows: circuit_config.max_copy_rows,
-            keccak_padding: Some(circuit_config.keccak_padding),
+            max_exp_steps: circuit_config.max_exp_steps,
+            max_evm_rows: circuit_config.pad_to,
+            max_keccak_rows: circuit_config.keccak_padding,
         };
         let empty_data = GethData {
             chain_id: Word::from(99),
@@ -86,7 +88,9 @@ impl CircuitWitness {
             max_bytecode: circuit_config.max_bytecode,
             max_rws: circuit_config.max_rws,
             max_copy_rows: circuit_config.max_copy_rows,
-            keccak_padding: Some(circuit_config.keccak_padding),
+            max_exp_steps: circuit_config.max_exp_steps,
+            max_evm_rows: circuit_config.pad_to,
+            max_keccak_rows: circuit_config.keccak_padding,
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;
         let (builder, eth_block) = builder.gen_inputs(*block_num).await?;
@@ -102,7 +106,6 @@ impl CircuitWitness {
     pub fn evm_witness(&self) -> zkevm_circuits::witness::Block<Fr> {
         let mut block =
             evm_circuit::witness::block_convert(&self.block, &self.code_db).expect("block_convert");
-        block.evm_circuit_pad_to = self.circuit_config.pad_to;
         block.exp_circuit_pad_to = self.circuit_config.pad_to;
         // fixed randomness used in PublicInput contract and SuperCircuit
         block.randomness = Fr::from(0x100);

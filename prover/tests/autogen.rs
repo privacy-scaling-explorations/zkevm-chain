@@ -216,6 +216,7 @@ macro_rules! estimate {
         // TODO: doesn't account for instruction + memory expansion
         const MAX_COPY_BYTES: usize = (TX_GAS_LIMIT / COPY_GAS) * 32;
         const MAX_COPY_ROWS: usize = (MAX_COPY_BYTES * 2) + 2;
+        const MAX_EXP_STEPS: usize = TX_GAS_LIMIT / 10;
 
         let bytecode = $BYTECODE_FN(TX_GAS_LIMIT);
         let history_hashes = vec![Word::one(); 256];
@@ -228,6 +229,7 @@ macro_rules! estimate {
             max_bytecode: MAX_BYTECODE,
             max_rws: MAX_RWS,
             max_copy_rows: MAX_COPY_ROWS,
+            max_exp_steps: MAX_EXP_STEPS,
             min_k: 0,
             pad_to: 0,
             min_k_aggregation: 0,
@@ -276,7 +278,9 @@ macro_rules! estimate {
                 max_bytecode: circuit_config.max_bytecode,
                 max_rws: circuit_config.max_rws,
                 max_copy_rows: circuit_config.max_copy_rows,
-                keccak_padding: Some(circuit_config.keccak_padding),
+                max_exp_steps: circuit_config.max_exp_steps,
+                max_evm_rows: circuit_config.pad_to,
+                max_keccak_rows: circuit_config.keccak_padding,
             };
             let mut builder =
                 BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)

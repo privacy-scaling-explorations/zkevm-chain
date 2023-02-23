@@ -1,9 +1,7 @@
 #![cfg(feature = "autogen")]
 
 use eth_types::Address;
-use halo2_proofs::arithmetic::Field;
 use halo2_proofs::circuit::Value;
-use halo2_proofs::plonk::keygen_pk;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
@@ -11,13 +9,10 @@ use prover::circuit_witness::CircuitWitness;
 use prover::circuits::*;
 use prover::utils::fixed_rng;
 use prover::utils::gen_num_instance;
-use prover::utils::gen_proof;
 use prover::Bn256;
 use prover::ProverParams;
 use prover::{Fq, Fr, G1Affine};
-use snark_verifier::cost::CostEstimation;
 use snark_verifier::loader::evm::EvmLoader;
-use snark_verifier::util::transcript::TranscriptWrite;
 use snark_verifier::{
     system::halo2::{compile, transcript::evm::EvmTranscript, Config},
     verifier::SnarkVerifier,
@@ -28,9 +23,7 @@ use std::io::Write;
 use std::rc::Rc;
 use zkevm_circuits::root_circuit::KzgDk;
 use zkevm_circuits::root_circuit::KzgSvk;
-use zkevm_circuits::root_circuit::PlonkSuccinctVerifier;
 use zkevm_circuits::root_circuit::PlonkVerifier;
-use zkevm_circuits::root_circuit::PoseidonTranscript;
 use zkevm_circuits::root_circuit::RootCircuit;
 use zkevm_circuits::util::SubCircuit;
 use zkevm_common::prover::*;
@@ -109,7 +102,7 @@ macro_rules! gen_match {
         prover::match_circuit_params!(
             $GAS,
             {
-                let (protocol, instance, proof) = {
+                let protocol = {
                     let witness = CircuitWitness::dummy(CIRCUIT_CONFIG).unwrap();
                     let circuit = $CIRCUIT::<
                         { CIRCUIT_CONFIG.max_txs },
@@ -148,65 +141,14 @@ macro_rules! gen_match {
                         Config::kzg().with_num_instance(gen_num_instance(&instance)),
                     );
 
-                    let proof = if var("FAST").is_ok() {
-                        let mut transcript = PoseidonTranscript::<_, _>::new(Vec::new());
-
-                        for _ in 0..protocol
-                            .num_witness
-                            .iter()
-                            .chain(Some(&protocol.quotient.num_chunk()))
-                            .sum::<usize>()
-                        {
-                            transcript
-                                .write_ec_point(G1Affine::random(fixed_rng()))
-                                .unwrap();
-                        }
-
-                        for _ in 0..protocol.evaluations.len() {
-                            transcript.write_scalar(Fr::random(fixed_rng())).unwrap();
-                        }
-
-                        let estimate = PlonkSuccinctVerifier::<Bn256>::estimate_cost(&protocol);
-                        for _ in 0..estimate.num_commitment {
-                            transcript
-                                .write_ec_point(G1Affine::random(fixed_rng()))
-                                .unwrap();
-                        }
-                        log::info!(
-                            "{} {:#?} num_witness={} evalutations={} estimate={:#?}",
-                            $LABEL,
-                            CIRCUIT_CONFIG,
-                            protocol.num_witness.len(),
-                            protocol.evaluations.len(),
-                            estimate
-                        );
-
-                        transcript.finalize()
-                    } else {
-                        gen_proof::<_, _, PoseidonTranscript<_, _>, PoseidonTranscript<_, _>, _>(
-                            &params,
-                            &keygen_pk(&params, vk, &circuit).expect("pk"),
-                            circuit,
-                            instance.clone(),
-                            fixed_rng(),
-                            true,
-                            true,
-                        )
-                    };
-
-                    (protocol, instance, proof)
+                    protocol
                 };
 
                 let agg_params =
                     ProverParams::setup(CIRCUIT_CONFIG.min_k_aggregation as u32, fixed_rng());
-                let agg_circuit = RootCircuit::new(
-                    &agg_params,
-                    &protocol,
-                    Value::known(&instance),
-                    Value::known(&proof),
-                    false,
-                )
-                .expect("RootCircuit::new");
+                let agg_circuit =
+                    RootCircuit::new(&agg_params, &protocol, Value::unknown(), Value::unknown())
+                        .expect("RootCircuit::new");
 
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 
