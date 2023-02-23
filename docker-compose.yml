@@ -136,6 +136,9 @@ services:
       - PROVERD_LOOKUP=prover-rpcd:8545
     deploy:
       replicas: 1
+      resources:
+        limits:
+          memory: 3000G
 
   coverage-l1:
     profiles:
@@ -195,6 +198,10 @@ services:
     command: '-'
     tty: true
     init: true
+    deploy:
+      resources:
+        limits:
+          memory: 3000G
 
   web:
     depends_on:
