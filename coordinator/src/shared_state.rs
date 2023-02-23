@@ -325,6 +325,14 @@ impl SharedState {
                     .request_l1("debug_getHeaderRlp", [l1_block_header.number.as_u64()])
                     .await
                     .expect("block_data");
+                let account_proof: Bytes = {
+                    let l1_bridge_addr = self.config.lock().await.l1_bridge;
+                    let proof_obj: ProofRequest = self
+                        .request_l1("eth_getProof", (l1_bridge_addr, (), l1_block_header.hash))
+                        .await
+                        .expect("eth_getProof");
+                    Bytes::from(marshal_proof_single(&proof_obj.account_proof))
+                };
                 // import l1 block
                 let calldata = self
                     .ro
@@ -335,6 +343,7 @@ impl SharedState {
                         U256::from(l1_block_header.number.as_u64()).into_token(),
                         l1_block_header.hash.into_token(),
                         block_data.into_token(),
+                        account_proof.into_token(),
                     ])
                     .expect("calldata");
                 let block_import_tx = self
@@ -396,21 +405,20 @@ impl SharedState {
                         }
                     }
 
-                    // calculate the storage slot for this message
-                    let storage_slot = msg.storage_slot();
-                    // request proof
-                    let proof_obj: ProofRequest = self
-                        .request_l1(
-                            "eth_getProof",
-                            (l1_bridge_addr, [storage_slot], l1_block_header.hash),
-                        )
-                        .await
-                        .expect("eth_getProof");
-                    // encode proof
-                    let proof: Bytes = Bytes::from(marshal_proof(
-                        &proof_obj.account_proof,
-                        &proof_obj.storage_proof[0].proof,
-                    ));
+                    let storage_proof: Bytes = {
+                        // calculate the storage slot for this message
+                        let storage_slot = msg.storage_slot();
+                        // request proof
+                        let proof_obj: ProofRequest = self
+                            .request_l1(
+                                "eth_getProof",
+                                (l1_bridge_addr, [storage_slot], l1_block_header.hash),
+                            )
+                            .await
+                            .expect("eth_getProof");
+                        // encode proof
+                        Bytes::from(marshal_proof_single(&proof_obj.storage_proof[0].proof))
+                    };
                     let calldata = self
                         .ro
                         .bridge_abi
@@ -424,7 +432,7 @@ impl SharedState {
                             msg.deadline.into_token(),
                             msg.nonce.into_token(),
                             Token::Bytes(msg.calldata),
-                            proof.into_token(),
+                            storage_proof.into_token(),
                         ])
                         .expect("calldata");
 
@@ -1154,7 +1162,7 @@ fn get_abi() -> Abi {
             "function finalizeBlock(bytes proof)",
             "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
             "function stateRoot() returns (bytes32)",
-            "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader)",
+            "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader, bytes proof)",
             "function initGenesis(bytes32 blockHash, bytes32 stateRoot)",
             "function buildCommitment(bytes) returns (uint256[])",
         ])
