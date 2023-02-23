@@ -2,7 +2,7 @@
 
 FROM alpine:3.15 AS solc
 RUN apk update && apk add boost-dev boost-static build-base cmake git
-ARG SOLC_VERSION="0.8.16"
+ARG SOLC_VERSION="0.8.18"
 RUN git clone --depth 1 -b v"${SOLC_VERSION}" https://github.com/ethereum/solidity.git
 WORKDIR solidity/
 RUN \
