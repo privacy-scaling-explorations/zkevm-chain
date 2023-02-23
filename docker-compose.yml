@@ -138,7 +138,7 @@ services:
       replicas: 1
       resources:
         limits:
-          memory: 3000G
+          memory: 2500G
 
   coverage-l1:
     profiles:
@@ -201,7 +201,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3000G
+          memory: 2500G
 
   web:
     depends_on:
