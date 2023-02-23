@@ -348,7 +348,7 @@ checksum = "0d261e256854913907f67ed06efbc3338dfe6179796deefc1ff763fc1aee5535"
 [[package]]
 name = "bus-mapping"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -995,7 +995,7 @@ dependencies = [
 [[package]]
 name = "eth-types"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "ethers-core",
  "ethers-signers",
@@ -1149,7 +1149,7 @@ dependencies = [
 [[package]]
 name = "external-tracer"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "eth-types",
  "geth-utils",
@@ -1351,7 +1351,7 @@ dependencies = [
 [[package]]
 name = "gadgets"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "digest 0.7.6",
  "eth-types",
@@ -1391,7 +1391,7 @@ dependencies = [
 [[package]]
 name = "geth-utils"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "env_logger",
  "gobuild",
@@ -1870,7 +1870,7 @@ dependencies = [
 [[package]]
 name = "keccak256"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "env_logger",
  "eth-types",
@@ -2029,7 +2029,7 @@ dependencies = [
 [[package]]
 name = "mock"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "eth-types",
  "ethers-core",
@@ -3918,7 +3918,7 @@ checksum = "c394b5bd0c6f669e7275d9c20aa90ae064cb22e75a1cad54e1b34088034b149f"
 [[package]]
 name = "zkevm-circuits"
 version = "0.1.0"
-source = "git+https://github.com/pinkiebell/zkevm-circuits.git?branch=zkevm-chain#d16147e3357944c7643c020699ba2da040a31b3e"
+source = "git+https://github.com/privacy-scaling-explorations/zkevm-circuits.git?branch=main#58e1019db1c9b6533982c8741298f1c809b63c6b"
 dependencies = [
  "array-init",
  "bus-mapping",
