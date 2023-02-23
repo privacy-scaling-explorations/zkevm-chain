@@ -20,6 +20,7 @@ SOLC=$(which solc || printf '%s' "docker run --rm -w /app -v $(pwd):/app ethereu
 # solidity
 $SOLC \
   --evm-version berlin \
+  --no-cbor-metadata \
   --metadata-hash none \
   --combined-json bin,bin-runtime,srcmap,srcmap-runtime,storage-layout \
   --optimize \
