@@ -146,14 +146,9 @@ macro_rules! gen_match {
 
                 let agg_params =
                     ProverParams::setup(CIRCUIT_CONFIG.min_k_aggregation as u32, fixed_rng());
-                let agg_circuit = RootCircuit::new(
-                    &agg_params,
-                    &protocol,
-                    Value::unknown(),
-                    Value::unknown(),
-                    false,
-                )
-                .expect("RootCircuit::new");
+                let agg_circuit =
+                    RootCircuit::new(&agg_params, &protocol, Value::unknown(), Value::unknown())
+                        .expect("RootCircuit::new");
 
                 let agg_vk = keygen_vk(&agg_params, &agg_circuit).expect("vk");
 
