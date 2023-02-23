@@ -280,7 +280,7 @@ macro_rules! estimate {
                 max_copy_rows: circuit_config.max_copy_rows,
                 max_exp_steps: circuit_config.max_exp_steps,
                 max_evm_rows: circuit_config.pad_to,
-                keccak_padding: Some(circuit_config.keccak_padding),
+                max_keccak_rows: circuit_config.keccak_padding,
             };
             let mut builder =
                 BlockData::new_from_geth_data_with_params(block.clone(), circuit_params)

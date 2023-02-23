@@ -41,7 +41,7 @@ impl CircuitWitness {
             max_copy_rows: circuit_config.max_copy_rows,
             max_exp_steps: circuit_config.max_exp_steps,
             max_evm_rows: circuit_config.pad_to,
-            keccak_padding: Some(circuit_config.keccak_padding),
+            max_keccak_rows: circuit_config.keccak_padding,
         };
         let empty_data = GethData {
             chain_id: Word::from(99),
@@ -90,7 +90,7 @@ impl CircuitWitness {
             max_copy_rows: circuit_config.max_copy_rows,
             max_exp_steps: circuit_config.max_exp_steps,
             max_evm_rows: circuit_config.pad_to,
-            keccak_padding: Some(circuit_config.keccak_padding),
+            max_keccak_rows: circuit_config.keccak_padding,
         };
         let builder = BuilderClient::new(geth_client, circuit_params).await?;
         let (builder, eth_block) = builder.gen_inputs(*block_num).await?;
