@@ -12,7 +12,7 @@ use halo2_proofs::poly::commitment::Params;
 use halo2_proofs::poly::commitment::ParamsProver;
 use halo2_proofs::poly::kzg::multiopen::ProverGWC;
 use halo2_proofs::poly::kzg::multiopen::VerifierGWC;
-use halo2_proofs::poly::kzg::strategy::AccumulatorStrategy;
+use halo2_proofs::poly::kzg::strategy::SingleStrategy;
 use halo2_proofs::transcript::EncodedChallenge;
 use halo2_proofs::transcript::TranscriptReadBuffer;
 use halo2_proofs::transcript::TranscriptWriterBuffer;
@@ -74,13 +74,20 @@ pub fn gen_proof<
         let res = verify_proof::<_, VerifierGWC<_>, _, TR, _>(
             params.verifier_params(),
             pk.get_vk(),
-            AccumulatorStrategy::new(params.verifier_params()),
+            SingleStrategy::new(params.verifier_params()),
             &[inputs.as_slice()],
             &mut transcript,
         );
 
         if let Err(verify_err) = res {
-            panic!("verify_proof: {verify_err:#?}");
+            if mock_feedback {
+                let res = MockProver::run(params.k(), &circuit, instance)
+                    .expect("MockProver::run")
+                    .verify_par();
+                panic!("verify_proof: {verify_err:#?}\nMockProver: {res:#?}");
+            } else {
+                panic!("verify_proof: {verify_err:#?}");
+            }
         }
     }
 

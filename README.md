@@ -1,5 +1,14 @@
 [![Coverage Status](https://coveralls.io/repos/github/privacy-scaling-explorations/zkevm-chain/badge.svg?branch=master)](https://coveralls.io/github/privacy-scaling-explorations/zkevm-chain?branch=master)
 
+###### Prover Integration Test Status
+[![Pi Circuit aggregation eth_transfer](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/pi-eth-transfer.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/pi-eth-transfer.yml)
+[![Pi Circuit aggregation native_withdraw](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/pi-native-withdraw.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/pi-native-withdraw.yml)
+[![Super Circuit aggregation eth_transfer](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-eth-transfer.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-eth-transfer.yml)
+[![Super Circuit aggregation native_withdraw](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-native-withdraw.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-native-withdraw.yml)
+[![Super Circuit aggregation worst_case_mload](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-mload.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-mload.yml)
+[![Super Circuit aggregation worst_case_smod](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-smod.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-smod.yml)
+[![Super Circuit aggregation worst_case_keccak_0_32](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-keccak-0-32.yml/badge.svg)](https://github.com/privacy-scaling-explorations/zkevm-chain/actions/workflows/super-worst-case-keccak-0-32.yml)
+
 ## Structure
 
 |Path|Description|
