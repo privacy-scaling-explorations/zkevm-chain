@@ -3191,6 +3191,7 @@ dependencies = [
  "poseidon",
  "primitive-types 0.12.1",
  "rand",
+ "rayon",
  "revm",
  "rlp",
  "sha3 0.10.6",
