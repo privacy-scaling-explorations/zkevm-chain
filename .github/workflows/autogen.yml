@@ -29,7 +29,7 @@ jobs:
           key: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
           enableCrossOsArchive: true
 
-  gen:
+  autogen:
     needs: [cache]
     if: >
       github.event_name == 'workflow_dispatch'
