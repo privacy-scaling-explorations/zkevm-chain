@@ -29,14 +29,12 @@ use prover::circuit_witness::CircuitWitness;
 use prover::circuits::gen_super_circuit;
 use prover::utils::fixed_rng;
 use prover::Fr;
-use prover::MOCK_RANDOMNESS;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::Write as fwrite;
 use zkevm_circuits::evm_circuit::witness::block_convert;
-use zkevm_circuits::super_circuit::SuperCircuit;
 use zkevm_common::prover::*;
 use zkevm_dev::bytecode::*;
 
@@ -171,26 +169,12 @@ impl<F: Field> Assignment<F> for Assembly {
     }
 }
 
-fn run_assembly<
-    const MAX_TXS: usize,
-    const MAX_CALLDATA: usize,
-    const MAX_BYTECODE: usize,
-    const MAX_RWS: usize,
-    const MAX_COPY_ROWS: usize,
->(
-    witness: CircuitWitness,
-) -> Result<usize, String> {
-    let circuit = gen_super_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS, _>(
-        &witness,
-        fixed_rng(),
-    )
-    .expect("gen_static_circuit");
-
+fn estimate_rows<ConcreteCircuit: Circuit<Fr>>(circuit: &ConcreteCircuit) -> Result<usize, String> {
     let mut cs = ConstraintSystem::default();
-    let config = SuperCircuit::<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::configure(&mut cs);
+    let config = ConcreteCircuit::configure(&mut cs);
     let mut assembly = Assembly::default();
     let constants = cs.constants();
-    SimpleFloorPlanner::synthesize(&mut assembly, &circuit, config, constants.to_vec())
+    SimpleFloorPlanner::synthesize(&mut assembly, circuit, config, constants.to_vec())
         .map_err(|e| e.to_string())?;
 
     Ok(assembly.highest_row + cs.blinding_factors() + 1)
@@ -313,12 +297,12 @@ macro_rules! estimate {
         // calculate circuit stats
         {
             circuit_config.pad_to = MAX_RWS;
-
-            let highest_row =
-                run_assembly::<MAX_TXS, MAX_CALLDATA, MAX_BYTECODE, MAX_RWS, MAX_COPY_ROWS>(
-                    circuit_witness,
-                )
-                .unwrap();
+            let circuit = gen_super_circuit::<MAX_TXS, MAX_CALLDATA, MAX_RWS, MAX_COPY_ROWS, _>(
+                &circuit_witness,
+                fixed_rng(),
+            )
+            .expect("gen_static_circuit");
+            let highest_row = estimate_rows(&circuit).unwrap();
             let log2_ceil = |n| u32::BITS - (n as u32).leading_zeros() - (n & (n - 1) == 0) as u32;
             let k = log2_ceil(highest_row) as usize;
             let remaining_rows = (1 << k) - highest_row;
