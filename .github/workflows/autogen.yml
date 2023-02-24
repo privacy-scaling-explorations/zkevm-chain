@@ -3,10 +3,6 @@ on:
   workflow_dispatch:
   pull_request:
     types: [synchronize, opened, reopened, labeled, ready_for_review]
-  push:
-    branches:
-      - main
-      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,7 +25,7 @@ jobs:
           key: ${{ github.workflow }}-${{ hashFiles('**/Cargo.lock', '**/*autogen*') }}
           enableCrossOsArchive: true
 
-  gen:
+  autogen:
     needs: [cache]
     if: >
       github.event_name == 'workflow_dispatch'
