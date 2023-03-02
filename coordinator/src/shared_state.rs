@@ -348,7 +348,7 @@ impl SharedState {
                     .expect("calldata");
                 let block_import_tx = self
                     .sign_l2(
-                        self.ro.l2_message_deliverer_addr,
+                        Some(self.ro.l2_message_deliverer_addr),
                         U256::zero(),
                         nonce,
                         calldata,
@@ -439,7 +439,7 @@ impl SharedState {
                     // simulate against temporary block
                     let tx = self
                         .sign_l2_given_block_tag(
-                            self.ro.l2_message_deliverer_addr,
+                            Some(self.ro.l2_message_deliverer_addr),
                             U256::zero(),
                             nonce,
                             calldata,
@@ -685,7 +685,13 @@ impl SharedState {
 
     /// Estimates gas against "latest" block and returns a raw signed transaction.
     /// Throws on error.
-    pub async fn sign_l2(&self, to: Address, value: U256, nonce: U256, calldata: Vec<u8>) -> Bytes {
+    pub async fn sign_l2(
+        &self,
+        to: Option<Address>,
+        value: U256,
+        nonce: U256,
+        calldata: Vec<u8>,
+    ) -> Bytes {
         self.sign_l2_given_block_tag(to, value, nonce, calldata, None)
             .await
             .expect("sign_l2")
@@ -695,7 +701,7 @@ impl SharedState {
     /// transaction.
     pub async fn sign_l2_given_block_tag(
         &self,
-        to: Address,
+        to: Option<Address>,
         value: U256,
         nonce: U256,
         calldata: Vec<u8>,
@@ -704,14 +710,16 @@ impl SharedState {
         let wallet = &self.ro.l2_wallet;
         let wallet_addr: Address = wallet.address();
         let gas_price: U256 = self.request_l2("eth_gasPrice", ()).await?;
-        let tx = TransactionRequest::new()
+        let mut tx = TransactionRequest::new()
             .chain_id(wallet.chain_id())
             .from(wallet_addr)
-            .to(to)
             .nonce(nonce)
             .value(value)
             .gas_price(gas_price * 2u64)
             .data(calldata);
+        if let Some(to) = to {
+            tx = tx.to(to);
+        };
         let block_tag = option_block.unwrap_or_else(|| "latest".into());
         let estimate: U256 = self.request_l2("eth_estimateGas", (&tx, block_tag)).await?;
         let tx = tx.gas(estimate).into();

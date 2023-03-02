@@ -12,12 +12,12 @@ use ethers_core::types::Address;
 use ethers_core::types::Bytes;
 use ethers_core::types::TransactionReceipt;
 use ethers_core::types::H256;
-use rand::rngs::OsRng;
-use rand::Rng;
 use ethers_core::types::U256;
 use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
 use ethers_signers::Signer;
+use rand::rngs::OsRng;
+use rand::Rng;
 use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::Proofs;
@@ -171,7 +171,7 @@ async fn native_withdraw() {
             txs.push(
                 shared_state
                     .sign_l2(
-                        shared_state.ro.l2_message_dispatcher_addr,
+                        Some(shared_state.ro.l2_message_dispatcher_addr),
                         value,
                         tx_nonce,
                         calldata,
@@ -670,28 +670,42 @@ async fn finalize_chain() {
 async fn test_pi_commitment() {
     let shared_state = await_state!();
     sync!(shared_state);
-
-    let mut input: Vec<u8> = Vec::new();
-    while input.len() < 1234 {
-        input.push(OsRng.gen::<u8>());
-    }
-    let tx_hash = shared_state
-        .transaction_to_l2(
-            Some(shared_state.ro.l2_wallet.address()),
-            U256::from(OsRng.gen::<u32>()),
-            input,
-            None,
-        )
-        .await
-        .expect("tx_hash");
     shared_state.mine().await;
-    wait_for_tx!(tx_hash, &shared_state.config.lock().await.l2_rpc_url);
 
-    let tx_receipt: TransactionReceipt = shared_state
-        .request_l2("eth_getTransactionReceipt", [tx_hash])
+    let mut tx_nonce: U256 = jsonrpc_request(
+        &shared_state.config.lock().await.l2_rpc_url,
+        "eth_getTransactionCount",
+        (shared_state.ro.l2_wallet.address(), "latest"),
+    )
+    .await
+    .expect("nonce");
+    let mut txs = vec![];
+    for i in 0..3 {
+        let to = if i % 2 == 0 {
+            Some(shared_state.ro.l2_wallet.address())
+        } else {
+            None
+        };
+        let value = U256::from(OsRng.gen::<u32>());
+        let mut input: Vec<u8> = Vec::new();
+        while input.len() < 1234 {
+            if to.is_none() {
+                input.push(0);
+            } else {
+                input.push(OsRng.gen::<u8>());
+            }
+        }
+        txs.push(shared_state.sign_l2(to, value, tx_nonce, input).await);
+        tx_nonce = tx_nonce + 1;
+    }
+
+    let block = shared_state
+        .mine_block(Some(&txs))
         .await
-        .expect("receipt");
-    let block_num = tx_receipt.block_number.unwrap();
+        .expect("mine_block");
+    let block_num = block.number.unwrap();
+    println!("{block:#?}");
+
     loop {
         let proofs: Option<Proofs> = shared_state
             .request_proof(&block_num)
