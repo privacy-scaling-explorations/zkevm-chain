@@ -12,6 +12,8 @@ use ethers_core::types::Address;
 use ethers_core::types::Bytes;
 use ethers_core::types::TransactionReceipt;
 use ethers_core::types::H256;
+use rand::rngs::OsRng;
+use rand::Rng;
 use ethers_core::types::U256;
 use ethers_core::types::U64;
 use ethers_core::utils::keccak256;
@@ -662,18 +664,22 @@ async fn finalize_chain() {
     finalize_chain!(shared_state);
 }
 
-// ./scripts/test_prover.sh --ignored test_pi_commitment
+// COORDINATOR_MOCK_PROVER=true ./scripts/test_prover.sh --ignored test_pi_commitment
 #[ignore]
 #[tokio::test]
 async fn test_pi_commitment() {
     let shared_state = await_state!();
     sync!(shared_state);
 
+    let mut input: Vec<u8> = Vec::new();
+    while input.len() < 1234 {
+        input.push(OsRng.gen::<u8>());
+    }
     let tx_hash = shared_state
         .transaction_to_l2(
             Some(shared_state.ro.l2_wallet.address()),
-            U256::zero(),
-            vec![],
+            U256::from(OsRng.gen::<u32>()),
+            input,
             None,
         )
         .await
@@ -695,14 +701,7 @@ async fn test_pi_commitment() {
             None => continue,
             Some(proof) => {
                 log::info!("{:#?}", &proof);
-                let (_is_aggregated, proof_result) = {
-                    if proof.aggregation.proof.len() != 0 {
-                        (true, proof.aggregation)
-                    } else {
-                        (false, proof.circuit)
-                    }
-                };
-
+                let proof_result = proof.circuit;
                 let table = test_public_commitment(&shared_state, &block_num, &proof.config)
                     .await
                     .expect("test_public_commitment");

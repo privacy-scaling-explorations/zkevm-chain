@@ -147,8 +147,7 @@ contract PublicInput {
 
         // callframe.rpi_ptr_call_data
         {
-          let valueOffset := add(BLOCK_FIELDS, TX_TABLE_LEN)
-          valueOffset := add(valueOffset, TX_TABLE_LEN)
+          let valueOffset := add(BLOCK_FIELDS, mul(TX_TABLE_LEN, 3))
           mstore(add(callframe, 64), add(endOfRows, mul(valueOffset, 32)))
         }
 
