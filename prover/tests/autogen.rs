@@ -9,7 +9,7 @@ use eth_types::{address, Word};
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
 use halo2_proofs::arithmetic::Field;
-use halo2_proofs::circuit::SimpleFloorPlanner;
+use halo2_proofs::circuit::BlankFloorPlanner;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::Advice;
 use halo2_proofs::plonk::Any;
@@ -174,7 +174,7 @@ fn estimate_rows<ConcreteCircuit: Circuit<Fr>>(circuit: &ConcreteCircuit) -> Res
     let config = ConcreteCircuit::configure(&mut cs);
     let mut assembly = Assembly::default();
     let constants = cs.constants();
-    SimpleFloorPlanner::synthesize(&mut assembly, circuit, config, constants.to_vec())
+    BlankFloorPlanner::synthesize(&mut assembly, circuit, config, constants.to_vec())
         .map_err(|e| e.to_string())?;
 
     Ok(assembly.highest_row + cs.blinding_factors() + 1)
