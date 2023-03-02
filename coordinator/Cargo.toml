@@ -21,4 +21,3 @@ zkevm_common = { path = "../common" }
 
 [dev-dependencies]
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread", "time", "parking_lot"] }
-rust-lzma = "0.5.1"
