@@ -211,6 +211,8 @@ macro_rules! estimate {
         let history_hashes = vec![Word::one(); 256];
         let block_number = history_hashes.len();
         let chain_id: u64 = 99;
+        // test with this config. If the padding parameters are not high enough, then circuit
+        // should fail.
         let mut circuit_config = CircuitConfig {
             block_gas_limit: BLOCK_GAS_LIMIT,
             max_txs: MAX_TXS,
