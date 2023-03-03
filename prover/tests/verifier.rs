@@ -5,6 +5,7 @@ use halo2_proofs::circuit::Value;
 use halo2_proofs::plonk::keygen_vk;
 use halo2_proofs::plonk::VerifyingKey;
 use halo2_proofs::poly::commitment::ParamsProver;
+use paste::paste;
 use prover::circuit_witness::CircuitWitness;
 use prover::circuits::*;
 use prover::utils::fixed_rng;
@@ -173,29 +174,23 @@ macro_rules! gen_match {
     }};
 }
 
-// wrapper
-macro_rules! gen {
-    ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {{
-        fn func() {
-            gen_match!($LABEL, $CIRCUIT, $GAS);
+macro_rules! gen_test_fn {
+    ($LABEL:expr, $CIRCUIT:ident, $GAS:expr) => {
+        paste! {
+            #[test]
+            fn [<autogen_verifier_ $LABEL _ $GAS>]() {
+                gen_match!($LABEL, $CIRCUIT, $GAS);
+            }
         }
-        func();
-    }};
+    };
 }
 
 macro_rules! for_each {
-    ($LABEL:expr, $CIRCUIT:ident) => {{
-        gen!($LABEL, $CIRCUIT, 63_000);
-        gen!($LABEL, $CIRCUIT, 300_000);
-    }};
+    ($LABEL:expr, $CIRCUIT:ident) => {
+        gen_test_fn!($LABEL, $CIRCUIT, 63_000);
+        gen_test_fn!($LABEL, $CIRCUIT, 300_000);
+    };
 }
 
-#[test]
-fn autogen_verifier_super() {
-    for_each!("super", gen_super_circuit);
-}
-
-#[test]
-fn autogen_verifier_pi() {
-    for_each!("pi", gen_pi_circuit);
-}
+for_each!("super", gen_super_circuit);
+for_each!("pi", gen_pi_circuit);

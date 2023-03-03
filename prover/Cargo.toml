@@ -28,7 +28,8 @@ clap = { version = "4.0.14", features = ["derive", "env"] }
 mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
 zkevm_dev = { path = "../dev", optional = true }
+paste = { version = "1.0.11", optional = true }
 
 [features]
 default = []
-autogen = ["mock", "ethers-signers", "zkevm_dev"]
+autogen = ["mock", "ethers-signers", "zkevm_dev", "paste"]
