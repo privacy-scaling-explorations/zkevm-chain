@@ -1,5 +1,6 @@
 #![cfg(feature = "autogen")]
 #![feature(const_cmp)]
+#![feature(once_cell)]
 
 use bus_mapping::circuit_input_builder::CircuitsParams;
 use bus_mapping::mock::BlockData;
@@ -25,6 +26,7 @@ use halo2_proofs::plonk::FloorPlanner;
 use halo2_proofs::plonk::Instance;
 use halo2_proofs::plonk::Selector;
 use mock::TestContext;
+use paste::paste;
 use prover::circuit_witness::CircuitWitness;
 use prover::circuits::gen_super_circuit;
 use prover::utils::fixed_rng;
@@ -34,6 +36,9 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::Write as fwrite;
+use std::sync::Arc;
+use std::sync::LazyLock;
+use std::sync::Mutex;
 use zkevm_circuits::evm_circuit::witness::block_convert;
 use zkevm_common::prover::*;
 use zkevm_dev::bytecode::*;
@@ -181,7 +186,7 @@ fn estimate_rows<ConcreteCircuit: Circuit<Fr>>(circuit: &ConcreteCircuit) -> Res
 }
 
 macro_rules! estimate {
-    ($BLOCK_GAS_LIMIT:expr, $MAX_UNUSED_GAS:expr, $BYTECODE_FN:expr, $scope:expr) => {{
+    ($BLOCK_GAS_LIMIT:expr, $MAX_UNUSED_GAS:expr, $BYTECODE_FN:expr) => {{
         const LOWEST_GAS_STEP: usize = 2;
         const TX_DATA_ZERO_GAS: usize = 4;
         const BLOCK_GAS_LIMIT: usize = $BLOCK_GAS_LIMIT;
@@ -206,6 +211,8 @@ macro_rules! estimate {
         let history_hashes = vec![Word::one(); 256];
         let block_number = history_hashes.len();
         let chain_id: u64 = 99;
+        // test with this config. If the padding parameters are not high enough, then circuit
+        // should fail.
         let mut circuit_config = CircuitConfig {
             block_gas_limit: BLOCK_GAS_LIMIT,
             max_txs: MAX_TXS,
@@ -310,15 +317,15 @@ macro_rules! estimate {
             // TODO: estimate aggregation circuit requirements
             circuit_config.min_k_aggregation = 26;
 
-            $scope(circuit_config, highest_row, remaining_rows);
+            (circuit_config, highest_row, remaining_rows)
         }
     }};
 }
 
-fn print_table_header(str: &str) {
-    println!("##### {str}");
+fn print_table_header() {
     println!(
-        "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
+        "| {:10} | {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
+        "label",
         "BLOCK_GAS_LIMIT",
         "MAX_TXS",
         "MAX_CALLDATA",
@@ -328,63 +335,68 @@ fn print_table_header(str: &str) {
         "k"
     );
     println!(
-        "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
-        "-", "-", "-", "-", "-", "-", "-"
+        "| {:10} | {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
+        "-", "-", "-", "-", "-", "-", "-", "-"
     );
 }
 
-macro_rules! estimate_all {
-    ($max_unused_gas:expr, $bytecode:expr, $callback:expr) => {{
-        estimate!(63_000, $max_unused_gas, $bytecode, $callback);
-        estimate!(300_000, $max_unused_gas, $bytecode, $callback);
-    }};
+macro_rules! gen_fn {
+    ($label:expr, $bytecode_fn:expr, $max_unused_gas:expr, $block_gas:expr) => {
+        paste! {
+            #[test]
+            fn [<autogen_circuit_config_ $bytecode_fn _ $block_gas>]() {
+                let _ = env_logger::Builder::from_env(Env::default().default_filter_or("info")).try_init();
+                let (config, highest_row, remaining_rows) = estimate!($block_gas, $max_unused_gas, $bytecode_fn);
+                write_config($label, config, highest_row, remaining_rows);
+            }
+        }
+    };
 }
+
+macro_rules! estimate_all {
+    ($label:expr, $bytecode:expr, $max_unused_gas:expr) => {
+        gen_fn!($label, $bytecode, $max_unused_gas, 63_000);
+        gen_fn!($label, $bytecode, $max_unused_gas, 300_000);
+    };
+}
+
+estimate_all!("worst-case evm circuit", gen_bytecode_smod, 0);
+estimate_all!("worst-case state circuit", gen_bytecode_mload, 0);
+estimate_all!(
+    "worst-case keccak (invocations) circuit",
+    gen_bytecode_keccak_0_32,
+    0
+);
+
+// use a map to track the largest circuit parameters for `k`
+type ConfigMap = BTreeMap<usize, CircuitConfig>;
+static CONFIG_MAP: LazyLock<Arc<Mutex<ConfigMap>>> = LazyLock::new(|| {
+    print_table_header();
+    Arc::new(Mutex::new(ConfigMap::new()))
+});
 
 /// Generates `circuit_autogen.rs` and prints a markdown table about
 /// SuperCircuit parameters.
-#[test]
-fn autogen_circuit_config() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-
-    // use a map to track the largest circuit parameters for `k`
-    let mut params = BTreeMap::<usize, CircuitConfig>::new();
-    let mut callback = |config: CircuitConfig, highest_row, remaining_rows| {
-        println!(
-            "| {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
-            config.block_gas_limit,
-            config.max_txs,
-            config.max_calldata,
-            config.max_bytecode,
-            highest_row,
-            remaining_rows,
-            config.min_k,
-        );
-
-        if let Some(val) = params.get(&config.min_k) {
-            // don't update if the previous entity has a lower gas limit
-            if val.block_gas_limit < config.block_gas_limit {
-                return;
-            }
+fn write_config(label: &str, config: CircuitConfig, highest_row: usize, remaining_rows: usize) {
+    let mut params = CONFIG_MAP.lock().unwrap();
+    println!(
+        "| {:10} | {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
+        label,
+        config.block_gas_limit,
+        config.max_txs,
+        config.max_calldata,
+        config.max_bytecode,
+        highest_row,
+        remaining_rows,
+        config.min_k,
+    );
+    if let Some(val) = params.get(&config.min_k) {
+        // don't update if the previous entity has a lower gas limit
+        if val.block_gas_limit < config.block_gas_limit {
+            return;
         }
-
-        params.insert(config.min_k, config);
-    };
-
-    {
-        print_table_header("worst-case evm circuit");
-        let max_unused_gas = 0;
-        estimate_all!(max_unused_gas, gen_bytecode_smod, callback);
     }
-    {
-        print_table_header("worst-case state circuit");
-        let max_unused_gas = 0;
-        estimate_all!(max_unused_gas, gen_bytecode_mload, callback);
-    }
-    {
-        print_table_header("worst-case keccak (invocations) circuit");
-        let max_unused_gas = 0;
-        estimate_all!(max_unused_gas, gen_bytecode_keccak_0_32, callback);
-    }
+    params.insert(config.min_k, config);
 
     // generate `circuit_autogen.rs`
     let mut prev_gas = 0;

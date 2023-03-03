@@ -59,13 +59,9 @@ jobs:
         run: |
           docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'cargo fmt --all'
 
-      - name: EVM & Aggregation verifier for Super
+      - name: EVM & Aggregation verifiers
         run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'FAST=1 ./scripts/autogen.sh autogen_verifier_super'
-
-      - name: EVM & Aggregation verifier for Pi
-        run: |
-          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'FAST=1 ./scripts/autogen.sh autogen_verifier_pi'
+          docker compose run --use-aliases --no-TTY --rm --entrypoint bash dev -c './scripts/autogen.sh autogen_verifier_'
 
       - name: Contracts
         run: |
