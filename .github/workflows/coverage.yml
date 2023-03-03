@@ -16,7 +16,7 @@ jobs:
       cancel-in-progress: true
     runs-on: ["${{github.run_id}}", self-hosted, r6a.2xlarge]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ (github.event.pull_request && format('refs/pull/{0}/merge', github.event.pull_request.number)) || github.ref }}
 

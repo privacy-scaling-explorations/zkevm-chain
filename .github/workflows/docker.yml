@@ -15,7 +15,7 @@ jobs:
       matrix:
         TARGET: ['coordinator', 'web', 'prover', 'geth', 'dev']
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Login to ghcr.io
         env:
