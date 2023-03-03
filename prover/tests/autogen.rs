@@ -376,6 +376,7 @@ static CONFIG_MAP: LazyLock<Arc<Mutex<ConfigMap>>> = LazyLock::new(|| {
 /// Generates `circuit_autogen.rs` and prints a markdown table about
 /// SuperCircuit parameters.
 fn write_config(label: &str, config: CircuitConfig, highest_row: usize, remaining_rows: usize) {
+    let mut params = CONFIG_MAP.lock().unwrap();
     println!(
         "| {:10} | {:15} | {:7} | {:12} | {:12} | {:12} | {:14} | {:2} |",
         label,
@@ -387,8 +388,6 @@ fn write_config(label: &str, config: CircuitConfig, highest_row: usize, remainin
         remaining_rows,
         config.min_k,
     );
-
-    let mut params = CONFIG_MAP.lock().unwrap();
     if let Some(val) = params.get(&config.min_k) {
         // don't update if the previous entity has a lower gas limit
         if val.block_gas_limit < config.block_gas_limit {
