@@ -20,7 +20,7 @@ jobs:
     outputs:
       cache-hit: ${{ steps.cache-restore.outputs.cache-hit }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - id: cache-restore
         uses: actions/cache/restore@v3
@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 7200
     runs-on: ["${{github.run_id}}", self-hosted, r6a.24xlarge]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
