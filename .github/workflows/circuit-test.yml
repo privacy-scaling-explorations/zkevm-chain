@@ -19,6 +19,7 @@ on:
 
 jobs:
   test:
+    name: ${{ inputs.circuit }} circuit aggregation ${{ inputs.test-name}}
     timeout-minutes: 7200
     concurrency:
       group: ${{ inputs.concurrency-group }}
@@ -36,7 +37,7 @@ jobs:
           docker buildx create --name mybuilder --use || echo 'skip'
           docker compose build --progress plain bootnode dev
 
-      - name: ${{ inputs.circuit }} Circuit aggregation ${{ inputs.test-name}}
+      - name: Run test
         if: always()
         run: |
           docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=${{ inputs.circuit }} ./scripts/heavy_ci.sh ${{ inputs.test-name }}'
