@@ -23,7 +23,7 @@ jobs:
     concurrency:
       group: ${{ inputs.concurrency-group }}
       cancel-in-progress: true
-    runs-on: ["${{github.run_id}}", self-hosted, ${{ inputs.instance-type }}]
+    runs-on: ["${{github.run_id}}", self-hosted, "${{inputs.instance-type}}"]
     steps:
       - uses: actions/checkout@v3
 
