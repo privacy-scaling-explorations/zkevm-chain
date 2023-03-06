@@ -71,177 +71,174 @@ fn get_or_gen_param(task_options: &ProofRequestOptions, k: usize) -> (Arc<Prover
     }
 }
 
-macro_rules! gen_proof {
-    ($shared_state:expr, $task_options:expr, $witness:expr, $CIRCUIT:ident) => {{
-        let witness = $witness;
-        // uncomment for testing purposes
-        //let witness = CircuitWitness::dummy(CIRCUIT_CONFIG.block_gas_limit).unwrap();
-        let task_options = $task_options;
-        let shared_state = $shared_state;
+async fn compute_proof<C: Circuit<Fr> + Clone + SubCircuit<Fr>>(
+    shared_state: &SharedState,
+    task_options: &ProofRequestOptions,
+    circuit_config: CircuitConfig,
+    circuit: C,
+) -> Result<(CircuitConfig, ProofResult, ProofResult), String> {
+    log::info!("Using circuit parameters: {:#?}", circuit_config);
 
-        log::info!("Using circuit parameters: {:#?}", CIRCUIT_CONFIG);
-
-        let mut circuit_proof = ProofResult::default();
-        circuit_proof.label = format!(
+    let mut circuit_proof = ProofResult {
+        label: format!(
             "{}-{}",
-            task_options.circuit, CIRCUIT_CONFIG.block_gas_limit
-        );
-        let mut aggregation_proof = ProofResult::default();
-        aggregation_proof.label = format!(
+            task_options.circuit, circuit_config.block_gas_limit
+        ),
+        ..Default::default()
+    };
+    let mut aggregation_proof = ProofResult {
+        label: format!(
             "{}-{}-a",
-            task_options.circuit, CIRCUIT_CONFIG.block_gas_limit
-        );
+            task_options.circuit, circuit_config.block_gas_limit
+        ),
+        ..Default::default()
+    };
 
-        if task_options.mock {
-            // only run the mock prover
+    if task_options.mock {
+        // only run the mock prover
+        let time_started = Instant::now();
+        circuit_proof.k = circuit_config.min_k as u8;
+        circuit_proof.instance = collect_instance(&circuit.instance());
+        let prover = MockProver::run(circuit_config.min_k as u32, &circuit, circuit.instance())
+            .expect("MockProver::run");
+        prover.verify_par().expect("MockProver::verify_par");
+        circuit_proof.duration = Instant::now().duration_since(time_started).as_millis() as u32;
+    } else {
+        let (param, param_path) = get_or_gen_param(task_options, circuit_config.min_k);
+        circuit_proof.k = param.k() as u8;
+        // generate and cache the prover key
+        let pk = {
+            let cache_key = format!(
+                "{}{}{:?}",
+                &task_options.circuit, &param_path, &circuit_config
+            );
+            shared_state
+                .gen_pk(&cache_key, &param, &circuit)
+                .await
+                .map_err(|e| e.to_string())?
+        };
+
+        let circuit_instance = circuit.instance();
+        circuit_proof.instance = collect_instance(&circuit_instance);
+
+        if task_options.aggregate {
             let time_started = Instant::now();
-            let circuit = $CIRCUIT::<
-                { CIRCUIT_CONFIG.max_txs },
-                { CIRCUIT_CONFIG.max_calldata },
-                { CIRCUIT_CONFIG.max_rws },
-                { CIRCUIT_CONFIG.max_copy_rows },
-                _,
-            >(&witness, fixed_rng())?;
-            circuit_proof.k = CIRCUIT_CONFIG.min_k as u8;
-            circuit_proof.instance = collect_instance(&circuit.instance());
-            let prover = MockProver::run(CIRCUIT_CONFIG.min_k as u32, &circuit, circuit.instance())
-                .expect("MockProver::run");
-            prover.verify_par().expect("MockProver::verify_par");
+            let proof = gen_proof::<_, _, PoseidonTranscript<_, _>, PoseidonTranscript<_, _>, _>(
+                &param,
+                &pk,
+                circuit,
+                circuit_instance.clone(),
+                fixed_rng(),
+                task_options.mock_feedback,
+                task_options.verify_proof,
+            );
             circuit_proof.duration = Instant::now().duration_since(time_started).as_millis() as u32;
-        } else {
-            let (param, param_path) = get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k);
-            circuit_proof.k = param.k() as u8;
-            let circuit = $CIRCUIT::<
-                { CIRCUIT_CONFIG.max_txs },
-                { CIRCUIT_CONFIG.max_calldata },
-                { CIRCUIT_CONFIG.max_rws },
-                { CIRCUIT_CONFIG.max_copy_rows },
-                _,
-            >(&witness, fixed_rng())?;
-            // generate and cache the prover key
-            let pk = {
+            circuit_proof.proof = proof.clone().into();
+
+            if std::env::var("PROVERD_DUMP").is_ok() {
+                File::create(format!(
+                    "proof-{}-{:?}",
+                    task_options.circuit, &circuit_config
+                ))
+                .unwrap()
+                .write_all(&proof)
+                .unwrap();
+            }
+
+            // aggregate the circuit proof
+            let time_started = Instant::now();
+            let protocol = compile(
+                param.as_ref(),
+                pk.get_vk(),
+                PlonkConfig::kzg().with_num_instance(gen_num_instance(&circuit_instance)),
+            );
+
+            let (agg_params, agg_param_path) =
+                get_or_gen_param(task_options, circuit_config.min_k_aggregation);
+            aggregation_proof.k = agg_params.k() as u8;
+
+            let agg_circuit = RootCircuit::new(
+                &agg_params,
+                &protocol,
+                Value::known(&circuit_instance),
+                Value::known(&proof),
+            )
+            .expect("RootCircuit::new");
+
+            let agg_pk = {
                 let cache_key = format!(
-                    "{}{}{:?}",
-                    &task_options.circuit, &param_path, &CIRCUIT_CONFIG
+                    "{}{}{:?}ag",
+                    &task_options.circuit, &agg_param_path, &circuit_config
                 );
                 shared_state
-                    .gen_pk(&cache_key, &param, &circuit)
+                    .gen_pk(&cache_key, &agg_params, &agg_circuit)
                     .await
                     .map_err(|e| e.to_string())?
             };
-
-            let circuit_instance = circuit.instance();
-            circuit_proof.instance = collect_instance(&circuit_instance);
-
-            if task_options.aggregate {
-                let time_started = Instant::now();
-                let proof = gen_proof::<
-                    _,
-                    _,
-                    PoseidonTranscript<_, _>,
-                    PoseidonTranscript<_, _>,
-                    _,
-                >(
-                    &param,
-                    &pk,
-                    circuit,
-                    circuit_instance.clone(),
-                    fixed_rng(),
-                    task_options.mock_feedback,
-                    task_options.verify_proof,
-                );
-                circuit_proof.duration =
-                    Instant::now().duration_since(time_started).as_millis() as u32;
-                circuit_proof.proof = proof.clone().into();
-
-                if std::env::var("PROVERD_DUMP").is_ok() {
-                    File::create(format!("proof-{}-{:?}", task_options.circuit, &CIRCUIT_CONFIG))
-                        .unwrap()
-                        .write_all(&proof)
-                        .unwrap();
-                }
-
-                // aggregate the circuit proof
-                let time_started = Instant::now();
-                let protocol = compile(
-                    param.as_ref(),
-                    pk.get_vk(),
-                    PlonkConfig::kzg().with_num_instance(gen_num_instance(&circuit_instance)),
-                );
-
-                let (agg_params, agg_param_path) =
-                    get_or_gen_param(&task_options, CIRCUIT_CONFIG.min_k_aggregation);
-                aggregation_proof.k = agg_params.k() as u8;
-
-                let agg_circuit = RootCircuit::new(
-                    &agg_params,
-                    &protocol,
-                    Value::known(&circuit_instance),
-                    Value::known(&proof),
-                )
-                .expect("RootCircuit::new");
-
-                let agg_pk = {
-                    let cache_key = format!(
-                        "{}{}{:?}ag",
-                        &task_options.circuit, &agg_param_path, &CIRCUIT_CONFIG
-                    );
-                    shared_state
-                        .gen_pk(&cache_key, &agg_params, &agg_circuit)
-                        .await
-                        .map_err(|e| e.to_string())?
-                };
-                let agg_instance = agg_circuit.instance().to_vec();
-                aggregation_proof.instance = collect_instance(&agg_instance);
-                let proof = gen_proof::<
-                    _,
-                    _,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    _,
-                >(
-                    agg_params.as_ref(),
-                    &agg_pk,
-                    agg_circuit,
-                    agg_instance,
-                    fixed_rng(),
-                    task_options.mock_feedback,
-                    task_options.verify_proof,
-                );
-                aggregation_proof.duration =
-                    Instant::now().duration_since(time_started).as_millis() as u32;
-                if std::env::var("PROVERD_DUMP").is_ok() {
-                    File::create(format!("proof-{}-agg--{:?}", task_options.circuit, &CIRCUIT_CONFIG))
-                        .unwrap()
-                        .write_all(&proof)
-                        .unwrap();
-                }
-                aggregation_proof.proof = proof.into();
-            } else {
-                let time_started = Instant::now();
-                let proof = gen_proof::<
-                    _,
-                    _,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    EvmTranscript<G1Affine, _, _, _>,
-                    _,
-                >(
-                    &param,
-                    &pk,
-                    circuit,
-                    circuit_instance.clone(),
-                    fixed_rng(),
-                    task_options.mock_feedback,
-                    task_options.verify_proof,
-                );
-                circuit_proof.duration =
-                    Instant::now().duration_since(time_started).as_millis() as u32;
-                circuit_proof.proof = proof.clone().into();
+            let agg_instance = agg_circuit.instance().to_vec();
+            aggregation_proof.instance = collect_instance(&agg_instance);
+            let proof = gen_proof::<
+                _,
+                _,
+                EvmTranscript<G1Affine, _, _, _>,
+                EvmTranscript<G1Affine, _, _, _>,
+                _,
+            >(
+                agg_params.as_ref(),
+                &agg_pk,
+                agg_circuit,
+                agg_instance,
+                fixed_rng(),
+                task_options.mock_feedback,
+                task_options.verify_proof,
+            );
+            aggregation_proof.duration =
+                Instant::now().duration_since(time_started).as_millis() as u32;
+            if std::env::var("PROVERD_DUMP").is_ok() {
+                File::create(format!(
+                    "proof-{}-agg--{:?}",
+                    task_options.circuit, &circuit_config
+                ))
+                .unwrap()
+                .write_all(&proof)
+                .unwrap();
             }
+            aggregation_proof.proof = proof.into();
+        } else {
+            let time_started = Instant::now();
+            let proof = gen_proof::<
+                _,
+                _,
+                EvmTranscript<G1Affine, _, _, _>,
+                EvmTranscript<G1Affine, _, _, _>,
+                _,
+            >(
+                &param,
+                &pk,
+                circuit,
+                circuit_instance.clone(),
+                fixed_rng(),
+                task_options.mock_feedback,
+                task_options.verify_proof,
+            );
+            circuit_proof.duration = Instant::now().duration_since(time_started).as_millis() as u32;
+            circuit_proof.proof = proof.into();
         }
+    }
 
-        // return
-        (CIRCUIT_CONFIG, circuit_proof, aggregation_proof)
+    Ok((circuit_config, circuit_proof, aggregation_proof))
+}
+
+macro_rules! compute_proof_wrapper {
+    ($shared_state:expr, $task_options:expr, $witness:expr, $CIRCUIT:ident) => {{
+        let circuit = $CIRCUIT::<
+            { CIRCUIT_CONFIG.max_txs },
+            { CIRCUIT_CONFIG.max_calldata },
+            { CIRCUIT_CONFIG.max_rws },
+            { CIRCUIT_CONFIG.max_copy_rows },
+            _,
+        >(&$witness, fixed_rng())?;
+        compute_proof(&$shared_state, &$task_options, CIRCUIT_CONFIG, circuit).await?
     }};
 }
 
@@ -414,10 +411,15 @@ impl SharedState {
                     {
                         match task_options_copy.circuit.as_str() {
                             "pi" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, gen_pi_circuit)
+                                compute_proof_wrapper!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_pi_circuit
+                                )
                             }
                             "super" => {
-                                gen_proof!(
+                                compute_proof_wrapper!(
                                     self_copy,
                                     task_options_copy,
                                     &witness,
@@ -425,30 +427,50 @@ impl SharedState {
                                 )
                             }
                             "evm" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, gen_evm_circuit)
+                                compute_proof_wrapper!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_evm_circuit
+                                )
                             }
-                            "state" => gen_proof!(
+                            "state" => compute_proof_wrapper!(
                                 self_copy,
                                 task_options_copy,
                                 &witness,
                                 gen_state_circuit
                             ),
                             "tx" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, gen_tx_circuit)
+                                compute_proof_wrapper!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_tx_circuit
+                                )
                             }
-                            "bytecode" => gen_proof!(
+                            "bytecode" => compute_proof_wrapper!(
                                 self_copy,
                                 task_options_copy,
                                 &witness,
                                 gen_bytecode_circuit
                             ),
                             "copy" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, gen_copy_circuit)
+                                compute_proof_wrapper!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_copy_circuit
+                                )
                             }
                             "exp" => {
-                                gen_proof!(self_copy, task_options_copy, &witness, gen_exp_circuit)
+                                compute_proof_wrapper!(
+                                    self_copy,
+                                    task_options_copy,
+                                    &witness,
+                                    gen_exp_circuit
+                                )
                             }
-                            "keccak" => gen_proof!(
+                            "keccak" => compute_proof_wrapper!(
                                 self_copy,
                                 task_options_copy,
                                 &witness,
