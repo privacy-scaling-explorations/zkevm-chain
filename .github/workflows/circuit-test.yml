@@ -1,0 +1,43 @@
+on:
+  workflow_call:
+    inputs:
+      circuit:
+        required: true
+        type: string
+
+      test-name:
+        required: true
+        type: string
+
+      instance-type:
+        required: true
+        type: string
+
+      concurrency-group:
+        required: true
+        type: string
+
+jobs:
+  test:
+    timeout-minutes: 7200
+    concurrency:
+      group: ${{ inputs.concurrency-group }}
+      cancel-in-progress: true
+    runs-on: ["${{github.run_id}}", self-hosted, ${{ inputs.instance-type }}]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup
+        run: cp .env.example .env
+
+      - name: Build docker images
+        run: |
+          docker compose down -v --remove-orphans || true
+          docker buildx create --name mybuilder --use || echo 'skip'
+          docker compose build --progress plain bootnode dev
+
+      - name: ${{ inputs.circuit }} Circuit aggregation ${{ inputs.test-name}}
+        if: always()
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=${{ inputs.circuit }} ./scripts/heavy_ci.sh ${{ inputs.test-name }}'
+          ./scripts/ci_commit_errors.sh ag-${{ inputs.circuit }}-${{ inputs.test-name }}
