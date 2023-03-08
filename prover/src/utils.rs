@@ -18,11 +18,12 @@ use halo2_proofs::transcript::TranscriptReadBuffer;
 use halo2_proofs::transcript::TranscriptWriterBuffer;
 use rand::rngs::StdRng;
 use rand::Rng;
-use zkevm_circuits::tx_circuit::PrimeField;
-
 use rand::SeedableRng;
 use std::clone::Clone;
 use std::io::Cursor;
+use std::time::Instant;
+use zkevm_circuits::tx_circuit::PrimeField;
+use zkevm_common::prover::ProofResultInstrumentation;
 
 /// Returns [<len>, ...] of `instance`
 pub fn gen_num_instance(instance: &[Vec<Fr>]) -> Vec<usize> {
@@ -31,6 +32,7 @@ pub fn gen_num_instance(instance: &[Vec<Fr>]) -> Vec<usize> {
 
 /// Returns the finalized transcript.
 /// Runs the MockProver on `create_proof` error and panics afterwards.
+#[allow(clippy::too_many_arguments)]
 pub fn gen_proof<
     C: Circuit<Fr> + Clone,
     E: EncodedChallenge<G1Affine>,
@@ -45,23 +47,34 @@ pub fn gen_proof<
     rng: RNG,
     mock_feedback: bool,
     verify: bool,
+    aux: &mut ProofResultInstrumentation,
 ) -> Vec<u8> {
     let mut transcript = TW::init(Vec::new());
     let inputs: Vec<&[Fr]> = instance.iter().map(|v| v.as_slice()).collect();
-    let res = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, TW, _>(
-        params,
-        pk,
-        &[circuit.clone()],
-        &[inputs.as_slice()],
-        rng,
-        &mut transcript,
-    );
+    let res = {
+        let time_started = Instant::now();
+        let v = create_proof::<ProverCommitmentScheme, ProverGWC<_>, _, _, TW, _>(
+            params,
+            pk,
+            &[circuit.clone()],
+            &[inputs.as_slice()],
+            rng,
+            &mut transcript,
+        );
+        aux.proof = Instant::now().duration_since(time_started).as_millis() as u32;
+        v
+    };
     // run the `MockProver` and return (hopefully) useful errors
     if let Err(proof_err) = res {
         if mock_feedback {
-            let res = MockProver::run(params.k(), &circuit, instance)
-                .expect("MockProver::run")
-                .verify_par();
+            let res = {
+                let time_started = Instant::now();
+                let v = MockProver::run(params.k(), &circuit, instance)
+                    .expect("MockProver::run")
+                    .verify_par();
+                aux.mock = Instant::now().duration_since(time_started).as_millis() as u32;
+                v
+            };
             panic!("gen_proof: {proof_err:#?}\nMockProver: {res:#?}");
         } else {
             panic!("gen_proof: {proof_err:#?}");
@@ -71,19 +84,29 @@ pub fn gen_proof<
     let proof = transcript.finalize();
     if verify {
         let mut transcript = TR::init(Cursor::new(proof.clone()));
-        let res = verify_proof::<_, VerifierGWC<_>, _, TR, _>(
-            params.verifier_params(),
-            pk.get_vk(),
-            SingleStrategy::new(params.verifier_params()),
-            &[inputs.as_slice()],
-            &mut transcript,
-        );
+        let res = {
+            let time_started = Instant::now();
+            let v = verify_proof::<_, VerifierGWC<_>, _, TR, _>(
+                params.verifier_params(),
+                pk.get_vk(),
+                SingleStrategy::new(params.verifier_params()),
+                &[inputs.as_slice()],
+                &mut transcript,
+            );
+            aux.verify = Instant::now().duration_since(time_started).as_millis() as u32;
+            v
+        };
 
         if let Err(verify_err) = res {
             if mock_feedback {
-                let res = MockProver::run(params.k(), &circuit, instance)
-                    .expect("MockProver::run")
-                    .verify_par();
+                let res = {
+                    let time_started = Instant::now();
+                    let v = MockProver::run(params.k(), &circuit, instance)
+                        .expect("MockProver::run")
+                        .verify_par();
+                    aux.mock = Instant::now().duration_since(time_started).as_millis() as u32;
+                    v
+                };
                 panic!("verify_proof: {verify_err:#?}\nMockProver: {res:#?}");
             } else {
                 panic!("verify_proof: {verify_err:#?}");
