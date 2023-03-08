@@ -38,13 +38,13 @@ pub struct ProofResultInstrumentation {
     pub pk: u32,
     /// create_proof
     pub proof: u32,
-    // verify_proof
+    /// verify_proof
     pub verify: u32,
-    // MockProver.verify_par
+    /// MockProver.verify_par
     pub mock: u32,
-    // Circuit::new
+    /// Circuit::new
     pub circuit: u32,
-    // RootCircuit::compile
+    /// RootCircuit::compile
     pub protocol: u32,
 }
 
