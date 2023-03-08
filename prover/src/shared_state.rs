@@ -130,7 +130,7 @@ async fn compute_proof<C: Circuit<Fr> + Clone + SubCircuit<Fr>>(
                 fixed_rng(),
                 task_options.mock_feedback,
                 task_options.verify_proof,
-                &mut aggregation_proof.aux,
+                &mut circuit_proof.aux,
             );
             circuit_proof.proof = proof.clone().into();
 
