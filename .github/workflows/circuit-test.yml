@@ -39,6 +39,8 @@ jobs:
 
       - name: Run test
         if: always()
+        env:
+          TEST_ID=ag-${{ inputs.circuit }}-${{ inputs.test-name }}
         run: |
-          docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=${{ inputs.circuit }} ./scripts/heavy_ci.sh ${{ inputs.test-name }}'
-          ./scripts/ci_commit_errors.sh ag-${{ inputs.circuit }}-${{ inputs.test-name }}
+          docker compose -f docker-compose.yml -f docker-compose-perf.yml run -e GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" -e TEST_ID="${TEST_ID}" --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=${{ inputs.circuit }} ./scripts/heavy_ci.sh ${{ inputs.test-name }}'
+          ./scripts/ci_commit_errors.sh "${TEST_ID}"
