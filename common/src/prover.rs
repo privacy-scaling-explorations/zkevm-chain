@@ -11,10 +11,10 @@ pub struct ProofResult {
     pub k: u8,
     /// Randomness used
     pub randomness: Bytes,
-    /// Proofing time
-    pub duration: u32,
     /// Circuit name / identifier
     pub label: String,
+    /// Auxiliary
+    pub aux: ProofResultInstrumentation,
 }
 
 impl std::fmt::Debug for ProofResult {
@@ -24,9 +24,28 @@ impl std::fmt::Debug for ProofResult {
             .field("instance", &self.instance)
             .field("k", &self.k)
             .field("randomness", &format!("{}", &self.randomness))
-            .field("duration", &self.duration)
+            .field("aux", &format!("{:#?}", self.aux))
             .finish()
     }
+}
+
+/// Timing information in milliseconds.
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+pub struct ProofResultInstrumentation {
+    /// keygen_vk
+    pub vk: u32,
+    /// keygen_pk
+    pub pk: u32,
+    /// create_proof
+    pub proof: u32,
+    /// verify_proof
+    pub verify: u32,
+    /// MockProver.verify_par
+    pub mock: u32,
+    /// Circuit::new
+    pub circuit: u32,
+    /// RootCircuit::compile
+    pub protocol: u32,
 }
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
