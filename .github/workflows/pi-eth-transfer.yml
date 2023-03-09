@@ -12,6 +12,6 @@ jobs:
     uses: ./.github/workflows/circuit-test.yml
     with:
       circuit: pi
-      test-name: eth_transfer
+      test-name: xeth_transfer
       instance-type: r6a.24xlarge
       concurrency-group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
