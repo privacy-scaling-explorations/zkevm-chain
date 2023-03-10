@@ -50,4 +50,5 @@ jobs:
         run: |
           ./scripts/ci_grafana.sh > grafana.sql
           payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"benchmarks"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')
+          echo "${payload}"
           curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/pse-sql.yml/dispatches' -d "${payload}"
