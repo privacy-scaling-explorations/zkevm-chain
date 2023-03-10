@@ -5,7 +5,7 @@ set -eux
 # data collection
 ID=$(head --bytes 8 /dev/random | xxd -ps)
 TEST_DATE=$(date -uR)
-PROVER_VERSION=$(cargo run --release --bin prover_rpcd -- --version)
+PROVER_VERSION=$(cat PROVER_VERSION.txt)
 ELAPSED_TIME=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==5 {print $2}')
 NUM_CPUS=$(cat /proc/cpuinfo | grep processor | wc -l)
 CPU_PERCENT=$(cat PROVER_STATS.txt | awk -F ': ' "FNR==4 {print \$2 / $NUM_CPUS}")

@@ -47,6 +47,7 @@ FAILED_BLOCKS=$(printf '%s' "${PROVER_DATA}" | jq -cr '.tasks | map(select(.resu
 
 pkill -9 prover_rpcd || true
 wait $PID
+cargo run --release --bin prover_rpcd -- --version > PROVER_VERSION.txt
 cat PROVER_STATS.txt
 cat PROVER_PERF.txt
 printf '%s' "${PROVER_DATA}" > PROVER_DATA.txt
