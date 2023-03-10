@@ -28,6 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: x
+        env:
+          GH_OPS_PAT: ${{ secrets.PAT_OPS_TRIGGER }}
+          TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
+        run: |
+          echo "${GH_OPS_PAT}" | wc
+
       - name: Setup
         run: cp .env.example .env
 
