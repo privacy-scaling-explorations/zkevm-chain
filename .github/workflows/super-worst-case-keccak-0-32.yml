@@ -15,3 +15,4 @@ jobs:
       test-name: worst_case_keccak_0_32
       instance-type: x2iedn.24xlarge
       concurrency-group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number }}
+    secrets: inherit
