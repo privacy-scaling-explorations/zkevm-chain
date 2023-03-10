@@ -3,7 +3,6 @@
 set -eux
 
 # data collection
-ID=$(head --bytes 8 /dev/random | xxd -ps)
 TEST_DATE=$(date -uR)
 PROVER_VERSION=$(cat PROVER_VERSION.txt)
 ELAPSED_TIME=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==5 {print $2}')
@@ -32,10 +31,11 @@ AGGREGATE_MS_PK=$(printf '%s' "${TASK}" | jq -c '.result.Ok.aggregation.aux.pk')
 AGGREGATE_MS_PROOF=$(printf '%s' "${TASK}" | jq -c '.result.Ok.aggregation.aux.proof')
 AGGREGATE_MS_VERIFY=$(printf '%s' "${TASK}" | jq -c '.result.Ok.aggregation.aux.verify')
 AGGREGATE_MS_PROTOCOL=$(printf '%s' "${TASK}" | jq -c '.result.Ok.aggregation.aux.protocol')
+DUMMY_FLAG='false'
 
 SQL=$(cat << EOF
-CREATE TABLE IF NOT EXISTS zkevm_chain_integration_github (
-    id char(16),
+CREATE TABLE IF NOT EXISTS testresults_zkevm_chain_integration_github (
+    id bigint,
     date datetime,
     github_ref varchar(255),
     prover_version varchar(255),
@@ -60,11 +60,12 @@ CREATE TABLE IF NOT EXISTS zkevm_chain_integration_github (
     aggregation_ms_pk integer,
     aggregation_ms_proof integer,
     aggregation_ms_verify integer,
-    aggregation_ms_protocol integer
+    aggregation_ms_protocol integer,
+    dummy boolean
 );
-INSERT INTO zkevm_chain_integration_github
+INSERT INTO testresults_zkevm_chain_integration_github
 VALUES (
-  "${ID}",
+  null,
   "${TEST_DATE}",
   "${GITHUB_REF}",
   "${PROVER_VERSION}",
@@ -89,7 +90,8 @@ VALUES (
   ${AGGREGATE_MS_PK},
   ${AGGREGATE_MS_PROOF},
   ${AGGREGATE_MS_VERIFY},
-  ${AGGREGATE_MS_PROTOCOL}
+  ${AGGREGATE_MS_PROTOCOL},
+  ${DUMMY_FLAG}
 );
 EOF
 )
