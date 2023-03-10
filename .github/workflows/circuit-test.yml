@@ -28,13 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: x
-        env:
-          GH_OPS_PAT: ${{ secrets.PAT_OPS_TRIGGER }}
-          TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
-        run: |
-          echo "${GH_OPS_PAT}" | wc
-
       - name: Setup
         run: cp .env.example .env
 
@@ -57,5 +50,4 @@ jobs:
         run: |
           ./scripts/ci_grafana.sh > grafana.sql
           payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"benchmarks"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')
-          echo "${payload}"
-          curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/pse-sql.yml/dispatches' -d "${payload}"
+          curl --fail -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/pse-sql.yml/dispatches' -d "${payload}"
