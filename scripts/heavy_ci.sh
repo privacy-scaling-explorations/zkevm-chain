@@ -10,7 +10,7 @@ trap 'pkill --parent $$' TERM EXIT INT
 ./scripts/compile_contracts.sh
 
 cargo build --release --bin prover_rpcd
-env time --output PROVER_STATS.txt --verbose -- \
+env time --quiet --output PROVER_STATS.txt --verbose -- \
   cargo run --release --bin prover_rpcd 2>&1 | xz > PROVER_LOG.txt.xz &
 PID=$!
 perf stat --pid $PID -I 300000 -o PROVER_PERF.txt \
