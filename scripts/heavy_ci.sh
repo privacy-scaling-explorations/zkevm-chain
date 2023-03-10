@@ -43,13 +43,14 @@ COORDINATOR_DUMMY_PROVER=true cargo test -p coordinator -- finalize_chain --igno
 COORDINATOR_DUMMY_PROVER=false cargo test -p coordinator -- $@
 status=$?
 PROVER_DATA=$(./scripts/rpc_prover.sh info | jq -cr '.result')
-FAILED_BLOCKS=$(printf -- "${PROVER_DATA}" | jq -cr '.tasks | map(select(.result.Err)) | map(.options.block) | .[]')
+FAILED_BLOCKS=$(printf '%s' "${PROVER_DATA}" | jq -cr '.tasks | map(select(.result.Err)) | map(.options.block) | .[]')
 
 pkill -9 prover_rpcd || true
 wait $PID
+cargo run --release --bin prover_rpcd -- --version > PROVER_VERSION.txt
 cat PROVER_STATS.txt
 cat PROVER_PERF.txt
-printf -- "${PROVER_DATA}" | jq
+printf '%s' "${PROVER_DATA}" > PROVER_DATA.txt
 
 if [ $status -eq 0 ]; then
   exit 0

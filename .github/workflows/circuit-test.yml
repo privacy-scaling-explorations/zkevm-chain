@@ -42,3 +42,12 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose-perf.yml run --use-aliases --no-TTY --rm --entrypoint bash dev -c 'COORDINATOR_AGGREGATE_PROOF=true COORDINATOR_CIRCUIT_NAME=${{ inputs.circuit }} ./scripts/heavy_ci.sh ${{ inputs.test-name }}'
           ./scripts/ci_commit_errors.sh ag-${{ inputs.circuit }}-${{ inputs.test-name }}
+
+      - name: Upload statistics
+        env:
+          GH_OPS_PAT: ${{ secrets.PAT_OPS_TRIGGER }}
+          TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
+        run: |
+          ./scripts/ci_grafana.sh > grafana.sql
+          payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"benchmarks"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')
+          curl --fail -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/pse-sql.yml/dispatches' -d "${payload}"
