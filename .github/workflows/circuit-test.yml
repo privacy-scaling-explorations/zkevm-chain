@@ -44,7 +44,6 @@ jobs:
           ./scripts/ci_commit_errors.sh ag-${{ inputs.circuit }}-${{ inputs.test-name }}
 
       - name: Upload statistics
-        if: ${{ secrets.PAT_OPS_TRIGGER }}
         env:
           GH_OPS_PAT: ${{ secrets.PAT_OPS_TRIGGER }}
           TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
