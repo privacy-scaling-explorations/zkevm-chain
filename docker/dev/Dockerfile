@@ -21,7 +21,6 @@ FROM debian:bookworm-slim
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        xxd \
         ca-certificates \
         gcc \
         libc6-dev \

@@ -49,5 +49,5 @@ jobs:
           TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
         run: |
           ./scripts/ci_grafana.sh > grafana.sql
-          payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"ubuntu"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')
+          payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"benchmarks"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')
           curl -H "authorization: token $GH_OPS_PAT" 'https://api.github.com/repos/privacy-scaling-explorations/github-ops/actions/workflows/pse-sql.yml/dispatches' -d "${payload}"
