@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci-super-worst-case-smod')
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci-super-worst-case-smod')
     uses: ./.github/workflows/circuit-test.yml
     with:
       circuit: super
