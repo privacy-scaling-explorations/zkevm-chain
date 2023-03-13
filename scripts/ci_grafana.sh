@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eux
+set -eu
 
 # data collection
 TEST_DATE=$(date -uR)
@@ -8,7 +8,7 @@ PROVER_VERSION=$(cat PROVER_VERSION.txt)
 ELAPSED_TIME=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==5 {print $2}')
 NUM_CPUS=$(cat /proc/cpuinfo | grep processor | wc -l)
 CPU_PERCENT=$(cat PROVER_STATS.txt | awk -F ': ' "FNR==4 {print \$2 / $NUM_CPUS}")
-MEM_MAX_MB=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==10 {print $2 / 1024}')
+MEM_MAX_MB=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==10 {print $2 "/ 1024"}' | bc)
 PAGE_FAULTS=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==13 {print $2}')
 PAGE_SIZE=$(cat PROVER_STATS.txt | awk -F ': ' 'FNR==22 {print $2}')
 
