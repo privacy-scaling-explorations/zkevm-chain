@@ -3,5 +3,5 @@ export default {
   proxyPort: 8545,
   rpcUrl: process.env.RPC,
   fuzzyMatchFactor: 0.8,
-  ignore: /(mocks|tests)\/.*\.sol/,
+  ignore: /(mocks|tests|interfaces)\/.*\.sol/,
 }
