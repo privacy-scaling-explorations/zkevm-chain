@@ -82,6 +82,9 @@ impl ContractArtifact {
             .expect("debug_traceCall");
         let trace: Trace = serde_json::from_value(trace).unwrap();
         if trace.failed {
+            if trace.return_value.len() == 0 {
+                return Err("execution reverted".to_string());
+            }
             let revert_reason = decode(&[ParamType::String], &trace.return_value.as_ref()[4..]);
             if revert_reason.is_ok() {
                 return Err(format!("{revert_reason:?}"));

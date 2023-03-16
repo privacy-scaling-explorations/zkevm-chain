@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity <0.9.0;
 
-import '../generated/PatriciaValidator.sol';
+import '../generated/PatriciaAccountValidator.sol';
+import '../generated/PatriciaStorageValidator.sol';
 import '../generated/PublicInput.sol';
 
-contract ZkEvmTest is PatriciaValidator, PublicInput {
+contract ZkEvmTest is PatriciaAccountValidator, PatriciaStorageValidator, PublicInput {
   function testPatricia (
     address account,
     bytes32 storageKey,
-    bytes calldata proofData
+    bytes calldata accountProof,
+    bytes calldata storageProof
   ) external pure returns (bytes32 stateRoot, bytes32 storageValue) {
-    return _validatePatriciaProof(account, storageKey, proofData);
+    (bytes32 proofStateRoot, bytes32 proofStorageRoot) = _validatePatriciaAccountProof(
+      account,
+      accountProof
+    );
+    bytes32 storageValue = _validatePatriciaStorageProof(
+      proofStorageRoot,
+      storageKey,
+      storageProof
+    );
+
+    return (proofStateRoot, storageValue);
   }
 
   function testPublicInputCommitment(

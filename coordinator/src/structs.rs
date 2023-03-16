@@ -57,7 +57,7 @@ pub struct BlockHeader {
 }
 
 // https://eips.ethereum.org/EIPS/eip-1186
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct ProofRequest {
     pub address: Address,
     #[serde(rename = "accountProof")]
@@ -72,7 +72,7 @@ pub struct ProofRequest {
     pub storage_proof: Vec<StorageProof>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct StorageProof {
     pub key: H256,
     pub value: U256,
