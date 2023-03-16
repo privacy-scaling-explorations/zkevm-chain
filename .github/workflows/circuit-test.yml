@@ -48,6 +48,7 @@ jobs:
         env:
           GH_OPS_PAT: ${{ secrets.PAT_OPS_TRIGGER }}
           TEST_ID: ag-${{ inputs.circuit }}-${{ inputs.test-name }}
+          TEST_NAME: ${{ inputs.test-name }}
         run: |
           ./scripts/ci_grafana.sh > grafana.sql
           payload=$(printf '%s' '{"ref":"master","inputs":{"dbname":"benchmarks"}}' | jq -c --arg sql "$(cat grafana.sql)" '.inputs.sql=$sql')

@@ -35,6 +35,7 @@ DUMMY_FLAG='false'
 
 SQL=$(cat << EOF
 INSERT INTO testresults_zkevm_chain_integration_github (
+    test_name,
     date,
     github_ref,
     prover_version,
@@ -63,6 +64,7 @@ INSERT INTO testresults_zkevm_chain_integration_github (
     dummy
 )
 VALUES (
+  '${TEST_NAME}',
   '${TEST_DATE}',
   '${GITHUB_REF}',
   '${PROVER_VERSION}',
