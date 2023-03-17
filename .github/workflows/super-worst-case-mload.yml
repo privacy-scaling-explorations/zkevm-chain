@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [synchronize, opened, reopened, labeled]
   schedule:
-    - cron: '0 0 * * 6'
+    - cron: '0 15 * * 6'
 
 jobs:
   test:
