@@ -34,7 +34,7 @@ pub async fn send_transaction_to_l1(
     .await
     .expect("nonce");
 
-    let raw_tx = sign_transaction_l1(client, node_uri, wallet, to, value, calldata, nonce).await;
+    let raw_tx = sign_transaction_l1(client, node_uri, wallet, to, value, calldata, nonce).await?;
     // wait up to 120 seconds
     timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await)
 }
@@ -48,7 +48,7 @@ pub async fn sign_transaction_l1(
     value: U256,
     calldata: Vec<u8>,
     nonce: U256,
-) -> Bytes {
+) -> Result<Bytes, String> {
     let wallet_addr: Address = wallet.address();
 
     let gas_price: U256 =
@@ -86,8 +86,7 @@ pub async fn sign_transaction_l1(
         "eth_estimateGas",
         [&tx],
     )
-    .await
-    .expect("eth_estimateGas");
+    .await?;
     let tx = tx.gas(estimate).into();
 
     log::debug!("sending l1 tx: {:?}", tx);
@@ -97,7 +96,7 @@ pub async fn sign_transaction_l1(
         .await
         .expect("sign_transaction");
 
-    tx.rlp_signed(&sig)
+    Ok(tx.rlp_signed(&sig))
 }
 
 /// may override any pending transactions
@@ -140,15 +139,16 @@ pub async fn send_transaction_to_l2(
 
     let estimate: U256 = match gas_limit {
         Some(limit) => limit,
-        None => jsonrpc_request_client(
-            RPC_REQUEST_TIMEOUT,
-            client,
-            node_uri,
-            "eth_estimateGas",
-            [&tx],
-        )
-        .await
-        .expect("estimateGas"),
+        None => {
+            jsonrpc_request_client(
+                RPC_REQUEST_TIMEOUT,
+                client,
+                node_uri,
+                "eth_estimateGas",
+                [&tx],
+            )
+            .await?
+        }
     };
     let tx = tx.gas(estimate).into();
 

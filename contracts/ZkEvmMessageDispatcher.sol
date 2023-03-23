@@ -39,7 +39,7 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
     uint256 nonce,
     bytes calldata data
   ) internal returns (bytes32 messageHash) {
-    require(deadline > block.timestamp + MIN_MESSAGE_LOCK_SECONDS, 'DMD');
+    // require(deadline > block.timestamp + MIN_MESSAGE_LOCK_SECONDS, 'DMD');
 
     // assuming underflow check
     uint256 value = msg.value - fee;
@@ -47,7 +47,7 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
     messageHash = keccak256(abi.encode(msg.sender, to, value, fee, deadline, nonce, data));
 
     bytes32 storageSlot = _PENDING_MESSAGE_KEY(messageHash);
-    require(_sload(messageHash) == 0, 'DMH');
+    require(_sload(storageSlot) == 0, 'DMH');
     _sstore(storageSlot, bytes32(uint256(1)));
 
     emit MessageDispatched(msg.sender, to, value, fee, deadline, nonce, data);
@@ -67,7 +67,7 @@ contract ZkEvmMessageDispatcher is IZkEvmMessageDispatcher, ZkEvmUtils, ZkEvmMag
     bytes32 messageHash = keccak256(abi.encode(from, to, value, fee, deadline, nonce, data));
 
     bytes32 storageSlot = _PENDING_MESSAGE_KEY(messageHash);
-    require(_sload(messageHash) != 0, 'DMH');
+    require(_sload(storageSlot) != 0, 'DMH');
     _sstore(storageSlot, 0);
 
     uint256 amount = value + fee;
