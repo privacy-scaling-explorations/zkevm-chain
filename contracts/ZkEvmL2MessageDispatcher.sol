@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity <0.9.0;
 
-import './ZkEvmMessageDispatcher.sol';
+import './interfaces/IZkEvmMessageDispatcher.sol';
+import './interfaces/IZkEvmMessageDelivererWithProof.sol';
+import './ZkEvmMessageDispatcherBase.sol';
+import './generated/PatriciaStorageValidator.sol';
 
-contract ZkEvmL2MessageDispatcher is ZkEvmMessageDispatcher {
+contract ZkEvmL2MessageDispatcher is
+  IZkEvmMessageDispatcher,
+  ZkEvmMessageDispatcherBase,
+  PatriciaStorageValidator
+{
   /// @inheritdoc IZkEvmMessageDispatcher
   function dispatchMessage (
     address to,
@@ -27,7 +34,8 @@ contract ZkEvmL2MessageDispatcher is ZkEvmMessageDispatcher {
     uint256 fee,
     uint256 deadline,
     uint256 nonce,
-    bytes calldata data
+    bytes calldata data,
+    bytes calldata proof
   ) override external {
     // acquire ETH from L2_DELIVERER
     uint256 amount = value + fee;
@@ -35,6 +43,20 @@ contract ZkEvmL2MessageDispatcher is ZkEvmMessageDispatcher {
       (bool success,) = L2_DELIVERER.call(abi.encodeWithSignature('requestETH(uint256)', amount));
       require(success, 'RQETH');
     }
+    // validate proof
+    {
+      bytes32 messageHash = keccak256(abi.encode(from, to, value, fee, deadline, nonce, data));
+      (bytes32 rootHash, bytes32 storageValue) = _validatePatriciaStorageProof(
+        _PENDING_MESSAGE_KEY(messageHash),
+        proof
+      );
+      require(storageValue == 0, 'DMVAL');
+      // verify rootHash
+      require(rootHash != 0, 'STROOT');
+      uint256 originTimestamp = IZkEvmMessageDelivererWithProof(L2_DELIVERER).getTimestampForStorageRoot(rootHash);
+      require(originTimestamp > deadline, 'DMTS');
+    }
+
     _dropMessage(from, to, value, fee, deadline, nonce, data);
   }
 

@@ -160,7 +160,10 @@ impl SharedState {
         chain_state.finalized_block_hash = h;
 
         // initialize l1 bridge if necessary
-        let bridge_state_root = self.state_root_l1().await.expect("l1.stateRoot");
+        let bridge_state_root = self
+            .call_fn_l1("stateRoots", &[genesis.hash.unwrap().into_token()])
+            .await
+            .expect("l1.stateRoots");
         if bridge_state_root == H256::zero() {
             log::info!("init l1 bridge");
             let block_hash = genesis.hash.unwrap();
@@ -333,38 +336,63 @@ impl SharedState {
                         .expect("eth_getProof");
                     Bytes::from(marshal_proof_single(&proof_obj.account_proof))
                 };
-                // import l1 block
-                let calldata = self
-                    .ro
-                    .bridge_abi
-                    .function("importBlockHeader")
-                    .unwrap()
-                    .encode_input(&[
-                        U256::from(l1_block_header.number.as_u64()).into_token(),
-                        l1_block_header.hash.into_token(),
-                        block_data.into_token(),
-                        account_proof.into_token(),
-                    ])
-                    .expect("calldata");
-                let block_import_tx = self
-                    .sign_l2(
-                        Some(self.ro.l2_message_deliverer_addr),
-                        U256::zero(),
-                        nonce,
-                        calldata,
-                    )
-                    .await;
-                nonce = nonce + 1;
-
+                let mut messages = Vec::new();
+                // authorize l1 block
+                {
+                    let calldata = self
+                        .ro
+                        .bridge_abi
+                        .function("importForeignBlock")
+                        .unwrap()
+                        .encode_input(&[
+                            U256::from(l1_block_header.number.as_u64()).into_token(),
+                            l1_block_header.hash.into_token(),
+                        ])
+                        .expect("calldata");
+                    let tx = self
+                        .sign_l2(
+                            Some(self.ro.l2_message_deliverer_addr),
+                            U256::zero(),
+                            nonce,
+                            calldata,
+                        )
+                        .await;
+                    messages.push(tx);
+                    nonce = nonce + 1;
+                }
                 // Use this block to run the messages against.
                 // This is required for proper gas calculation.
-                let mut messages = vec![block_import_tx];
                 let block_timestamp = self.next_timestamp().await;
+                let temporary_block = self
+                    .prepare_block(block_timestamp, Some(&messages))
+                    .await
+                    .expect("prepare block with import tx");
+                // import block header
+                {
+                    let calldata = self
+                        .ro
+                        .bridge_abi
+                        .function("importForeignBridgeState")
+                        .unwrap()
+                        .encode_input(&[block_data.into_token(), account_proof.into_token()])
+                        .expect("calldata");
+                    let tx = self
+                        .sign_l2_given_block_tag(
+                            Some(self.ro.l2_message_deliverer_addr),
+                            U256::zero(),
+                            nonce,
+                            calldata,
+                            Some(format!("{:#066x}", temporary_block.hash.unwrap())),
+                        )
+                        .await
+                        .expect("importForeignBridgeState on temporary_block");
+                    messages.push(tx);
+                    nonce = nonce + 1;
+                }
                 let mut temporary_block = self
                     .prepare_block(block_timestamp, Some(&messages))
                     .await
                     .expect("prepare block with import tx");
-
                 let ts = U256::from(block_timestamp);
                 let mut drop_idxs = Vec::new();
                 let mut i = 0;
@@ -938,13 +966,8 @@ impl SharedState {
                 continue;
             }
 
-            // latest state root known on L1
-            let state_root = self.state_root_l1().await.expect("l1.stateRoot");
-            log::trace!("L1:stateRoot: {:?}", state_root);
-
-            // latest finalized block hash, should include `state_root`
+            // latest finalized block hash
             let block_hash = self.rw.lock().await.chain_state.finalized_block_hash;
-
             // calculate the storage slot for this message
             let storage_slot = msg.storage_slot();
             // request proof
@@ -959,29 +982,71 @@ impl SharedState {
                 )
                 .await
                 .expect("eth_getProof");
-
-            // encode proof and send it
-            let proof: Bytes = Bytes::from(marshal_proof(
-                &proof_obj.account_proof,
-                &proof_obj.storage_proof[0].proof,
-            ));
-            let calldata = self
+            let l2_block_header: BlockHeader = self
+                .request_l2("eth_getHeaderByHash", [block_hash])
+                .await
+                .expect("eth_getHeaderByHash");
+            let mut tmp = vec![0u8; 32];
+            let mut bytes = self
                 .ro
                 .bridge_abi
-                .function("deliverMessageWithProof")
+                .function("multicall")
                 .unwrap()
-                .encode_input(&[
-                    msg.from.into_token(),
-                    msg.to.into_token(),
-                    msg.value.into_token(),
-                    msg.fee.into_token(),
-                    msg.deadline.into_token(),
-                    msg.nonce.into_token(),
-                    Token::Bytes(msg.calldata),
-                    proof.into_token(),
-                ])
-                .expect("calldata");
-            self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+                .encode_input(&[])
+                .unwrap();
+            let storage_root = keccak256(proof_obj.storage_proof[0].proof[0].as_ref());
+            let origin_timestamp = self
+                .call_fn_l1("getTimestampForStorageRoot", &[storage_root.into_token()])
+                .await
+                .expect("getTimestampForStorageRoot");
+
+            // block data
+            if origin_timestamp.is_zero() {
+                let block_data: Bytes = self
+                    .request_l2("debug_getHeaderRlp", [l2_block_header.number.as_u64()])
+                    .await
+                    .expect("block_data");
+                let account_proof: Bytes =
+                    Bytes::from(marshal_proof_single(&proof_obj.account_proof));
+                let calldata = self
+                    .ro
+                    .bridge_abi
+                    .function("importForeignBridgeState")
+                    .unwrap()
+                    .encode_input(&[block_data.into_token(), account_proof.into_token()])
+                    .expect("importForeignBridgeState");
+                U256::from(calldata.len()).to_big_endian(&mut tmp);
+                bytes.extend(&tmp[28..32]);
+                bytes.extend(calldata);
+            }
+
+            // relay message
+            {
+                let proof: Bytes =
+                    Bytes::from(marshal_proof_single(&proof_obj.storage_proof[0].proof));
+                let calldata = self
+                    .ro
+                    .bridge_abi
+                    .function("deliverMessageWithProof")
+                    .unwrap()
+                    .encode_input(&[
+                        msg.from.into_token(),
+                        msg.to.into_token(),
+                        msg.value.into_token(),
+                        msg.fee.into_token(),
+                        msg.deadline.into_token(),
+                        msg.nonce.into_token(),
+                        Token::Bytes(msg.calldata),
+                        proof.into_token(),
+                    ])
+                    .expect("calldata");
+                U256::from(calldata.len()).to_big_endian(&mut tmp);
+                bytes.extend(&tmp[28..32]);
+                bytes.extend(calldata);
+            }
+
+            // TODO: support relaying multiple messages at once
+            self.transaction_to_l1(l1_bridge_addr, U256::zero(), bytes)
                 .await
                 .expect("receipt");
         }
@@ -1015,13 +1080,17 @@ impl SharedState {
         }
     }
 
-    async fn state_root_l1(&self) -> Result<H256, String> {
+    async fn call_fn_l1(
+        &self,
+        function_name: &str,
+        function_args: &[Token],
+    ) -> Result<H256, String> {
         let calldata = Bytes::from(
             self.ro
                 .bridge_abi
-                .function("stateRoot")
+                .function(function_name)
                 .unwrap()
-                .encode_input(&[])
+                .encode_input(function_args)
                 .expect("calldata"),
         );
         let l1_bridge_addr = self.config.lock().await.l1_bridge;
@@ -1169,10 +1238,13 @@ fn get_abi() -> Abi {
             "function submitBlock(bytes)",
             "function finalizeBlock(bytes proof)",
             "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
-            "function stateRoot() returns (bytes32)",
-            "function importBlockHeader(uint256 blockNumber, bytes32 blockHash, bytes blockHeader, bytes proof)",
+            "function stateRoots(bytes32 blockHash) returns (bytes32)",
+            "function importForeignBlock(uint256 blockNumber, bytes32 blockHash)",
             "function initGenesis(bytes32 blockHash, bytes32 stateRoot)",
             "function buildCommitment(bytes) returns (uint256[])",
+            "function importForeignBridgeState(bytes, bytes)",
+            "function multicall()",
+            "function getTimestampForStorageRoot(bytes32 storageRoot) returns (uint256)",
         ])
         .expect("parse abi")
 }

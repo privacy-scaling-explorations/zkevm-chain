@@ -4,38 +4,44 @@ pragma solidity <0.9.0;
 import './ZkEvmUtils.sol';
 import './ZkEvmMagicNumbers.sol';
 import './ZkEvmBridgeEvents.sol';
-import './ZkEvmMessageDispatcher.sol';
+import './ZkEvmMessageDispatcherBase.sol';
 import './ZkEvmMessageDelivererBase.sol';
+import './interfaces/IZkEvmMessageDispatcher.sol';
 import './interfaces/IZkEvmMessageDelivererWithProof.sol';
-import './generated/PatriciaValidator.sol';
+import './generated/PatriciaAccountValidator.sol';
+import './generated/PatriciaStorageValidator.sol';
 import './generated/PublicInput.sol';
 import './generated/HeaderUtil.sol';
 import './generated/CircuitConfig.sol';
+import './Multicall.sol';
 
 contract ZkEvmL1Bridge is
   ZkEvmUtils,
   ZkEvmMagicNumbers,
   ZkEvmBridgeEvents,
-  ZkEvmMessageDispatcher,
+  ZkEvmMessageDispatcherBase,
   ZkEvmMessageDelivererBase,
+  IZkEvmMessageDispatcher,
   IZkEvmMessageDelivererWithProof,
-  PatriciaValidator,
+  PatriciaAccountValidator,
+  PatriciaStorageValidator,
   PublicInput,
   HeaderUtil,
-  CircuitConfig
+  CircuitConfig,
+  Multicall
 {
   // TODO: Move storage to static slots
-  bytes32 public stateRoot;
   mapping (bytes32 => bytes32) commitments;
-  mapping (bytes32 => bytes32) stateRoots;
+  mapping (bytes32 => bytes32) public stateRoots;
+  mapping (bytes32 => uint256) originTimestamps;
 
   function buildCommitment(bytes calldata witness) public view returns (uint256[] memory result) {
     (
       bytes32 parentBlockHash,
-      bytes32 blockHash,
-      bytes32 blockStateRoot,
       ,
-      uint256 blockGas
+      ,
+      ,
+      uint256 blockGas,
     ) = _readHeaderParts(witness);
     uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
     uint256 chainId = 99;
@@ -53,7 +59,7 @@ contract ZkEvmL1Bridge is
       bytes32 blockHash,
       bytes32 blockStateRoot,
       ,
-      uint256 blockGas
+      uint256 blockGas,
     ) = _readHeaderParts(witness);
     uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
     uint256 chainId = 99;
@@ -66,7 +72,7 @@ contract ZkEvmL1Bridge is
     assembly {
       hash := keccak256(add(publicInput, 32), mul(mload(publicInput), 32))
     }
-    commitments[bytes32(blockHash)] = hash;
+    commitments[blockHash] = hash;
     stateRoots[blockHash] = blockStateRoot;
   }
 
@@ -83,8 +89,6 @@ contract ZkEvmL1Bridge is
     assembly {
       blockHash := calldataload(proof.offset)
     }
-    bytes32 blockStateRoot = stateRoots[blockHash];
-    stateRoot = blockStateRoot;
     bytes32 expectedCommitmentHash = commitments[blockHash];
 
     assembly {
@@ -154,18 +158,79 @@ contract ZkEvmL1Bridge is
     bytes calldata data,
     bytes calldata proof
   ) external {
-    _onlyEOA();
-
     bytes32 messageHash = keccak256(abi.encode(from, to, value, fee, deadline, nonce, data));
-    (bytes32 proofRoot, bytes32 storageValue) = _validatePatriciaProof(
-      L2_DISPATCHER,
+    (bytes32 proofStorageRoot, bytes32 storageValue) = _validatePatriciaStorageProof(
       _PENDING_MESSAGE_KEY(messageHash),
       proof
     );
-    require(proofRoot == stateRoot, 'DMROOT');
-    require(storageValue == bytes32(uint256(1)), "DMVAL");
+    require(originTimestamps[proofStorageRoot] != 0, 'DMROOT');
+    require(storageValue == bytes32(uint256(1)), 'DMVAL');
 
     _deliverMessage(from, to, value, fee, deadline, nonce, data);
+  }
+
+  /// @inheritdoc IZkEvmMessageDelivererWithProof
+  function getTimestampForStorageRoot (bytes32 val) public view returns (uint256) {
+    return originTimestamps[val];
+  }
+
+  /// @inheritdoc IZkEvmMessageDelivererWithProof
+  function importForeignBridgeState (bytes calldata blockHeader, bytes calldata accountProof) external {
+    (
+      ,
+      bytes32 blockHash,
+      ,
+      ,
+      ,
+      uint256 timestamp
+    ) = _readHeaderParts(blockHeader);
+
+    (bytes32 proofStateRoot, bytes32 proofStorageRoot) = _validatePatriciaAccountProof(
+      L2_DISPATCHER,
+      accountProof
+    );
+    bytes32 stateRoot = stateRoots[blockHash];
+    require(stateRoot != 0, 'BLOCK');
+    require(proofStateRoot == stateRoot, 'IBROOT');
+    require(proofStorageRoot != 0, 'IBSTROOT');
+    require(timestamp != 0, 'IBTS');
+    originTimestamps[proofStorageRoot] = timestamp;
+
+    emit ForeignBridgeStateImported(blockHash, stateRoot, timestamp);
+  }
+
+  /// @inheritdoc IZkEvmMessageDispatcher
+  function dispatchMessage (
+    address to,
+    uint256 fee,
+    uint256 deadline,
+    uint256 nonce,
+    bytes calldata data
+  ) external payable returns (bytes32 messageHash) {
+    messageHash = _dispatchMessage(to, fee, deadline, nonce, data);
+  }
+
+  /// @inheritdoc IZkEvmMessageDispatcher
+  function dropMessage (
+    address from,
+    address to,
+    uint256 value,
+    uint256 fee,
+    uint256 deadline,
+    uint256 nonce,
+    bytes calldata data,
+    bytes calldata proof
+  ) external {
+    bytes32 messageHash = keccak256(abi.encode(from, to, value, fee, deadline, nonce, data));
+    (bytes32 proofStorageRoot, bytes32 storageValue) = _validatePatriciaStorageProof(
+      _PENDING_MESSAGE_KEY(messageHash),
+      proof
+    );
+    require(storageValue == 0, 'DMVAL');
+    uint256 originTimestamp = originTimestamps[proofStorageRoot];
+    require(originTimestamp > deadline, 'DMTS');
+
+    _dropMessage(from, to, value, fee, deadline, nonce, data);
   }
 
   /// @dev For testing purposes

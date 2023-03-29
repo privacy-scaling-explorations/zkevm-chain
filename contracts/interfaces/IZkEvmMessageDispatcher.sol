@@ -27,6 +27,7 @@ interface IZkEvmMessageDispatcher {
     uint256 fee,
     uint256 deadline,
     uint256 nonce,
-    bytes calldata data
+    bytes calldata data,
+    bytes calldata proof
   ) external;
 }

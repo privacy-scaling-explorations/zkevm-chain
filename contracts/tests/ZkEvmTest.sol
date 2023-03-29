@@ -11,16 +11,16 @@ contract ZkEvmTest is PatriciaAccountValidator, PatriciaStorageValidator, Public
     bytes32 storageKey,
     bytes calldata accountProof,
     bytes calldata storageProof
-  ) external pure returns (bytes32 stateRoot, bytes32 storageValue) {
+  ) external pure returns (bytes32 _stateRoot, bytes32 _storageValue) {
     (bytes32 proofStateRoot, bytes32 proofStorageRoot) = _validatePatriciaAccountProof(
       account,
       accountProof
     );
-    bytes32 storageValue = _validatePatriciaStorageProof(
-      proofStorageRoot,
+    (bytes32 storageRoot, bytes32 storageValue) = _validatePatriciaStorageProof(
       storageKey,
       storageProof
     );
+    require(storageRoot == proofStorageRoot, 'STROOT');
 
     return (proofStateRoot, storageValue);
   }
