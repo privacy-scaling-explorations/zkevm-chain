@@ -421,7 +421,7 @@ async fn native_deposit_revert() {
         .expect("nonce");
         let l1_bridge_addr = Some(shared_state.config.lock().await.l1_bridge);
 
-        let mut txs = Vec::new();
+        let mut txs: Vec<Bytes> = Vec::new();
         for i in 0..30 {
             let should_revert = i % 2 == 0;
             let from = shared_state.ro.l1_wallet.address();
@@ -473,7 +473,8 @@ async fn native_deposit_revert() {
                     calldata,
                     tx_nonce,
                 )
-                .await,
+                .await
+                .expect("bytes"),
             );
 
             tx_nonce = tx_nonce + 1;

@@ -1,3 +1,5 @@
+use ethers_core::abi::encode;
+use ethers_core::abi::Tokenizable;
 use ethers_core::types::{Address, Bytes, H256, U256, U64};
 use ethers_core::utils::keccak256;
 
@@ -34,6 +36,22 @@ impl MessageBeacon {
         buf.extend(self.id.as_ref());
 
         keccak256(buf).into()
+    }
+
+    /// Calculate message id.
+    pub fn gen_id(&self) -> H256 {
+        let id: H256 = keccak256(encode(&[
+            self.from.into_token(),
+            self.to.into_token(),
+            self.value.into_token(),
+            self.fee.into_token(),
+            self.deadline.into_token(),
+            self.nonce.into_token(),
+            Bytes::from(self.calldata.clone()).into_token(),
+        ]))
+        .into();
+
+        id
     }
 }
 

@@ -107,7 +107,11 @@ pub fn zkevm_abi() -> ethers_core::abi::Contract {
     AbiParser::default()
         .parse(&[
             // zkevm native bridge
-            "function dispatchMessage(address to, uint256 fee, uint256 deadline, uint256 nonce, bytes calldata _data) external payable",
+            "function dispatchMessage(address to, uint256 fee, uint256 deadline, uint256 nonce, bytes calldata data) payable",
+            "function dropMessage(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes calldata data, bytes calldata proof)",
+            "function importForeignBridgeState(bytes, bytes)",
+            "function multicall()",
+            "event ForeignBridgeStateImported(bytes32 indexed blockHash, bytes32 indexed stateRoot, uint256 timestamp)",
         ])
         .expect("parse abi")
 }
