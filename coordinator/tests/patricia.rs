@@ -2,7 +2,7 @@ mod common;
 
 use crate::common::ContractArtifact;
 use coordinator::shared_state::SharedState;
-use coordinator::structs::ProofRequest;
+use coordinator::structs::MerkleProofRequest;
 use coordinator::utils::marshal_proof_single;
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::Tokenizable;
@@ -23,7 +23,7 @@ struct BlockHeader {
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct TestData {
     block: BlockHeader,
-    proof: ProofRequest,
+    proof: MerkleProofRequest,
 }
 
 /// Can be used to create test-data fixtures.
@@ -41,7 +41,7 @@ async fn patricia_fixture() {
         .await
         .unwrap();
     let slots: Vec<String> = (0..18).map(|v| format! {"0x{v:064x}"}).collect();
-    let proof: ProofRequest = shared_state
+    let proof: MerkleProofRequest = shared_state
         .request_l2("eth_getProof", (addr, slots, "latest"))
         .await
         .expect("eth_getProof");

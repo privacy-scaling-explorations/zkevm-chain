@@ -4,8 +4,8 @@ use crate::common::get_shared_state;
 use crate::common::zkevm_abi;
 use coordinator::shared_state::SharedState;
 use coordinator::structs::BlockHeader;
+use coordinator::structs::MerkleProofRequest;
 use coordinator::structs::MessageBeacon;
-use coordinator::structs::ProofRequest;
 use coordinator::utils::*;
 use ethers_core::abi::RawLog;
 use ethers_core::abi::Tokenizable;
@@ -86,7 +86,7 @@ async fn drop_message_l1(
         Some(value) => value,
         None => {
             let storage_slot = msg.storage_slot();
-            let proof_obj: ProofRequest = shared_state
+            let proof_obj: MerkleProofRequest = shared_state
                 .request_l2("eth_getProof", (l2_bridge_addr, [storage_slot], block_hash))
                 .await
                 .expect("eth_getProof");
@@ -202,7 +202,7 @@ async fn drop_message_l2(
                 H256::from_token(evt.params[0].value.to_owned()).unwrap()
             };
             let storage_slot = msg.storage_slot();
-            let proof_obj: ProofRequest = shared_state
+            let proof_obj: MerkleProofRequest = shared_state
                 .request_l1("eth_getProof", (l1_bridge_addr, [storage_slot], block_hash))
                 .await
                 .expect("eth_getProof");

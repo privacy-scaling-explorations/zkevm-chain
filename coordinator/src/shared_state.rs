@@ -330,7 +330,7 @@ impl SharedState {
                     .expect("block_data");
                 let account_proof: Bytes = {
                     let l1_bridge_addr = self.config.lock().await.l1_bridge;
-                    let proof_obj: ProofRequest = self
+                    let proof_obj: MerkleProofRequest = self
                         .request_l1("eth_getProof", (l1_bridge_addr, (), l1_block_header.hash))
                         .await
                         .expect("eth_getProof");
@@ -437,7 +437,7 @@ impl SharedState {
                         // calculate the storage slot for this message
                         let storage_slot = msg.storage_slot();
                         // request proof
-                        let proof_obj: ProofRequest = self
+                        let proof_obj: MerkleProofRequest = self
                             .request_l1(
                                 "eth_getProof",
                                 (l1_bridge_addr, [storage_slot], l1_block_header.hash),
@@ -971,7 +971,7 @@ impl SharedState {
             // calculate the storage slot for this message
             let storage_slot = msg.storage_slot();
             // request proof
-            let proof_obj: ProofRequest = self
+            let proof_obj: MerkleProofRequest = self
                 .request_l2(
                     "eth_getProof",
                     (
