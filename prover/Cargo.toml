@@ -6,7 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main" }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["test"] }
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["warn-unimplemented"] }
 zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["test-circuits"] }
 snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", tag = "v2023_04_20", default-features = false, features = ["loader_evm", "parallel"] }
