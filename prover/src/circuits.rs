@@ -1,6 +1,5 @@
 use crate::circuit_witness::CircuitWitness;
 use crate::Fr;
-use crate::MOCK_RANDOMNESS;
 use rand::Rng;
 use zkevm_circuits::bytecode_circuit::circuit::BytecodeCircuit;
 use zkevm_circuits::copy_circuit::CopyCircuit;
@@ -8,7 +7,6 @@ use zkevm_circuits::evm_circuit::EvmCircuit;
 use zkevm_circuits::exp_circuit::ExpCircuit;
 use zkevm_circuits::keccak_circuit::KeccakCircuit;
 use zkevm_circuits::pi_circuit::PiCircuit;
-use zkevm_circuits::pi_circuit::PiTestCircuit;
 use zkevm_circuits::state_circuit::StateCircuit;
 use zkevm_circuits::super_circuit::SuperCircuit;
 use zkevm_circuits::tx_circuit::TxCircuit;
@@ -24,13 +22,13 @@ pub fn gen_super_circuit<
 >(
     witness: &CircuitWitness,
     mut _rng: RNG,
-) -> Result<SuperCircuit<Fr, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>, String> {
+) -> Result<SuperCircuit<Fr>, String> {
     let block = witness.evm_witness();
-    let circuit = SuperCircuit::<_, MAX_TXS, MAX_CALLDATA, MOCK_RANDOMNESS>::new_from_block(&block);
+    let circuit = SuperCircuit::new_from_block(&block);
     Ok(circuit)
 }
 
-/// Returns a instance of the `PiTestCircuit`.
+/// Returns a instance of the `PiCircuit`.
 pub fn gen_pi_circuit<
     const MAX_TXS: usize,
     const MAX_CALLDATA: usize,
@@ -40,9 +38,9 @@ pub fn gen_pi_circuit<
 >(
     witness: &CircuitWitness,
     mut _rng: RNG,
-) -> Result<PiTestCircuit<Fr, MAX_TXS, MAX_CALLDATA>, String> {
+) -> Result<PiCircuit<Fr>, String> {
     let block = witness.evm_witness();
-    let circuit = PiTestCircuit::<Fr, MAX_TXS, MAX_CALLDATA>(PiCircuit::new_from_block(&block));
+    let circuit = PiCircuit::new_from_block(&block);
 
     Ok(circuit)
 }

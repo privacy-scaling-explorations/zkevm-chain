@@ -5,6 +5,7 @@ use crate::ProverKey;
 use crate::ProverParams;
 use eth_types::U256;
 use halo2_proofs::dev::MockProver;
+use halo2_proofs::halo2curves::ff::PrimeField;
 use halo2_proofs::plonk::create_proof;
 use halo2_proofs::plonk::verify_proof;
 use halo2_proofs::plonk::Circuit;
@@ -22,7 +23,6 @@ use rand::SeedableRng;
 use std::clone::Clone;
 use std::io::Cursor;
 use std::time::Instant;
-use zkevm_circuits::tx_circuit::PrimeField;
 use zkevm_common::prover::ProofResultInstrumentation;
 
 /// Returns [<len>, ...] of `instance`
