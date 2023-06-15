@@ -6,9 +6,9 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
-bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["test"] }
-eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["warn-unimplemented"] }
-zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["test-circuits"] }
+bus-mapping = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "3ab7ee473a3b36cc3fdd35d9536ac3381fb6d4a7", features = ["test"] }
+eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "3ab7ee473a3b36cc3fdd35d9536ac3381fb6d4a7", features = ["warn-unimplemented"] }
+zkevm-circuits = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "3ab7ee473a3b36cc3fdd35d9536ac3381fb6d4a7", features = ["test-circuits"] }
 snark-verifier = { git = "https://github.com/privacy-scaling-explorations/snark-verifier.git", tag = "v2023_04_20", default-features = false, features = ["loader_evm", "parallel"] }
 env_logger = "0.9.0"
 ethers-providers = "0.17.0"
@@ -25,7 +25,7 @@ itertools = "0.10.3"
 clap = { version = "4.0.14", features = ["derive", "env"] }
 
 # autogen
-mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", optional = true }
+mock = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", rev = "3ab7ee473a3b36cc3fdd35d9536ac3381fb6d4a7", optional = true }
 ethers-signers = { version = "0.17.0", optional = true }
 zkevm_dev = { path = "../dev", optional = true }
 paste = { version = "1.0.11", optional = true }
