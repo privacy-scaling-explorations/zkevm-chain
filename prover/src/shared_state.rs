@@ -10,6 +10,7 @@ use crate::ProverKey;
 use crate::ProverParams;
 use halo2_proofs::circuit::Value;
 use halo2_proofs::dev::MockProver;
+use halo2_proofs::halo2curves::bn256::Bn256;
 use halo2_proofs::plonk::Circuit;
 use halo2_proofs::plonk::{keygen_pk, keygen_vk};
 use halo2_proofs::poly::commitment::Params;
@@ -163,7 +164,7 @@ async fn compute_proof<C: Circuit<Fr> + Clone + SubCircuit<Fr>>(
 
             let agg_circuit = {
                 let time_started = Instant::now();
-                let v = RootCircuit::new(
+                let v = RootCircuit::<Bn256, Shplonk<_>>::new(
                     &agg_params,
                     &protocol,
                     Value::known(&circuit_instance),
