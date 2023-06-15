@@ -32,6 +32,7 @@ use zkevm_circuits::root_circuit::Config as PlonkConfig;
 use zkevm_circuits::root_circuit::PoseidonTranscript;
 use zkevm_circuits::root_circuit::RootCircuit;
 use zkevm_circuits::util::SubCircuit;
+use zkevm_circuits::root_circuit::Shplonk;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::*;
 
