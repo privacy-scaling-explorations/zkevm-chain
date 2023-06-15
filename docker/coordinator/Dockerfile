@@ -23,7 +23,7 @@ RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain $(cat 
 RUN cargo search --limit 0
 
 COPY . .
-RUN cargo build --locked --bin coordinator --release --target-dir /target --target $(cat /tmp/target) && \
+RUN cargo build --bin coordinator --release --target-dir /target --target $(cat /tmp/target) && \
       mv /target/*-unknown-linux-musl/release/coordinator / && rm -rf /target
 
 FROM alpine@sha256:686d8c9dfa6f3ccfc8230bc3178d23f84eeaf7e457f36f271ab1acc53015037c
