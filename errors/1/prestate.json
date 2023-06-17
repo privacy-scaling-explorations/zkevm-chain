@@ -1,0 +1,12 @@
+[
+  {
+    "result": {
+      "0xdf08f82de32b8d460adbe8d72043e3a7e25a3b39": {
+        "balance": "0xde0b6b3a7640000",
+        "nonce": 0,
+        "code": "0x",
+        "storage": {}
+      }
+    }
+  }
+]
